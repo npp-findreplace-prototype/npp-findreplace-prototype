@@ -5,6 +5,14 @@
 #define ATTACH_PARENT_PROCESS ((DWORD)-1)
 #endif
 
+#ifndef SS_TYPEMASK
+#define SS_TYPEMASK 0x0000001F
+#endif
+
+#ifndef SWP_NOCOPYBITS
+#define SWP_NOCOPYBITS 0x0100
+#endif
+
 #define BUTTON_COUNT 16
 
 #define BUTTON_DEFAULT_WIDTH 90
@@ -28,10 +36,6 @@
 
 #define BUTTON_ID_BASE 1000
 #define BUTTON_FIRST_INDEX 1
-
-#ifndef SS_TYPEMASK
-#define SS_TYPEMASK 0x0000001F
-#endif
 
 static HWND g_buttons[BUTTON_COUNT];
 static char g_buttonNames[BUTTON_COUNT][64];
@@ -89,6 +93,7 @@ void OnSquareClicked(const char *controlName)
 void LayoutButtons(HWND hwnd)
 {
     RECT rc;
+
     int clientW;
     int clientH;
 
@@ -165,6 +170,9 @@ void LayoutButtons(HWND hwnd)
         int x;
         int y;
 
+        if (!g_buttons[i])
+            continue;
+
         if (button_layout == horizontal)
         {
             row = i / cols;
@@ -179,8 +187,25 @@ void LayoutButtons(HWND hwnd)
         x = startX + col * (btnW + gapX);
         y = startY + row * (btnH + gapY);
 
-        MoveWindow(g_buttons[i], x, y, btnW, btnH, TRUE);
+        SetWindowPos(
+            g_buttons[i],
+            NULL,
+            x,
+            y,
+            btnW,
+            btnH,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS
+        );
+
+        InvalidateRect(g_buttons[i], NULL, TRUE);
     }
+
+    RedrawWindow(
+        hwnd,
+        NULL,
+        NULL,
+        RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW
+    );
 }
 
 void CreateSquareButtons(HWND hwnd, HINSTANCE hInstance)
@@ -188,7 +213,13 @@ void CreateSquareButtons(HWND hwnd, HINSTANCE hInstance)
     DWORD style;
     int i;
 
-    style = WS_CHILD | WS_VISIBLE | SS_NOTIFY | SS_CENTER | SS_CENTERIMAGE;
+    style =
+        WS_CHILD |
+        WS_VISIBLE |
+        WS_CLIPSIBLINGS |
+        SS_NOTIFY |
+        SS_CENTER |
+        SS_CENTERIMAGE;
 
     if (ismetafile)
     {
@@ -339,7 +370,7 @@ int WINAPI WinMain(
         0,
         CLASS_NAME,
         "Simple TCC Window",
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
         800,
