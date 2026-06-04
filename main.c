@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "console.h"
 #include "button_grid.h"
@@ -17,8 +18,29 @@
 
 #define GRID_MARGIN 12
 
+#define APP_BUTTON_NAME_PREFIX "mybutton_"
+
 static HWND g_buttonGrid = NULL;
 static int g_squareSize = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
+
+static int GetButtonNumberFromControlName(const char *controlName)
+{
+    int i;
+    int prefixLen;
+
+    if (!controlName)
+        return -1;
+
+    prefixLen = lstrlen(APP_BUTTON_NAME_PREFIX);
+
+    for (i = 0; i < prefixLen; i++)
+    {
+        if (controlName[i] != APP_BUTTON_NAME_PREFIX[i])
+            return -1;
+    }
+
+    return atoi(controlName + prefixLen);
+}
 
 static void SetMainWindowTitle(HWND hwnd)
 {
@@ -80,10 +102,61 @@ static void SetSquareSize(HWND hwnd, int newSize)
 
 static void OnSquareClicked(const char *controlName)
 {
-    char msg[128];
+    char msg[160];
+    int buttonNumber;
+    int isOn;
 
-    wsprintf(msg, "Clicked: %s", controlName);
+    buttonNumber = GetButtonNumberFromControlName(controlName);
+    isOn = ButtonGrid_GetButtonStateByNumber(g_buttonGrid, buttonNumber);
+
+    if (isOn >= 0)
+    {
+        wsprintf(
+            msg,
+            "Clicked: %s is now %s",
+            controlName,
+            isOn ? "ON" : "OFF"
+        );
+    }
+    else
+    {
+        wsprintf(msg, "Clicked: %s", controlName);
+    }
+
     AppNotify("Static Click", msg);
+}
+
+static void ConfigureButtonGrid(ButtonGridConfig *config)
+{
+    ButtonGrid_GetDefaultConfig(config);
+
+    config->buttonCount = 16;
+
+    config->buttonWidth = 90;
+    config->buttonHeight = 90;
+
+    config->horizontalSpacing = 10;
+    config->verticalSpacing = 10;
+
+    config->layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
+
+    config->namePrefix = APP_BUTTON_NAME_PREFIX;
+    config->textFormat = "%d";
+    config->clickIdentifierFormat = "%s";
+
+    config->backColor = RGB(192, 192, 192);
+    config->foreColor = RGB(0, 0, 0);
+
+    config->usePictures = 1;
+    config->toggleOnClick = 1;
+    config->defaultState = 0;
+    config->stretchPictures = 1;
+
+    config->pictureOff = NULL;
+    config->pictureOn = NULL;
+
+    config->generatedOffPictureColor = RGB(150, 150, 150);
+    config->generatedOnPictureColor = RGB(80, 190, 80);
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -93,24 +166,24 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
         case WM_CREATE:
         {
             CREATESTRUCT *cs;
+            ButtonGridConfig gridConfig;
 
             printf("Window created.\n");
 
             cs = (CREATESTRUCT *)lParam;
 
-            if (!ButtonGrid_RegisterClass(cs->hInstance))
-            {
-                AppNotify("Error", "Could not register button grid class.");
-                return -1;
-            }
+            ConfigureButtonGrid(&gridConfig);
 
-            g_buttonGrid = ButtonGrid_Create(
+            g_squareSize = gridConfig.buttonWidth;
+
+            g_buttonGrid = ButtonGrid_CreateEx(
                 hwnd,
                 cs->hInstance,
                 GRID_MARGIN,
                 GRID_MARGIN,
                 400,
                 300,
+                &gridConfig,
                 OnSquareClicked
             );
 
@@ -120,7 +193,6 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                 return -1;
             }
 
-            ButtonGrid_SetButtonSize(g_buttonGrid, g_squareSize, g_squareSize);
             LayoutMainWindow(hwnd);
             SetMainWindowTitle(hwnd);
 
@@ -214,6 +286,7 @@ int WINAPI WinMain(
 
     printf("Application started.\n");
     printf("Press + or - to change square size.\n");
+    printf("Click a square to toggle ON/OFF picture state.\n");
 
     while (GetMessage(&msg, NULL, 0, 0))
     {
