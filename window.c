@@ -1,6 +1,10 @@
 #include <windows.h>
 #include <stdio.h>
 
+#ifndef ATTACH_PARENT_PROCESS
+#define ATTACH_PARENT_PROCESS ((DWORD)-1)
+#endif
+
 #define BUTTON_COUNT 16
 
 #define BUTTON_DEFAULT_WIDTH 90
@@ -32,60 +36,134 @@
 static HWND g_buttons[BUTTON_COUNT];
 static char g_buttonNames[BUTTON_COUNT][64];
 static char g_buttonTexts[BUTTON_COUNT][64];
+
 static HBRUSH g_buttonBrush = NULL;
+static int g_consoleAttached = 0;
+
+void SetupConsoleOutput(void)
+{
+    typedef BOOL (WINAPI *AttachConsoleFunc)(DWORD);
+
+    HMODULE kernel32;
+    AttachConsoleFunc pAttachConsole;
+
+    kernel32 = GetModuleHandle("kernel32.dll");
+
+    if (!kernel32)
+        return;
+
+    pAttachConsole = (AttachConsoleFunc)GetProcAddress(kernel32, "AttachConsole");
+
+    if (!pAttachConsole)
+        return;
+
+    if (pAttachConsole(ATTACH_PARENT_PROCESS))
+    {
+        g_consoleAttached = 1;
+
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+
+        setvbuf(stdout, NULL, _IONBF, 0);
+        setvbuf(stderr, NULL, _IONBF, 0);
+
+        printf("Console attached.\n");
+    }
+}
 
 void OnSquareClicked(const char *controlName)
 {
-    char msg[128];
-    wsprintf(msg, "Clicked: %s", controlName);
-    MessageBox(NULL, msg, "Static Click", MB_OK);
+    if (g_consoleAttached)
+    {
+        printf("Clicked: %s\n", controlName);
+        return;
+    }
+
+    {
+        char msg[128];
+        wsprintf(msg, "Clicked: %s", controlName);
+        MessageBox(NULL, msg, "Static Click", MB_OK);
+    }
 }
 
 void LayoutButtons(HWND hwnd)
 {
     RECT rc;
+    int clientW;
+    int clientH;
+
+    int btnW;
+    int btnH;
+    int gapX;
+    int gapY;
+
+    int cols;
+    int rows;
+
+    int gridW;
+    int gridH;
+
+    int startX;
+    int startY;
+
+    int i;
+
     GetClientRect(hwnd, &rc);
 
-    int clientW = rc.right - rc.left;
-    int clientH = rc.bottom - rc.top;
+    clientW = rc.right - rc.left;
+    clientH = rc.bottom - rc.top;
 
-    int btnW = BUTTON_DEFAULT_WIDTH;
-    int btnH = BUTTON_DEFAULT_HEIGHT;
-    int gapX = BUTTON_HORIZONTAL_SPACING;
-    int gapY = BUTTON_VERTICAL_SPACING;
+    btnW = BUTTON_DEFAULT_WIDTH;
+    btnH = BUTTON_DEFAULT_HEIGHT;
+    gapX = BUTTON_HORIZONTAL_SPACING;
+    gapY = BUTTON_VERTICAL_SPACING;
 
-    int cols = 1;
-    int rows = 1;
+    cols = 1;
+    rows = 1;
 
     if (button_layout == horizontal)
     {
         cols = (clientW + gapX) / (btnW + gapX);
-        if (cols < 1) cols = 1;
-        if (cols > BUTTON_COUNT) cols = BUTTON_COUNT;
+
+        if (cols < 1)
+            cols = 1;
+
+        if (cols > BUTTON_COUNT)
+            cols = BUTTON_COUNT;
 
         rows = (BUTTON_COUNT + cols - 1) / cols;
     }
     else
     {
         rows = (clientH + gapY) / (btnH + gapY);
-        if (rows < 1) rows = 1;
-        if (rows > BUTTON_COUNT) rows = BUTTON_COUNT;
+
+        if (rows < 1)
+            rows = 1;
+
+        if (rows > BUTTON_COUNT)
+            rows = BUTTON_COUNT;
 
         cols = (BUTTON_COUNT + rows - 1) / rows;
     }
 
-    int gridW = cols * btnW + (cols - 1) * gapX;
-    int gridH = rows * btnH + (rows - 1) * gapY;
+    gridW = cols * btnW + (cols - 1) * gapX;
+    gridH = rows * btnH + (rows - 1) * gapY;
 
-    int startX = (clientW - gridW) / 2;
-    int startY = (clientH - gridH) / 2;
+    startX = (clientW - gridW) / 2;
+    startY = (clientH - gridH) / 2;
 
-    if (startX < 0) startX = 0;
-    if (startY < 0) startY = 0;
+    if (startX < 0)
+        startX = 0;
 
-    for (int i = 0; i < BUTTON_COUNT; i++)
+    if (startY < 0)
+        startY = 0;
+
+    for (i = 0; i < BUTTON_COUNT; i++)
     {
-        int row, col;
+        int row;
+        int col;
+        int x;
+        int y;
 
         if (button_layout == horizontal)
         {
@@ -98,8 +176,8 @@ void LayoutButtons(HWND hwnd)
             row = i % rows;
         }
 
-        int x = startX + col * (btnW + gapX);
-        int y = startY + row * (btnH + gapY);
+        x = startX + col * (btnW + gapX);
+        y = startY + row * (btnH + gapY);
 
         MoveWindow(g_buttons[i], x, y, btnW, btnH, TRUE);
     }
@@ -108,6 +186,7 @@ void LayoutButtons(HWND hwnd)
 void CreateSquareButtons(HWND hwnd, HINSTANCE hInstance)
 {
     DWORD style;
+    int i;
 
     style = WS_CHILD | WS_VISIBLE | SS_NOTIFY | SS_CENTER | SS_CENTERIMAGE;
 
@@ -117,9 +196,11 @@ void CreateSquareButtons(HWND hwnd, HINSTANCE hInstance)
         style |= SS_ENHMETAFILE;
     }
 
-    for (int i = 0; i < BUTTON_COUNT; i++)
+    for (i = 0; i < BUTTON_COUNT; i++)
     {
-        int indexNumber = i + BUTTON_FIRST_INDEX;
+        int indexNumber;
+
+        indexNumber = i + BUTTON_FIRST_INDEX;
 
         wsprintf(g_buttonNames[i], "%s%d", BUTTON_NAME_PREFIX, indexNumber);
         wsprintf(g_buttonTexts[i], BUTTON_TEXT_FORMAT, indexNumber);
@@ -149,10 +230,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
         case WM_CREATE:
         {
+            CREATESTRUCT *cs;
+
+            printf("Window created.\n");
+
             g_buttonBrush = CreateSolidBrush(BUTTON_BACK_COLOR);
 
-            CREATESTRUCT *cs = (CREATESTRUCT *)lParam;
+            cs = (CREATESTRUCT *)lParam;
             CreateSquareButtons(hwnd, cs->hInstance);
+
             return 0;
         }
 
@@ -164,7 +250,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         case WM_CTLCOLORSTATIC:
         {
-            HDC hdc = (HDC)wParam;
+            HDC hdc;
+
+            hdc = (HDC)wParam;
 
             SetTextColor(hdc, BUTTON_FORE_COLOR);
             SetBkColor(hdc, BUTTON_BACK_COLOR);
@@ -174,12 +262,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         case WM_COMMAND:
         {
-            int controlId = LOWORD(wParam);
-            int notifyCode = HIWORD(wParam);
+            int controlId;
+            int notifyCode;
+
+            controlId = LOWORD(wParam);
+            notifyCode = HIWORD(wParam);
 
             if (notifyCode == STN_CLICKED)
             {
-                int index = controlId - BUTTON_ID_BASE;
+                int index;
+
+                index = controlId - BUTTON_ID_BASE;
 
                 if (index >= 0 && index < BUTTON_COUNT)
                 {
@@ -201,6 +294,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         case WM_DESTROY:
         {
+            printf("Window destroyed.\n");
+
             if (g_buttonBrush)
             {
                 DeleteObject(g_buttonBrush);
@@ -225,6 +320,11 @@ int WINAPI WinMain(
     const char CLASS_NAME[] = "SimpleWindowClass";
 
     WNDCLASS wc;
+    HWND hwnd;
+    MSG msg;
+
+    SetupConsoleOutput();
+
     ZeroMemory(&wc, sizeof(wc));
 
     wc.lpfnWndProc = WindowProc;
@@ -235,7 +335,7 @@ int WINAPI WinMain(
 
     RegisterClass(&wc);
 
-    HWND hwnd = CreateWindowEx(
+    hwnd = CreateWindowEx(
         0,
         CLASS_NAME,
         "Simple TCC Window",
@@ -251,17 +351,23 @@ int WINAPI WinMain(
     );
 
     if (hwnd == NULL)
+    {
+        printf("CreateWindowEx failed.\n");
         return 0;
+    }
 
     ShowWindow(hwnd, nCmdShow);
+    UpdateWindow(hwnd);
 
-    MSG msg;
+    printf("Application started.\n");
 
     while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    printf("Application exiting.\n");
 
     return 0;
 }
