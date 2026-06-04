@@ -18,6 +18,10 @@
 #define BUTTON_GRID_TEXT_SIZE 64
 #define BUTTON_GRID_FORMAT_SIZE 64
 
+#define BUTTON_GRID_PICTURE_TYPE_OFF 0
+#define BUTTON_GRID_PICTURE_TYPE_ON 1
+#define BUTTON_GRID_PICTURE_TYPE_ERROR 2
+
 typedef struct ButtonItem
 {
     HWND hwnd;
@@ -69,6 +73,9 @@ typedef struct ButtonGrid
 
     HBITMAP pictureOff;
     HBITMAP pictureOn;
+
+    int pictureOffLoadFailed;
+    int pictureOnLoadFailed;
 
     int ownsPictureOff;
     int ownsPictureOn;
@@ -176,6 +183,9 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->pictureOff = NULL;
     config->pictureOn = NULL;
 
+    config->pictureOffLoadFailed = 0;
+    config->pictureOnLoadFailed = 0;
+
     config->generatedOffPictureColor = BUTTON_GRID_DEFAULT_OFF_PICTURE_COLOR;
     config->generatedOnPictureColor = BUTTON_GRID_DEFAULT_ON_PICTURE_COLOR;
 }
@@ -216,13 +226,16 @@ static void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     config->usePictures = config->usePictures ? 1 : 0;
     config->toggleOnClick = config->toggleOnClick ? 1 : 0;
     config->stretchPictures = config->stretchPictures ? 1 : 0;
+
+    config->pictureOffLoadFailed = config->pictureOffLoadFailed ? 1 : 0;
+    config->pictureOnLoadFailed = config->pictureOnLoadFailed ? 1 : 0;
 }
 
 static HBITMAP ButtonGrid_CreateGeneratedPicture(
     int width,
     int height,
     COLORREF color,
-    int isOn
+    int pictureType
 )
 {
     HDC screenDc;
@@ -274,31 +287,43 @@ static HBITMAP ButtonGrid_CreateGeneratedPicture(
     FillRect(memDc, &rc, brush);
     DeleteObject(brush);
 
-    if (isOn)
-        markColor = RGB(0, 100, 0);
-    else
-        markColor = RGB(90, 90, 90);
+    /*
+        pictureType:
+            OFF   = plain color, no mark
+            ON    = check mark
+            ERROR = X mark
+    */
 
-    pen = CreatePen(PS_SOLID, 5, markColor);
-    oldPen = SelectObject(memDc, pen);
-
-    if (isOn)
+    if (pictureType == BUTTON_GRID_PICTURE_TYPE_ON)
     {
+        markColor = RGB(0, 100, 0);
+
+        pen = CreatePen(PS_SOLID, 5, markColor);
+        oldPen = SelectObject(memDc, pen);
+
         MoveToEx(memDc, width / 5, height / 2, NULL);
         LineTo(memDc, (width * 2) / 5, (height * 3) / 4);
         LineTo(memDc, (width * 4) / 5, height / 4);
+
+        SelectObject(memDc, oldPen);
+        DeleteObject(pen);
     }
-    else
+    else if (pictureType == BUTTON_GRID_PICTURE_TYPE_ERROR)
     {
+        markColor = RGB(160, 0, 0);
+
+        pen = CreatePen(PS_SOLID, 5, markColor);
+        oldPen = SelectObject(memDc, pen);
+
         MoveToEx(memDc, width / 4, height / 4, NULL);
         LineTo(memDc, (width * 3) / 4, (height * 3) / 4);
 
         MoveToEx(memDc, (width * 3) / 4, height / 4, NULL);
         LineTo(memDc, width / 4, (height * 3) / 4);
-    }
 
-    SelectObject(memDc, oldPen);
-    DeleteObject(pen);
+        SelectObject(memDc, oldPen);
+        DeleteObject(pen);
+    }
 
     SelectObject(memDc, oldBitmap);
 
@@ -331,8 +356,21 @@ static void ButtonGrid_DeleteOwnedPictures(ButtonGrid *grid)
 
 static void ButtonGrid_EnsurePictures(ButtonGrid *grid)
 {
+    int offType;
+    int onType;
+
     if (!grid || !grid->usePictures)
         return;
+
+    if (grid->pictureOffLoadFailed)
+        offType = BUTTON_GRID_PICTURE_TYPE_ERROR;
+    else
+        offType = BUTTON_GRID_PICTURE_TYPE_OFF;
+
+    if (grid->pictureOnLoadFailed)
+        onType = BUTTON_GRID_PICTURE_TYPE_ERROR;
+    else
+        onType = BUTTON_GRID_PICTURE_TYPE_ON;
 
     if (!grid->pictureOff)
     {
@@ -340,7 +378,7 @@ static void ButtonGrid_EnsurePictures(ButtonGrid *grid)
             grid->buttonWidth,
             grid->buttonHeight,
             grid->generatedOffPictureColor,
-            0
+            offType
         );
 
         if (grid->pictureOff)
@@ -353,7 +391,7 @@ static void ButtonGrid_EnsurePictures(ButtonGrid *grid)
             grid->buttonWidth,
             grid->buttonHeight,
             grid->generatedOnPictureColor,
-            1
+            onType
         );
 
         if (grid->pictureOn)
@@ -390,6 +428,9 @@ static void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *con
 
     grid->pictureOff = config->pictureOff;
     grid->pictureOn = config->pictureOn;
+
+    grid->pictureOffLoadFailed = config->pictureOffLoadFailed;
+    grid->pictureOnLoadFailed = config->pictureOnLoadFailed;
 
     grid->ownsPictureOff = 0;
     grid->ownsPictureOn = 0;
@@ -1101,6 +1142,9 @@ void ButtonGrid_SetPictures(
 
     grid->pictureOff = pictureOff;
     grid->pictureOn = pictureOn;
+
+    grid->pictureOffLoadFailed = 0;
+    grid->pictureOnLoadFailed = 0;
 
     grid->ownsPictureOff = 0;
     grid->ownsPictureOn = 0;

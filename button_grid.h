@@ -66,6 +66,9 @@ typedef struct ButtonGridConfig
     HBITMAP pictureOff;
     HBITMAP pictureOn;
 
+    int pictureOffLoadFailed;
+    int pictureOnLoadFailed;
+
     COLORREF generatedOffPictureColor;
     COLORREF generatedOnPictureColor;
 } ButtonGridConfig;

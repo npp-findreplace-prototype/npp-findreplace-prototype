@@ -152,8 +152,27 @@ static void ConfigureButtonGrid(ButtonGridConfig *config)
     config->defaultState = 0;
     config->stretchPictures = 1;
 
+    /*
+        No real pictures configured yet.
+
+        OFF:
+            pictureOff = NULL
+            pictureOffLoadFailed = 0
+            result = plain gray fallback
+
+        ON:
+            pictureOn = NULL
+            pictureOnLoadFailed = 0
+            result = generated green/check fallback
+
+        If later you try to load a file and it fails, set the matching
+        pictureXLoadFailed value to 1. Then that state will show an X.
+    */
     config->pictureOff = NULL;
     config->pictureOn = NULL;
+
+    config->pictureOffLoadFailed = 0;
+    config->pictureOnLoadFailed = 0;
 
     config->generatedOffPictureColor = RGB(150, 150, 150);
     config->generatedOnPictureColor = RGB(80, 190, 80);
