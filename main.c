@@ -1,9 +1,9 @@
 #include <windows.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "console.h"
 #include "button_grid.h"
+#include "image_loader.h"
 
 #ifndef VK_OEM_PLUS
 #define VK_OEM_PLUS 0xBB
@@ -18,28 +18,166 @@
 
 #define GRID_MARGIN 12
 
-#define APP_BUTTON_NAME_PREFIX "mybutton_"
+#define SEARCH_MODE_RADIO_GROUP 1
+
+typedef struct SearchGridButtonDefinition
+{
+    const char *name;
+    const char *text;
+    const char *tooltip;
+    const char *iconBaseName;
+
+    int behavior;
+    int radioGroup;
+    int defaultState;
+} SearchGridButtonDefinition;
+
+#define SEARCH_GRID_BUTTON(name, text, tooltip, iconBaseName, behavior, radioGroup, defaultState) \
+    { name, text, tooltip, iconBaseName, behavior, radioGroup, defaultState }
+
+/*
+    Clean, editable button grid definition.
+
+    name:
+        Programmatic identifier.
+        Icons are searched by this name unless iconBaseName is set.
+
+    text:
+        Text drawn on top of the button. Use "" for icon-only buttons.
+
+    tooltip:
+        Tooltip text shown on hover.
+
+    iconBaseName:
+        NULL means use name.
+        Files/resources are searched as:
+            iconBaseName_OFF.bmp
+            iconBaseName_OFF.png
+            iconBaseName_OFF.jpg
+            iconBaseName_ON.bmp
+            iconBaseName_ON.png
+            iconBaseName_ON.jpg
+
+    behavior:
+        BUTTON_GRID_BUTTON_RADIO
+        BUTTON_GRID_BUTTON_TOGGLE
+
+    radioGroup:
+        Radio buttons with the same non-zero radioGroup exclude each other.
+
+    defaultState:
+        0 = OFF
+        1 = ON
+*/
+
+static const SearchGridButtonDefinition SEARCH_GRID_BUTTONS[] =
+{
+    SEARCH_GRID_BUTTON("LiteralSearch",        "Literal",   "Literal Search",         NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 1),
+    SEARCH_GRID_BUTTON("EscapedLiteralSearch", "Escaped",   "Escaped Literal Search", NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0),
+    SEARCH_GRID_BUTTON("RegExSearch",          "Regex",     "Regex Search",           NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0),
+    SEARCH_GRID_BUTTON("SemanticSearch",       "Semantic",  "Semantic Search",        NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0),
+
+    SEARCH_GRID_BUTTON("CaseSensitive",        "Case",      "Case Sensitive",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("DiacriticSensitive",   "Diacritic", "Diacritic Sensitive",    NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("DotIncludesNewline",   "Dot NL",    "Dot Includes Newline",   NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("FuzzyLogicSearch",     "Fuzzy",     "Fuzzy Logic Search",     NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+
+    SEARCH_GRID_BUTTON("WrapAround",           "Wrap",      "Wrap Around",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("WholeWord",            "Word",      "Whole Word",             NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("BooleanSearch",        "Boolean",   "Boolean Search",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("Settings",             "Settings",  "Settings",               NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+
+    SEARCH_GRID_BUTTON("Reserved13",           "13",        "Reserved 13",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("Reserved14",           "14",        "Reserved 14",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("Reserved15",           "15",        "Reserved 15",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0),
+    SEARCH_GRID_BUTTON("Reserved16",           "16",        "Reserved 16",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0)
+};
+
+#define SEARCH_GRID_BUTTON_COUNT (sizeof(SEARCH_GRID_BUTTONS) / sizeof(SEARCH_GRID_BUTTONS[0]))
 
 static HWND g_buttonGrid = NULL;
 static int g_squareSize = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
 
-static int GetButtonNumberFromControlName(const char *controlName)
+static ButtonGridItemConfig g_searchGridItems[SEARCH_GRID_BUTTON_COUNT];
+
+static void PrepareSearchGridItems(HINSTANCE hInstance)
 {
     int i;
-    int prefixLen;
 
-    if (!controlName)
-        return -1;
+    ZeroMemory(g_searchGridItems, sizeof(g_searchGridItems));
 
-    prefixLen = lstrlen(APP_BUTTON_NAME_PREFIX);
-
-    for (i = 0; i < prefixLen; i++)
+    for (i = 0; i < (int)SEARCH_GRID_BUTTON_COUNT; i++)
     {
-        if (controlName[i] != APP_BUTTON_NAME_PREFIX[i])
-            return -1;
-    }
+        const char *iconBaseName;
+        int offFailed;
+        int onFailed;
 
-    return atoi(controlName + prefixLen);
+        iconBaseName = SEARCH_GRID_BUTTONS[i].iconBaseName;
+
+        if (!iconBaseName)
+            iconBaseName = SEARCH_GRID_BUTTONS[i].name;
+
+        offFailed = 0;
+        onFailed = 0;
+
+        g_searchGridItems[i].name = SEARCH_GRID_BUTTONS[i].name;
+        g_searchGridItems[i].text = SEARCH_GRID_BUTTONS[i].text;
+        g_searchGridItems[i].tooltip = SEARCH_GRID_BUTTONS[i].tooltip;
+
+        g_searchGridItems[i].behavior = SEARCH_GRID_BUTTONS[i].behavior;
+        g_searchGridItems[i].radioGroup = SEARCH_GRID_BUTTONS[i].radioGroup;
+        g_searchGridItems[i].defaultState = SEARCH_GRID_BUTTONS[i].defaultState;
+
+        g_searchGridItems[i].pictureOff = ImageLoader_LoadButtonIcon(
+            hInstance,
+            iconBaseName,
+            "OFF",
+            &offFailed
+        );
+
+        g_searchGridItems[i].pictureOn = ImageLoader_LoadButtonIcon(
+            hInstance,
+            iconBaseName,
+            "ON",
+            &onFailed
+        );
+
+        g_searchGridItems[i].ownsPictureOff = g_searchGridItems[i].pictureOff != NULL;
+        g_searchGridItems[i].ownsPictureOn = g_searchGridItems[i].pictureOn != NULL;
+
+        g_searchGridItems[i].pictureOffLoadFailed = offFailed;
+        g_searchGridItems[i].pictureOnLoadFailed = onFailed;
+    }
+}
+
+static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
+{
+    ButtonGrid_GetDefaultConfig(config);
+
+    PrepareSearchGridItems(hInstance);
+
+    config->buttonCount = (int)SEARCH_GRID_BUTTON_COUNT;
+    config->items = g_searchGridItems;
+
+    config->buttonWidth = 90;
+    config->buttonHeight = 90;
+
+    config->horizontalSpacing = 10;
+    config->verticalSpacing = 10;
+
+    config->layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
+
+    config->backColor = RGB(192, 192, 192);
+    config->foreColor = RGB(0, 0, 0);
+
+    config->usePictures = 1;
+    config->toggleOnClick = 1;
+    config->defaultState = 0;
+    config->stretchPictures = 1;
+
+    config->generatedOffPictureColor = RGB(150, 150, 150);
+    config->generatedOnPictureColor = RGB(80, 190, 80);
+    config->generatedErrorPictureColor = RGB(190, 100, 100);
 }
 
 static void SetMainWindowTitle(HWND hwnd)
@@ -103,11 +241,9 @@ static void SetSquareSize(HWND hwnd, int newSize)
 static void OnSquareClicked(const char *controlName)
 {
     char msg[160];
-    int buttonNumber;
     int isOn;
 
-    buttonNumber = GetButtonNumberFromControlName(controlName);
-    isOn = ButtonGrid_GetButtonStateByNumber(g_buttonGrid, buttonNumber);
+    isOn = ButtonGrid_GetButtonStateByName(g_buttonGrid, controlName);
 
     if (isOn >= 0)
     {
@@ -126,58 +262,6 @@ static void OnSquareClicked(const char *controlName)
     AppNotify("Static Click", msg);
 }
 
-static void ConfigureButtonGrid(ButtonGridConfig *config)
-{
-    ButtonGrid_GetDefaultConfig(config);
-
-    config->buttonCount = 16;
-
-    config->buttonWidth = 90;
-    config->buttonHeight = 90;
-
-    config->horizontalSpacing = 10;
-    config->verticalSpacing = 10;
-
-    config->layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
-
-    config->namePrefix = APP_BUTTON_NAME_PREFIX;
-    config->textFormat = "%d";
-    config->clickIdentifierFormat = "%s";
-
-    config->backColor = RGB(192, 192, 192);
-    config->foreColor = RGB(0, 0, 0);
-
-    config->usePictures = 1;
-    config->toggleOnClick = 1;
-    config->defaultState = 0;
-    config->stretchPictures = 1;
-
-    /*
-        No real pictures configured yet.
-
-        OFF:
-            pictureOff = NULL
-            pictureOffLoadFailed = 0
-            result = plain gray fallback
-
-        ON:
-            pictureOn = NULL
-            pictureOnLoadFailed = 0
-            result = generated green/check fallback
-
-        If later you try to load a file and it fails, set the matching
-        pictureXLoadFailed value to 1. Then that state will show an X.
-    */
-    config->pictureOff = NULL;
-    config->pictureOn = NULL;
-
-    config->pictureOffLoadFailed = 0;
-    config->pictureOnLoadFailed = 0;
-
-    config->generatedOffPictureColor = RGB(150, 150, 150);
-    config->generatedOnPictureColor = RGB(80, 190, 80);
-}
-
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
@@ -191,7 +275,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
 
             cs = (CREATESTRUCT *)lParam;
 
-            ConfigureButtonGrid(&gridConfig);
+            ConfigureButtonGrid(&gridConfig, cs->hInstance);
 
             g_squareSize = gridConfig.buttonWidth;
 
@@ -265,6 +349,9 @@ int WINAPI WinMain(
 
     Console_Setup();
 
+    if (!ImageLoader_Startup())
+        printf("GDI+ image loader unavailable. Falling back to generated button art.\n");
+
     ZeroMemory(&wc, sizeof(wc));
 
     wc.lpfnWndProc = WindowProc;
@@ -276,6 +363,7 @@ int WINAPI WinMain(
     if (!RegisterClass(&wc))
     {
         AppNotify("Error", "Could not register main window class.");
+        ImageLoader_Shutdown();
         return 0;
     }
 
@@ -297,6 +385,7 @@ int WINAPI WinMain(
     if (!hwnd)
     {
         AppNotify("Error", "CreateWindowEx failed.");
+        ImageLoader_Shutdown();
         return 0;
     }
 
@@ -305,7 +394,7 @@ int WINAPI WinMain(
 
     printf("Application started.\n");
     printf("Press + or - to change square size.\n");
-    printf("Click a square to toggle ON/OFF picture state.\n");
+    printf("Click a square to toggle or select it.\n");
 
     while (GetMessage(&msg, NULL, 0, 0))
     {
@@ -314,6 +403,8 @@ int WINAPI WinMain(
     }
 
     printf("Application exiting.\n");
+
+    ImageLoader_Shutdown();
 
     return 0;
 }

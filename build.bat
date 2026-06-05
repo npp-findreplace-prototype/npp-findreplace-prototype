@@ -8,7 +8,7 @@ rem Example timestamp: 2026-06-04.15h35s07
 set "TIME_FORMAT=yyyy-MM-dd.HH'h'mm's'ss"
 
 set "TCC_MODE=-mwindows"
-set "TCC_LIBS=-luser32 -lgdi32"
+set "TCC_LIBS=-luser32 -lgdi32 -lcomctl32 -lole32"
 
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format $env:TIME_FORMAT"') do set "STAMP=%%I"
 
@@ -27,10 +27,25 @@ for %%F in (*.c) do set SOURCES=!SOURCES! "%%F"
 
 if not defined SOURCES (echo No .c source files found.& pause& exit /b 1)
 
+set "RESOURCES="
+
+if exist resources.rc (
+    where windres >nul 2>nul
+    if errorlevel 1 (
+        echo resources.rc found, but windres was not found.
+        echo Building without embedded resources. Folder icon files can still be loaded.
+    ) else (
+        echo Compiling resources.rc...
+        windres resources.rc -O coff -o "%BUILD_DIR%\resources.res"
+        if errorlevel 1 (echo Resource compile failed.& pause& exit /b 1)
+        set "RESOURCES="%BUILD_DIR%\resources.res""
+    )
+)
+
 echo Building to %BUILD_DIR%\%EXE%...
 echo Sources:%SOURCES%
 
-tcc %SOURCES% %TCC_MODE% %TCC_LIBS% -o "%BUILD_DIR%\%EXE%"
+tcc %SOURCES% %RESOURCES% %TCC_MODE% %TCC_LIBS% -o "%BUILD_DIR%\%EXE%"
 
 if errorlevel 1 (echo Build failed.& pause& exit /b 1)
 

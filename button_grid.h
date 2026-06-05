@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+typedef struct AppImage AppImage;
+
 #define BUTTON_GRID_DEFAULT_BUTTON_COUNT 16
 
 #define BUTTON_GRID_DEFAULT_BUTTON_WIDTH 90
@@ -15,6 +17,10 @@
 #define BUTTON_GRID_LAYOUT_VERTICAL 1
 
 #define BUTTON_GRID_DEFAULT_LAYOUT BUTTON_GRID_LAYOUT_HORIZONTAL
+
+#define BUTTON_GRID_BUTTON_TOGGLE 0
+#define BUTTON_GRID_BUTTON_RADIO 1
+#define BUTTON_GRID_BUTTON_DISABLED 2
 
 #define BUTTON_GRID_DEFAULT_NAME_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_TEXT_FORMAT "%d"
@@ -33,12 +39,35 @@
 
 #define BUTTON_GRID_DEFAULT_OFF_PICTURE_COLOR RGB(150, 150, 150)
 #define BUTTON_GRID_DEFAULT_ON_PICTURE_COLOR RGB(80, 190, 80)
+#define BUTTON_GRID_DEFAULT_ERROR_PICTURE_COLOR RGB(190, 100, 100)
 
 typedef void (*ButtonGridClickCallback)(const char *controlName);
+
+typedef struct ButtonGridItemConfig
+{
+    const char *name;
+    const char *text;
+    const char *tooltip;
+
+    int behavior;
+    int radioGroup;
+    int defaultState;
+
+    AppImage *pictureOff;
+    AppImage *pictureOn;
+
+    int ownsPictureOff;
+    int ownsPictureOn;
+
+    int pictureOffLoadFailed;
+    int pictureOnLoadFailed;
+} ButtonGridItemConfig;
 
 typedef struct ButtonGridConfig
 {
     int buttonCount;
+
+    const ButtonGridItemConfig *items;
 
     int buttonWidth;
     int buttonHeight;
@@ -63,14 +92,9 @@ typedef struct ButtonGridConfig
     int defaultState;
     int stretchPictures;
 
-    HBITMAP pictureOff;
-    HBITMAP pictureOn;
-
-    int pictureOffLoadFailed;
-    int pictureOnLoadFailed;
-
     COLORREF generatedOffPictureColor;
     COLORREF generatedOnPictureColor;
+    COLORREF generatedErrorPictureColor;
 } ButtonGridConfig;
 
 void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config);
@@ -127,8 +151,8 @@ void ButtonGrid_Relayout(HWND gridHwnd);
 
 void ButtonGrid_SetPictures(
     HWND gridHwnd,
-    HBITMAP pictureOff,
-    HBITMAP pictureOn,
+    AppImage *pictureOff,
+    AppImage *pictureOn,
     int stretchPictures
 );
 
@@ -146,6 +170,22 @@ int ButtonGrid_GetButtonStateByNumber(
 void ButtonGrid_ToggleButtonStateByNumber(
     HWND gridHwnd,
     int buttonNumber
+);
+
+void ButtonGrid_SetButtonStateByName(
+    HWND gridHwnd,
+    const char *name,
+    int isOn
+);
+
+int ButtonGrid_GetButtonStateByName(
+    HWND gridHwnd,
+    const char *name
+);
+
+void ButtonGrid_ToggleButtonStateByName(
+    HWND gridHwnd,
+    const char *name
 );
 
 #endif

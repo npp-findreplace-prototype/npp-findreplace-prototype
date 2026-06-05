@@ -1,7 +1,9 @@
 #include <windows.h>
+#include <commctrl.h>
 #include <stdlib.h>
 
 #include "button_grid.h"
+#include "image_loader.h"
 
 #ifndef SS_OWNERDRAW
 #define SS_OWNERDRAW 0x0000000D
@@ -11,11 +13,16 @@
 #define SWP_NOCOPYBITS 0x0100
 #endif
 
+#ifndef TTS_NOPREFIX
+#define TTS_NOPREFIX 0x02
+#endif
+
 #define BUTTON_GRID_CLASS_NAME "ButtonGridChildClass"
 #define BUTTON_GRID_PROP_NAME "ButtonGridData"
 
 #define BUTTON_GRID_NAME_SIZE 64
 #define BUTTON_GRID_TEXT_SIZE 64
+#define BUTTON_GRID_TOOLTIP_SIZE 128
 #define BUTTON_GRID_FORMAT_SIZE 64
 
 #define BUTTON_GRID_PICTURE_TYPE_OFF 0
@@ -25,9 +32,23 @@
 typedef struct ButtonItem
 {
     HWND hwnd;
+
     char name[BUTTON_GRID_NAME_SIZE];
     char text[BUTTON_GRID_TEXT_SIZE];
+    char tooltip[BUTTON_GRID_TOOLTIP_SIZE];
+
+    int behavior;
+    int radioGroup;
     int isOn;
+
+    AppImage *pictureOff;
+    AppImage *pictureOn;
+
+    int ownsPictureOff;
+    int ownsPictureOn;
+
+    int pictureOffLoadFailed;
+    int pictureOnLoadFailed;
 } ButtonItem;
 
 typedef struct GridLayout
@@ -41,12 +62,17 @@ typedef struct GridLayout
 typedef struct ButtonGrid
 {
     HWND hwnd;
+    HWND tooltipHwnd;
+
     HINSTANCE hInstance;
 
     ButtonGridClickCallback onClick;
 
     ButtonItem *buttons;
     int buttonCount;
+
+    const ButtonGridItemConfig *configuredItems;
+    int configuredItemCount;
 
     int buttonWidth;
     int buttonHeight;
@@ -71,17 +97,9 @@ typedef struct ButtonGrid
     int defaultState;
     int stretchPictures;
 
-    HBITMAP pictureOff;
-    HBITMAP pictureOn;
-
-    int pictureOffLoadFailed;
-    int pictureOnLoadFailed;
-
-    int ownsPictureOff;
-    int ownsPictureOn;
-
     COLORREF generatedOffPictureColor;
     COLORREF generatedOnPictureColor;
+    COLORREF generatedErrorPictureColor;
 
     HBRUSH buttonBrush;
 } ButtonGrid;
@@ -109,6 +127,14 @@ static void CopyText(char *dest, int destSize, const char *src)
 
     lstrcpyn(dest, src, destSize);
     dest[destSize - 1] = '\0';
+}
+
+static int SameText(const char *a, const char *b)
+{
+    if (!a || !b)
+        return 0;
+
+    return lstrcmp(a, b) == 0;
 }
 
 static int ClampInt(int value, int minValue, int maxValue)
@@ -156,6 +182,7 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
         return;
 
     config->buttonCount = BUTTON_GRID_DEFAULT_BUTTON_COUNT;
+    config->items = NULL;
 
     config->buttonWidth = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
     config->buttonHeight = BUTTON_GRID_DEFAULT_BUTTON_HEIGHT;
@@ -180,14 +207,9 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->defaultState = BUTTON_GRID_DEFAULT_STATE;
     config->stretchPictures = BUTTON_GRID_DEFAULT_STRETCH_PICTURES;
 
-    config->pictureOff = NULL;
-    config->pictureOn = NULL;
-
-    config->pictureOffLoadFailed = 0;
-    config->pictureOnLoadFailed = 0;
-
     config->generatedOffPictureColor = BUTTON_GRID_DEFAULT_OFF_PICTURE_COLOR;
     config->generatedOnPictureColor = BUTTON_GRID_DEFAULT_ON_PICTURE_COLOR;
+    config->generatedErrorPictureColor = BUTTON_GRID_DEFAULT_ERROR_PICTURE_COLOR;
 }
 
 static void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
@@ -226,182 +248,14 @@ static void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     config->usePictures = config->usePictures ? 1 : 0;
     config->toggleOnClick = config->toggleOnClick ? 1 : 0;
     config->stretchPictures = config->stretchPictures ? 1 : 0;
-
-    config->pictureOffLoadFailed = config->pictureOffLoadFailed ? 1 : 0;
-    config->pictureOnLoadFailed = config->pictureOnLoadFailed ? 1 : 0;
-}
-
-static HBITMAP ButtonGrid_CreateGeneratedPicture(
-    int width,
-    int height,
-    COLORREF color,
-    int pictureType
-)
-{
-    HDC screenDc;
-    HDC memDc;
-    HBITMAP bitmap;
-    HGDIOBJ oldBitmap;
-    HBRUSH brush;
-    RECT rc;
-    HPEN pen;
-    HGDIOBJ oldPen;
-    COLORREF markColor;
-
-    if (width < 1)
-        width = 1;
-
-    if (height < 1)
-        height = 1;
-
-    screenDc = GetDC(NULL);
-
-    if (!screenDc)
-        return NULL;
-
-    memDc = CreateCompatibleDC(screenDc);
-
-    if (!memDc)
-    {
-        ReleaseDC(NULL, screenDc);
-        return NULL;
-    }
-
-    bitmap = CreateCompatibleBitmap(screenDc, width, height);
-
-    if (!bitmap)
-    {
-        DeleteDC(memDc);
-        ReleaseDC(NULL, screenDc);
-        return NULL;
-    }
-
-    oldBitmap = SelectObject(memDc, bitmap);
-
-    rc.left = 0;
-    rc.top = 0;
-    rc.right = width;
-    rc.bottom = height;
-
-    brush = CreateSolidBrush(color);
-    FillRect(memDc, &rc, brush);
-    DeleteObject(brush);
-
-    /*
-        pictureType:
-            OFF   = plain color, no mark
-            ON    = check mark
-            ERROR = X mark
-    */
-
-    if (pictureType == BUTTON_GRID_PICTURE_TYPE_ON)
-    {
-        markColor = RGB(0, 100, 0);
-
-        pen = CreatePen(PS_SOLID, 5, markColor);
-        oldPen = SelectObject(memDc, pen);
-
-        MoveToEx(memDc, width / 5, height / 2, NULL);
-        LineTo(memDc, (width * 2) / 5, (height * 3) / 4);
-        LineTo(memDc, (width * 4) / 5, height / 4);
-
-        SelectObject(memDc, oldPen);
-        DeleteObject(pen);
-    }
-    else if (pictureType == BUTTON_GRID_PICTURE_TYPE_ERROR)
-    {
-        markColor = RGB(160, 0, 0);
-
-        pen = CreatePen(PS_SOLID, 5, markColor);
-        oldPen = SelectObject(memDc, pen);
-
-        MoveToEx(memDc, width / 4, height / 4, NULL);
-        LineTo(memDc, (width * 3) / 4, (height * 3) / 4);
-
-        MoveToEx(memDc, (width * 3) / 4, height / 4, NULL);
-        LineTo(memDc, width / 4, (height * 3) / 4);
-
-        SelectObject(memDc, oldPen);
-        DeleteObject(pen);
-    }
-
-    SelectObject(memDc, oldBitmap);
-
-    DeleteDC(memDc);
-    ReleaseDC(NULL, screenDc);
-
-    return bitmap;
-}
-
-static void ButtonGrid_DeleteOwnedPictures(ButtonGrid *grid)
-{
-    if (!grid)
-        return;
-
-    if (grid->ownsPictureOff && grid->pictureOff)
-    {
-        DeleteObject(grid->pictureOff);
-        grid->pictureOff = NULL;
-    }
-
-    if (grid->ownsPictureOn && grid->pictureOn)
-    {
-        DeleteObject(grid->pictureOn);
-        grid->pictureOn = NULL;
-    }
-
-    grid->ownsPictureOff = 0;
-    grid->ownsPictureOn = 0;
-}
-
-static void ButtonGrid_EnsurePictures(ButtonGrid *grid)
-{
-    int offType;
-    int onType;
-
-    if (!grid || !grid->usePictures)
-        return;
-
-    if (grid->pictureOffLoadFailed)
-        offType = BUTTON_GRID_PICTURE_TYPE_ERROR;
-    else
-        offType = BUTTON_GRID_PICTURE_TYPE_OFF;
-
-    if (grid->pictureOnLoadFailed)
-        onType = BUTTON_GRID_PICTURE_TYPE_ERROR;
-    else
-        onType = BUTTON_GRID_PICTURE_TYPE_ON;
-
-    if (!grid->pictureOff)
-    {
-        grid->pictureOff = ButtonGrid_CreateGeneratedPicture(
-            grid->buttonWidth,
-            grid->buttonHeight,
-            grid->generatedOffPictureColor,
-            offType
-        );
-
-        if (grid->pictureOff)
-            grid->ownsPictureOff = 1;
-    }
-
-    if (!grid->pictureOn)
-    {
-        grid->pictureOn = ButtonGrid_CreateGeneratedPicture(
-            grid->buttonWidth,
-            grid->buttonHeight,
-            grid->generatedOnPictureColor,
-            onType
-        );
-
-        if (grid->pictureOn)
-            grid->ownsPictureOn = 1;
-    }
 }
 
 static void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
 {
     grid->buttonCount = config->buttonCount;
+
+    grid->configuredItems = config->items;
+    grid->configuredItemCount = config->buttonCount;
 
     grid->buttonWidth = config->buttonWidth;
     grid->buttonHeight = config->buttonHeight;
@@ -426,21 +280,11 @@ static void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *con
     grid->defaultState = config->defaultState;
     grid->stretchPictures = config->stretchPictures;
 
-    grid->pictureOff = config->pictureOff;
-    grid->pictureOn = config->pictureOn;
-
-    grid->pictureOffLoadFailed = config->pictureOffLoadFailed;
-    grid->pictureOnLoadFailed = config->pictureOnLoadFailed;
-
-    grid->ownsPictureOff = 0;
-    grid->ownsPictureOn = 0;
-
     grid->generatedOffPictureColor = config->generatedOffPictureColor;
     grid->generatedOnPictureColor = config->generatedOnPictureColor;
+    grid->generatedErrorPictureColor = config->generatedErrorPictureColor;
 
     grid->buttonBrush = CreateSolidBrush(grid->backColor);
-
-    ButtonGrid_EnsurePictures(grid);
 }
 
 static DWORD ButtonGrid_GetButtonStyle(void)
@@ -456,6 +300,41 @@ static DWORD ButtonGrid_GetButtonStyle(void)
 static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
 {
     int indexNumber;
+    const ButtonGridItemConfig *item;
+
+    item = NULL;
+
+    if (grid->configuredItems && buttonIndex < grid->configuredItemCount)
+        item = &grid->configuredItems[buttonIndex];
+
+    if (item)
+    {
+        CopyText(grid->buttons[buttonIndex].name, BUTTON_GRID_NAME_SIZE, item->name);
+        CopyText(grid->buttons[buttonIndex].text, BUTTON_GRID_TEXT_SIZE, item->text);
+        CopyText(grid->buttons[buttonIndex].tooltip, BUTTON_GRID_TOOLTIP_SIZE, item->tooltip);
+
+        grid->buttons[buttonIndex].behavior = item->behavior;
+        grid->buttons[buttonIndex].radioGroup = item->radioGroup;
+        grid->buttons[buttonIndex].isOn = item->defaultState ? 1 : 0;
+
+        grid->buttons[buttonIndex].pictureOff = item->pictureOff;
+        grid->buttons[buttonIndex].pictureOn = item->pictureOn;
+
+        grid->buttons[buttonIndex].ownsPictureOff = item->ownsPictureOff;
+        grid->buttons[buttonIndex].ownsPictureOn = item->ownsPictureOn;
+
+        grid->buttons[buttonIndex].pictureOffLoadFailed = item->pictureOffLoadFailed ? 1 : 0;
+        grid->buttons[buttonIndex].pictureOnLoadFailed = item->pictureOnLoadFailed ? 1 : 0;
+
+        if (grid->buttons[buttonIndex].behavior != BUTTON_GRID_BUTTON_TOGGLE &&
+            grid->buttons[buttonIndex].behavior != BUTTON_GRID_BUTTON_RADIO &&
+            grid->buttons[buttonIndex].behavior != BUTTON_GRID_BUTTON_DISABLED)
+        {
+            grid->buttons[buttonIndex].behavior = BUTTON_GRID_BUTTON_TOGGLE;
+        }
+
+        return;
+    }
 
     indexNumber = buttonIndex + grid->firstIndex;
 
@@ -472,6 +351,14 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
         indexNumber
     );
 
+    CopyText(
+        grid->buttons[buttonIndex].tooltip,
+        BUTTON_GRID_TOOLTIP_SIZE,
+        grid->buttons[buttonIndex].name
+    );
+
+    grid->buttons[buttonIndex].behavior = BUTTON_GRID_BUTTON_TOGGLE;
+    grid->buttons[buttonIndex].radioGroup = 0;
     grid->buttons[buttonIndex].isOn = grid->defaultState;
 }
 
@@ -491,6 +378,63 @@ static HWND ButtonGrid_CreateOneButton(ButtonGrid *grid, int buttonIndex)
         grid->hInstance,
         NULL
     );
+}
+
+static void ButtonGrid_CreateTooltipWindow(ButtonGrid *grid)
+{
+    InitCommonControls();
+
+    grid->tooltipHwnd = CreateWindowEx(
+        WS_EX_TOPMOST,
+        TOOLTIPS_CLASS,
+        NULL,
+        WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        grid->hwnd,
+        NULL,
+        grid->hInstance,
+        NULL
+    );
+
+    if (grid->tooltipHwnd)
+    {
+        SetWindowPos(
+            grid->tooltipHwnd,
+            HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+        );
+    }
+}
+
+static void ButtonGrid_AddTooltip(ButtonGrid *grid, int buttonIndex)
+{
+    TOOLINFO ti;
+
+    if (!grid || !grid->tooltipHwnd)
+        return;
+
+    if (!grid->buttons[buttonIndex].hwnd)
+        return;
+
+    if (!grid->buttons[buttonIndex].tooltip[0])
+        return;
+
+    ZeroMemory(&ti, sizeof(ti));
+
+    ti.cbSize = sizeof(ti);
+    ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+    ti.hwnd = grid->hwnd;
+    ti.uId = (UINT_PTR)grid->buttons[buttonIndex].hwnd;
+    ti.lpszText = grid->buttons[buttonIndex].tooltip;
+
+    SendMessage(grid->tooltipHwnd, TTM_ADDTOOL, 0, (LPARAM)&ti);
 }
 
 static void ButtonGrid_CalculateLayout(ButtonGrid *grid, int clientW, int clientH, GridLayout *layout)
@@ -614,10 +558,13 @@ static int ButtonGrid_CreateButtons(ButtonGrid *grid)
 
     ZeroMemory(grid->buttons, sizeof(ButtonItem) * grid->buttonCount);
 
+    ButtonGrid_CreateTooltipWindow(grid);
+
     for (i = 0; i < grid->buttonCount; i++)
     {
         ButtonGrid_InitializeButtonData(grid, i);
         grid->buttons[i].hwnd = ButtonGrid_CreateOneButton(grid, i);
+        ButtonGrid_AddTooltip(grid, i);
     }
 
     ButtonGrid_Layout(grid);
@@ -653,23 +600,69 @@ static void ButtonGrid_RedrawAllButtons(ButtonGrid *grid)
     RedrawContainer(grid->hwnd);
 }
 
+static int ButtonGrid_FindButtonIndexByName(ButtonGrid *grid, const char *name)
+{
+    int i;
+
+    if (!grid || !grid->buttons || !name)
+        return -1;
+
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        if (SameText(grid->buttons[i].name, name))
+            return i;
+    }
+
+    return -1;
+}
+
+static void ButtonGrid_FreeButtonImages(ButtonItem *button)
+{
+    if (!button)
+        return;
+
+    if (button->ownsPictureOff && button->pictureOff)
+    {
+        ImageLoader_Free(button->pictureOff);
+        button->pictureOff = NULL;
+    }
+
+    if (button->ownsPictureOn && button->pictureOn)
+    {
+        ImageLoader_Free(button->pictureOn);
+        button->pictureOn = NULL;
+    }
+
+    button->ownsPictureOff = 0;
+    button->ownsPictureOn = 0;
+}
+
 static void ButtonGrid_Free(ButtonGrid *grid)
 {
+    int i;
+
     if (!grid)
         return;
 
-    ButtonGrid_DeleteOwnedPictures(grid);
+    if (grid->tooltipHwnd)
+    {
+        DestroyWindow(grid->tooltipHwnd);
+        grid->tooltipHwnd = NULL;
+    }
+
+    if (grid->buttons)
+    {
+        for (i = 0; i < grid->buttonCount; i++)
+            ButtonGrid_FreeButtonImages(&grid->buttons[i]);
+
+        free(grid->buttons);
+        grid->buttons = NULL;
+    }
 
     if (grid->buttonBrush)
     {
         DeleteObject(grid->buttonBrush);
         grid->buttonBrush = NULL;
-    }
-
-    if (grid->buttons)
-    {
-        free(grid->buttons);
-        grid->buttons = NULL;
     }
 
     free(grid);
@@ -735,91 +728,105 @@ static void ButtonGrid_HandleDestroy(HWND hwnd)
     ButtonGrid_Free(grid);
 }
 
-static void ButtonGrid_DrawBitmapInRect(
+static void ButtonGrid_DrawGeneratedFallback(
     HDC hdc,
-    HBITMAP bitmap,
-    const RECT *rect,
-    int stretchPictures
+    const RECT *rc,
+    COLORREF color,
+    int pictureType
 )
 {
-    HDC memDc;
-    HGDIOBJ oldBitmap;
-    BITMAP bm;
+    HBRUSH brush;
+    HPEN pen;
+    HGDIOBJ oldPen;
+    COLORREF markColor;
+    int width;
+    int height;
 
-    int rectW;
-    int rectH;
+    brush = CreateSolidBrush(color);
+    FillRect(hdc, rc, brush);
+    DeleteObject(brush);
 
-    int drawW;
-    int drawH;
-    int x;
-    int y;
+    width = rc->right - rc->left;
+    height = rc->bottom - rc->top;
 
-    if (!bitmap)
+    if (pictureType == BUTTON_GRID_PICTURE_TYPE_OFF)
         return;
 
-    if (!GetObject(bitmap, sizeof(BITMAP), &bm))
-        return;
+    if (pictureType == BUTTON_GRID_PICTURE_TYPE_ON)
+        markColor = RGB(0, 100, 0);
+    else
+        markColor = RGB(160, 0, 0);
 
-    rectW = rect->right - rect->left;
-    rectH = rect->bottom - rect->top;
+    pen = CreatePen(PS_SOLID, 5, markColor);
+    oldPen = SelectObject(hdc, pen);
 
-    if (rectW < 1 || rectH < 1)
-        return;
-
-    memDc = CreateCompatibleDC(hdc);
-
-    if (!memDc)
-        return;
-
-    oldBitmap = SelectObject(memDc, bitmap);
-
-    if (stretchPictures)
+    if (pictureType == BUTTON_GRID_PICTURE_TYPE_ON)
     {
-        SetStretchBltMode(hdc, COLORONCOLOR);
-
-        StretchBlt(
-            hdc,
-            rect->left,
-            rect->top,
-            rectW,
-            rectH,
-            memDc,
-            0,
-            0,
-            bm.bmWidth,
-            bm.bmHeight,
-            SRCCOPY
-        );
+        MoveToEx(hdc, rc->left + width / 5, rc->top + height / 2, NULL);
+        LineTo(hdc, rc->left + (width * 2) / 5, rc->top + (height * 3) / 4);
+        LineTo(hdc, rc->left + (width * 4) / 5, rc->top + height / 4);
     }
     else
     {
-        drawW = bm.bmWidth;
-        drawH = bm.bmHeight;
+        MoveToEx(hdc, rc->left + width / 4, rc->top + height / 4, NULL);
+        LineTo(hdc, rc->left + (width * 3) / 4, rc->top + (height * 3) / 4);
 
-        if (drawW > rectW)
-            drawW = rectW;
-
-        if (drawH > rectH)
-            drawH = rectH;
-
-        x = rect->left + (rectW - drawW) / 2;
-        y = rect->top + (rectH - drawH) / 2;
-
-        BitBlt(
-            hdc,
-            x,
-            y,
-            drawW,
-            drawH,
-            memDc,
-            0,
-            0,
-            SRCCOPY
-        );
+        MoveToEx(hdc, rc->left + (width * 3) / 4, rc->top + height / 4, NULL);
+        LineTo(hdc, rc->left + width / 4, rc->top + (height * 3) / 4);
     }
 
-    SelectObject(memDc, oldBitmap);
-    DeleteDC(memDc);
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+}
+
+static void ButtonGrid_DrawCenteredText(
+    HDC hdc,
+    const char *text,
+    RECT *rc,
+    COLORREF color
+)
+{
+    RECT calcRect;
+    RECT drawRect;
+    int textHeight;
+    int rectHeight;
+
+    if (!text || !text[0])
+        return;
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, color);
+
+    calcRect = *rc;
+    InflateRect(&calcRect, -4, -4);
+
+    DrawText(
+        hdc,
+        text,
+        -1,
+        &calcRect,
+        DT_CENTER | DT_WORDBREAK | DT_CALCRECT
+    );
+
+    textHeight = calcRect.bottom - calcRect.top;
+    rectHeight = rc->bottom - rc->top;
+
+    drawRect = *rc;
+    InflateRect(&drawRect, -4, -4);
+
+    if (textHeight < rectHeight)
+    {
+        drawRect.top = rc->top + (rectHeight - textHeight) / 2;
+        drawRect.bottom = drawRect.top + textHeight;
+    }
+
+    DrawText(
+        hdc,
+        text,
+        -1,
+        &drawRect,
+        DT_CENTER | DT_WORDBREAK
+    );
 }
 
 static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
@@ -827,7 +834,11 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
     int index;
     RECT rc;
     HDC hdc;
-    HBITMAP picture;
+    ButtonItem *button;
+    AppImage *picture;
+    int failed;
+    int pictureType;
+    COLORREF fallbackColor;
 
     if (!grid || !draw)
         return;
@@ -836,6 +847,8 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
 
     if (index < 0 || index >= grid->buttonCount)
         return;
+
+    button = &grid->buttons[index];
 
     hdc = draw->hDC;
     rc = draw->rcItem;
@@ -847,29 +860,42 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
 
     if (grid->usePictures)
     {
-        if (grid->buttons[index].isOn)
-            picture = grid->pictureOn;
+        if (button->isOn)
+        {
+            picture = button->pictureOn;
+            failed = button->pictureOnLoadFailed;
+            pictureType = failed ? BUTTON_GRID_PICTURE_TYPE_ERROR : BUTTON_GRID_PICTURE_TYPE_ON;
+            fallbackColor = failed ? grid->generatedErrorPictureColor : grid->generatedOnPictureColor;
+        }
         else
-            picture = grid->pictureOff;
+        {
+            picture = button->pictureOff;
+            failed = button->pictureOffLoadFailed;
+            pictureType = failed ? BUTTON_GRID_PICTURE_TYPE_ERROR : BUTTON_GRID_PICTURE_TYPE_OFF;
+            fallbackColor = failed ? grid->generatedErrorPictureColor : grid->generatedOffPictureColor;
+        }
 
-        ButtonGrid_DrawBitmapInRect(
-            hdc,
-            picture,
-            &rc,
-            grid->stretchPictures
-        );
+        if (picture)
+        {
+            ImageLoader_Draw(
+                hdc,
+                picture,
+                &rc,
+                grid->stretchPictures
+            );
+        }
+        else
+        {
+            ButtonGrid_DrawGeneratedFallback(
+                hdc,
+                &rc,
+                fallbackColor,
+                pictureType
+            );
+        }
     }
 
-    SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, grid->foreColor);
-
-    DrawText(
-        hdc,
-        grid->buttons[index].text,
-        -1,
-        &rc,
-        DT_CENTER | DT_VCENTER | DT_SINGLELINE
-    );
+    ButtonGrid_DrawCenteredText(hdc, button->text, &rc, grid->foreColor);
 
     FrameRect(hdc, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
@@ -891,10 +917,40 @@ static LRESULT ButtonGrid_HandleDrawItem(ButtonGrid *grid, LPARAM lParam)
     return TRUE;
 }
 
+static void ButtonGrid_SelectRadioButton(ButtonGrid *grid, int selectedIndex)
+{
+    int i;
+    int group;
+
+    if (!grid || selectedIndex < 0 || selectedIndex >= grid->buttonCount)
+        return;
+
+    group = grid->buttons[selectedIndex].radioGroup;
+
+    if (group == 0)
+    {
+        grid->buttons[selectedIndex].isOn = 1;
+        ButtonGrid_RedrawButton(grid, selectedIndex);
+        return;
+    }
+
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        if (grid->buttons[i].behavior == BUTTON_GRID_BUTTON_RADIO &&
+            grid->buttons[i].radioGroup == group)
+        {
+            grid->buttons[i].isOn = (i == selectedIndex);
+        }
+    }
+
+    ButtonGrid_RedrawAllButtons(grid);
+}
+
 static void ButtonGrid_HandleStaticClick(ButtonGrid *grid, int controlId)
 {
     int index;
     char identifier[128];
+    ButtonItem *button;
 
     if (!grid)
         return;
@@ -904,16 +960,28 @@ static void ButtonGrid_HandleStaticClick(ButtonGrid *grid, int controlId)
     if (index < 0 || index >= grid->buttonCount)
         return;
 
+    button = &grid->buttons[index];
+
+    if (button->behavior == BUTTON_GRID_BUTTON_DISABLED)
+        return;
+
     if (grid->toggleOnClick)
     {
-        grid->buttons[index].isOn = !grid->buttons[index].isOn;
-        ButtonGrid_RedrawButton(grid, index);
+        if (button->behavior == BUTTON_GRID_BUTTON_RADIO)
+        {
+            ButtonGrid_SelectRadioButton(grid, index);
+        }
+        else
+        {
+            button->isOn = !button->isOn;
+            ButtonGrid_RedrawButton(grid, index);
+        }
     }
 
     wsprintf(
         identifier,
         grid->clickIdentifierFormat,
-        grid->buttons[index].name
+        button->name
     );
 
     if (grid->onClick)
@@ -1126,33 +1194,36 @@ void ButtonGrid_Relayout(HWND gridHwnd)
 
 void ButtonGrid_SetPictures(
     HWND gridHwnd,
-    HBITMAP pictureOff,
-    HBITMAP pictureOn,
+    AppImage *pictureOff,
+    AppImage *pictureOn,
     int stretchPictures
 )
 {
     ButtonGrid *grid;
+    int i;
 
     grid = ButtonGrid_Get(gridHwnd);
 
     if (!grid)
         return;
 
-    ButtonGrid_DeleteOwnedPictures(grid);
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        ButtonGrid_FreeButtonImages(&grid->buttons[i]);
 
-    grid->pictureOff = pictureOff;
-    grid->pictureOn = pictureOn;
+        grid->buttons[i].pictureOff = pictureOff;
+        grid->buttons[i].pictureOn = pictureOn;
 
-    grid->pictureOffLoadFailed = 0;
-    grid->pictureOnLoadFailed = 0;
+        grid->buttons[i].ownsPictureOff = 0;
+        grid->buttons[i].ownsPictureOn = 0;
 
-    grid->ownsPictureOff = 0;
-    grid->ownsPictureOn = 0;
+        grid->buttons[i].pictureOffLoadFailed = 0;
+        grid->buttons[i].pictureOnLoadFailed = 0;
+    }
 
     grid->stretchPictures = stretchPictures ? 1 : 0;
     grid->usePictures = 1;
 
-    ButtonGrid_EnsurePictures(grid);
     ButtonGrid_RedrawAllButtons(grid);
 }
 
@@ -1175,8 +1246,13 @@ void ButtonGrid_SetButtonStateByNumber(
     if (index < 0 || index >= grid->buttonCount)
         return;
 
-    grid->buttons[index].isOn = isOn ? 1 : 0;
-    ButtonGrid_RedrawButton(grid, index);
+    if (grid->buttons[index].behavior == BUTTON_GRID_BUTTON_RADIO && isOn)
+        ButtonGrid_SelectRadioButton(grid, index);
+    else
+    {
+        grid->buttons[index].isOn = isOn ? 1 : 0;
+        ButtonGrid_RedrawButton(grid, index);
+    }
 }
 
 int ButtonGrid_GetButtonStateByNumber(
@@ -1218,8 +1294,89 @@ void ButtonGrid_ToggleButtonStateByNumber(
     if (index < 0 || index >= grid->buttonCount)
         return;
 
-    grid->buttons[index].isOn = !grid->buttons[index].isOn;
-    ButtonGrid_RedrawButton(grid, index);
+    if (grid->buttons[index].behavior == BUTTON_GRID_BUTTON_RADIO)
+        ButtonGrid_SelectRadioButton(grid, index);
+    else
+    {
+        grid->buttons[index].isOn = !grid->buttons[index].isOn;
+        ButtonGrid_RedrawButton(grid, index);
+    }
+}
+
+void ButtonGrid_SetButtonStateByName(
+    HWND gridHwnd,
+    const char *name,
+    int isOn
+)
+{
+    ButtonGrid *grid;
+    int index;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return;
+
+    index = ButtonGrid_FindButtonIndexByName(grid, name);
+
+    if (index < 0)
+        return;
+
+    if (grid->buttons[index].behavior == BUTTON_GRID_BUTTON_RADIO && isOn)
+        ButtonGrid_SelectRadioButton(grid, index);
+    else
+    {
+        grid->buttons[index].isOn = isOn ? 1 : 0;
+        ButtonGrid_RedrawButton(grid, index);
+    }
+}
+
+int ButtonGrid_GetButtonStateByName(
+    HWND gridHwnd,
+    const char *name
+)
+{
+    ButtonGrid *grid;
+    int index;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return -1;
+
+    index = ButtonGrid_FindButtonIndexByName(grid, name);
+
+    if (index < 0)
+        return -1;
+
+    return grid->buttons[index].isOn;
+}
+
+void ButtonGrid_ToggleButtonStateByName(
+    HWND gridHwnd,
+    const char *name
+)
+{
+    ButtonGrid *grid;
+    int index;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return;
+
+    index = ButtonGrid_FindButtonIndexByName(grid, name);
+
+    if (index < 0)
+        return;
+
+    if (grid->buttons[index].behavior == BUTTON_GRID_BUTTON_RADIO)
+        ButtonGrid_SelectRadioButton(grid, index);
+    else
+    {
+        grid->buttons[index].isOn = !grid->buttons[index].isOn;
+        ButtonGrid_RedrawButton(grid, index);
+    }
 }
 
 static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
