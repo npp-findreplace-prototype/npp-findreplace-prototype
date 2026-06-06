@@ -71,6 +71,8 @@ typedef struct ButtonItem
     int heightOverride;
     int sizeModeOverride;
 
+    int showTextOverride;
+
     int width;
     int height;
 
@@ -120,12 +122,22 @@ typedef struct ButtonGrid
     int layout;
     int sizeMode;
 
+    int showText;
+    int hidePartialButtons;
+    int resizeInLayoutSteps;
+
     int showBorder;
     char borderTitle[BUTTON_GRID_TITLE_SIZE];
     int borderPadding;
     int borderTitleHeight;
+    int borderStyle;
+    int borderThickness;
+    int borderCornerRadius;
     COLORREF borderColor;
+    COLORREF borderLightColor;
+    COLORREF borderShadowColor;
     COLORREF borderTitleColor;
+    COLORREF borderTitleBackColor;
 
     int idBase;
     int firstIndex;
@@ -167,6 +179,7 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config);
 int ButtonGrid_NormalizeSizeMode(int sizeMode);
 
 void ButtonGrid_RedrawContainer(HWND hwnd);
+void ButtonGrid_AdjustRectToLayoutSteps(ButtonGrid *grid, int *width, int *height);
 void ButtonGrid_ResolveButtonSize(ButtonGrid *grid, ButtonItem *button);
 void ButtonGrid_UpdateAllButtonSizes(ButtonGrid *grid);
 void ButtonGrid_Layout(ButtonGrid *grid);

@@ -196,6 +196,8 @@ void ButtonGrid_SetRect(
     int height
 )
 {
+    ButtonGrid *grid;
+
     if (!gridHwnd)
         return;
 
@@ -204,6 +206,11 @@ void ButtonGrid_SetRect(
 
     if (height < 1)
         height = 1;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (grid)
+        ButtonGrid_AdjustRectToLayoutSteps(grid, &width, &height);
 
     SetWindowPos(
         gridHwnd,
@@ -304,6 +311,7 @@ void ButtonGrid_SetLayout(HWND gridHwnd, int layout)
 
     grid->layout = layout;
 
+    ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_Layout(grid);
 }
 

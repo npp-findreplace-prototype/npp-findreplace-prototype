@@ -17,12 +17,22 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->layout = BUTTON_GRID_DEFAULT_LAYOUT;
     config->sizeMode = BUTTON_GRID_DEFAULT_SIZE_MODE;
 
+    config->showText = BUTTON_GRID_DEFAULT_SHOW_TEXT;
+    config->hidePartialButtons = BUTTON_GRID_DEFAULT_HIDE_PARTIAL_BUTTONS;
+    config->resizeInLayoutSteps = BUTTON_GRID_DEFAULT_RESIZE_IN_LAYOUT_STEPS;
+
     config->showBorder = BUTTON_GRID_DEFAULT_SHOW_BORDER;
     config->borderTitle = BUTTON_GRID_DEFAULT_BORDER_TITLE;
     config->borderPadding = BUTTON_GRID_DEFAULT_BORDER_PADDING;
     config->borderTitleHeight = BUTTON_GRID_DEFAULT_BORDER_TITLE_HEIGHT;
+    config->borderStyle = BUTTON_GRID_DEFAULT_BORDER_STYLE;
+    config->borderThickness = BUTTON_GRID_DEFAULT_BORDER_THICKNESS;
+    config->borderCornerRadius = BUTTON_GRID_DEFAULT_BORDER_CORNER_RADIUS;
     config->borderColor = BUTTON_GRID_DEFAULT_BORDER_COLOR;
+    config->borderLightColor = BUTTON_GRID_DEFAULT_BORDER_LIGHT_COLOR;
+    config->borderShadowColor = BUTTON_GRID_DEFAULT_BORDER_SHADOW_COLOR;
     config->borderTitleColor = BUTTON_GRID_DEFAULT_BORDER_TITLE_COLOR;
+    config->borderTitleBackColor = BUTTON_GRID_DEFAULT_BORDER_TITLE_BACK_COLOR;
 
     config->idBase = BUTTON_GRID_DEFAULT_ID_BASE;
     config->firstIndex = BUTTON_GRID_DEFAULT_FIRST_INDEX;
@@ -70,13 +80,34 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
 
     config->sizeMode = ButtonGrid_NormalizeSizeMode(config->sizeMode);
 
+    config->showText = config->showText ? 1 : 0;
+    config->hidePartialButtons = config->hidePartialButtons ? 1 : 0;
+    config->resizeInLayoutSteps = config->resizeInLayoutSteps ? 1 : 0;
+
     config->showBorder = config->showBorder ? 1 : 0;
+
+    if (config->borderStyle != BUTTON_GRID_BORDER_STYLE_NONE &&
+        config->borderStyle != BUTTON_GRID_BORDER_STYLE_SIMPLE &&
+        config->borderStyle != BUTTON_GRID_BORDER_STYLE_ETCHED &&
+        config->borderStyle != BUTTON_GRID_BORDER_STYLE_ROUNDED)
+    {
+        config->borderStyle = BUTTON_GRID_DEFAULT_BORDER_STYLE;
+    }
 
     if (config->borderPadding < 0)
         config->borderPadding = 0;
 
     if (config->borderTitleHeight < 0)
         config->borderTitleHeight = 0;
+
+    if (config->borderThickness < 1)
+        config->borderThickness = 1;
+
+    if (config->borderThickness > 8)
+        config->borderThickness = 8;
+
+    if (config->borderCornerRadius < 0)
+        config->borderCornerRadius = 0;
 
     if (!config->borderTitle)
         config->borderTitle = "";
@@ -115,12 +146,22 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
     grid->layout = config->layout;
     grid->sizeMode = config->sizeMode;
 
+    grid->showText = config->showText;
+    grid->hidePartialButtons = config->hidePartialButtons;
+    grid->resizeInLayoutSteps = config->resizeInLayoutSteps;
+
     grid->showBorder = config->showBorder;
     ButtonGrid_CopyText(grid->borderTitle, BUTTON_GRID_TITLE_SIZE, config->borderTitle);
     grid->borderPadding = config->borderPadding;
     grid->borderTitleHeight = config->borderTitleHeight;
+    grid->borderStyle = config->borderStyle;
+    grid->borderThickness = config->borderThickness;
+    grid->borderCornerRadius = config->borderCornerRadius;
     grid->borderColor = config->borderColor;
+    grid->borderLightColor = config->borderLightColor;
+    grid->borderShadowColor = config->borderShadowColor;
     grid->borderTitleColor = config->borderTitleColor;
+    grid->borderTitleBackColor = config->borderTitleBackColor;
 
     grid->idBase = config->idBase;
     grid->firstIndex = config->firstIndex;

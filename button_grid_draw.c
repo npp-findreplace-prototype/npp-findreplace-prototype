@@ -1,14 +1,142 @@
 #include "button_grid_internal.h"
 
+static int ButtonGrid_HasVisibleBorder(ButtonGrid *grid)
+{
+    if (!grid)
+        return 0;
+
+    if (!grid->showBorder)
+        return 0;
+
+    if (grid->borderStyle == BUTTON_GRID_BORDER_STYLE_NONE)
+        return 0;
+
+    return 1;
+}
+
+static void ButtonGrid_DrawLine(
+    HDC hdc,
+    int x1,
+    int y1,
+    int x2,
+    int y2,
+    COLORREF color
+)
+{
+    HPEN pen;
+    HGDIOBJ oldPen;
+
+    pen = CreatePen(PS_SOLID, 1, color);
+    oldPen = SelectObject(hdc, pen);
+
+    MoveToEx(hdc, x1, y1, NULL);
+    LineTo(hdc, x2, y2);
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+}
+
+static void ButtonGrid_DrawSimpleBorder(ButtonGrid *grid, HDC hdc, RECT *rc)
+{
+    HPEN pen;
+    HGDIOBJ oldPen;
+    HGDIOBJ oldBrush;
+
+    pen = CreatePen(PS_SOLID, grid->borderThickness, grid->borderColor);
+    oldPen = SelectObject(hdc, pen);
+    oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
+
+    Rectangle(hdc, rc->left, rc->top, rc->right, rc->bottom);
+
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+}
+
+static void ButtonGrid_DrawEtchedBorder(ButtonGrid *grid, HDC hdc, RECT *rc)
+{
+    ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->right, rc->top, grid->borderLightColor);
+    ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->left, rc->bottom, grid->borderLightColor);
+
+    ButtonGrid_DrawLine(hdc, rc->left, rc->bottom, rc->right, rc->bottom, grid->borderShadowColor);
+    ButtonGrid_DrawLine(hdc, rc->right, rc->top, rc->right, rc->bottom, grid->borderShadowColor);
+
+    rc->left += 1;
+    rc->top += 1;
+    rc->right -= 1;
+    rc->bottom -= 1;
+
+    ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->right, rc->top, grid->borderColor);
+    ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->left, rc->bottom, grid->borderColor);
+    ButtonGrid_DrawLine(hdc, rc->left, rc->bottom, rc->right, rc->bottom, grid->borderColor);
+    ButtonGrid_DrawLine(hdc, rc->right, rc->top, rc->right, rc->bottom, grid->borderColor);
+}
+
+static void ButtonGrid_DrawRoundedBorder(ButtonGrid *grid, HDC hdc, RECT *rc)
+{
+    HPEN pen;
+    HGDIOBJ oldPen;
+    HGDIOBJ oldBrush;
+    int radius;
+
+    radius = grid->borderCornerRadius;
+
+    if (radius < 1)
+        radius = 1;
+
+    pen = CreatePen(PS_SOLID, grid->borderThickness, grid->borderColor);
+    oldPen = SelectObject(hdc, pen);
+    oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
+
+    RoundRect(
+        hdc,
+        rc->left,
+        rc->top,
+        rc->right,
+        rc->bottom,
+        radius,
+        radius
+    );
+
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+}
+
+static void ButtonGrid_DrawBorderTitle(ButtonGrid *grid, HDC hdc, RECT *borderRc)
+{
+    RECT titleRc;
+    HBRUSH brush;
+
+    if (!grid->borderTitle[0])
+        return;
+
+    titleRc.left = borderRc->left + 12;
+    titleRc.top = 0;
+    titleRc.right = borderRc->right - 12;
+    titleRc.bottom = grid->borderTitleHeight;
+
+    brush = CreateSolidBrush(grid->borderTitleBackColor);
+    FillRect(hdc, &titleRc, brush);
+    DeleteObject(brush);
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, grid->borderTitleColor);
+
+    DrawText(
+        hdc,
+        grid->borderTitle,
+        -1,
+        &titleRc,
+        DT_LEFT | DT_VCENTER | DT_SINGLELINE
+    );
+}
+
 static void ButtonGrid_DrawBorder(ButtonGrid *grid, HDC hdc)
 {
     RECT rc;
-    RECT titleRc;
-    HPEN pen;
-    HGDIOBJ oldPen;
-    HBRUSH backgroundBrush;
 
-    if (!grid || !grid->showBorder)
+    if (!ButtonGrid_HasVisibleBorder(grid))
         return;
 
     GetClientRect(grid->hwnd, &rc);
@@ -21,39 +149,14 @@ static void ButtonGrid_DrawBorder(ButtonGrid *grid, HDC hdc)
     rc.right -= 2;
     rc.bottom -= 2;
 
-    pen = CreatePen(PS_SOLID, 1, grid->borderColor);
-    oldPen = SelectObject(hdc, pen);
+    if (grid->borderStyle == BUTTON_GRID_BORDER_STYLE_SIMPLE)
+        ButtonGrid_DrawSimpleBorder(grid, hdc, &rc);
+    else if (grid->borderStyle == BUTTON_GRID_BORDER_STYLE_ROUNDED)
+        ButtonGrid_DrawRoundedBorder(grid, hdc, &rc);
+    else
+        ButtonGrid_DrawEtchedBorder(grid, hdc, &rc);
 
-    MoveToEx(hdc, rc.left, rc.top, NULL);
-    LineTo(hdc, rc.right, rc.top);
-    LineTo(hdc, rc.right, rc.bottom);
-    LineTo(hdc, rc.left, rc.bottom);
-    LineTo(hdc, rc.left, rc.top);
-
-    SelectObject(hdc, oldPen);
-    DeleteObject(pen);
-
-    if (grid->borderTitle[0])
-    {
-        titleRc.left = rc.left + 10;
-        titleRc.top = 0;
-        titleRc.right = rc.right - 10;
-        titleRc.bottom = grid->borderTitleHeight;
-
-        backgroundBrush = (HBRUSH)(COLOR_WINDOW + 1);
-        FillRect(hdc, &titleRc, backgroundBrush);
-
-        SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, grid->borderTitleColor);
-
-        DrawText(
-            hdc,
-            grid->borderTitle,
-            -1,
-            &titleRc,
-            DT_LEFT | DT_VCENTER | DT_SINGLELINE
-        );
-    }
+    ButtonGrid_DrawBorderTitle(grid, hdc, &rc);
 }
 
 LRESULT ButtonGrid_HandlePaint(HWND hwnd)
@@ -122,6 +225,20 @@ static void ButtonGrid_DrawGeneratedFallback(
 
     SelectObject(hdc, oldPen);
     DeleteObject(pen);
+}
+
+static int ButtonGrid_ButtonShouldShowText(ButtonGrid *grid, ButtonItem *button)
+{
+    if (!grid || !button)
+        return 0;
+
+    if (button->showTextOverride == BUTTON_GRID_TEXT_SHOW)
+        return 1;
+
+    if (button->showTextOverride == BUTTON_GRID_TEXT_HIDE)
+        return 0;
+
+    return grid->showText ? 1 : 0;
 }
 
 static void ButtonGrid_DrawCenteredText(
@@ -240,7 +357,8 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
         }
     }
 
-    ButtonGrid_DrawCenteredText(hdc, button->text, &rc, grid->foreColor);
+    if (ButtonGrid_ButtonShouldShowText(grid, button))
+        ButtonGrid_DrawCenteredText(hdc, button->text, &rc, grid->foreColor);
 
     FrameRect(hdc, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
 

@@ -27,6 +27,16 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE 1
 #define BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL 2
 #define BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL 3
+#define BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT 4
+
+#define BUTTON_GRID_TEXT_USE_DEFAULT -1
+#define BUTTON_GRID_TEXT_HIDE 0
+#define BUTTON_GRID_TEXT_SHOW 1
+
+#define BUTTON_GRID_BORDER_STYLE_NONE 0
+#define BUTTON_GRID_BORDER_STYLE_SIMPLE 1
+#define BUTTON_GRID_BORDER_STYLE_ETCHED 2
+#define BUTTON_GRID_BORDER_STYLE_ROUNDED 3
 
 #define BUTTON_GRID_DEFAULT_NAME_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_ACTION_PREFIX "mybutton_"
@@ -44,14 +54,24 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_DEFAULT_STATE 0
 #define BUTTON_GRID_DEFAULT_STRETCH_PICTURES 1
 
-#define BUTTON_GRID_DEFAULT_SIZE_MODE BUTTON_GRID_SIZE_FIXED
+#define BUTTON_GRID_DEFAULT_SIZE_MODE BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT
+
+#define BUTTON_GRID_DEFAULT_SHOW_TEXT 1
+#define BUTTON_GRID_DEFAULT_HIDE_PARTIAL_BUTTONS 0
+#define BUTTON_GRID_DEFAULT_RESIZE_IN_LAYOUT_STEPS 0
 
 #define BUTTON_GRID_DEFAULT_SHOW_BORDER 0
 #define BUTTON_GRID_DEFAULT_BORDER_TITLE ""
 #define BUTTON_GRID_DEFAULT_BORDER_PADDING 8
 #define BUTTON_GRID_DEFAULT_BORDER_TITLE_HEIGHT 20
-#define BUTTON_GRID_DEFAULT_BORDER_COLOR RGB(0, 0, 0)
+#define BUTTON_GRID_DEFAULT_BORDER_STYLE BUTTON_GRID_BORDER_STYLE_ETCHED
+#define BUTTON_GRID_DEFAULT_BORDER_THICKNESS 1
+#define BUTTON_GRID_DEFAULT_BORDER_CORNER_RADIUS 8
+#define BUTTON_GRID_DEFAULT_BORDER_COLOR RGB(96, 96, 96)
+#define BUTTON_GRID_DEFAULT_BORDER_LIGHT_COLOR RGB(255, 255, 255)
+#define BUTTON_GRID_DEFAULT_BORDER_SHADOW_COLOR RGB(128, 128, 128)
 #define BUTTON_GRID_DEFAULT_BORDER_TITLE_COLOR RGB(0, 0, 0)
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE_BACK_COLOR RGB(240, 240, 240)
 
 #define BUTTON_GRID_DEFAULT_OFF_PICTURE_COLOR RGB(150, 150, 150)
 #define BUTTON_GRID_DEFAULT_ON_PICTURE_COLOR RGB(80, 190, 80)
@@ -73,6 +93,8 @@ typedef struct ButtonGridItemConfig
     int widthOverride;
     int heightOverride;
     int sizeModeOverride;
+
+    int showTextOverride;
 
     AppImage *pictureOff;
     AppImage *pictureOn;
@@ -99,12 +121,22 @@ typedef struct ButtonGridConfig
     int layout;
     int sizeMode;
 
+    int showText;
+    int hidePartialButtons;
+    int resizeInLayoutSteps;
+
     int showBorder;
     const char *borderTitle;
     int borderPadding;
     int borderTitleHeight;
+    int borderStyle;
+    int borderThickness;
+    int borderCornerRadius;
     COLORREF borderColor;
+    COLORREF borderLightColor;
+    COLORREF borderShadowColor;
     COLORREF borderTitleColor;
+    COLORREF borderTitleBackColor;
 
     int idBase;
     int firstIndex;

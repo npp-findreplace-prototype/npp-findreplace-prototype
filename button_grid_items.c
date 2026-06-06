@@ -10,6 +10,18 @@ static DWORD ButtonGrid_GetButtonStyle(void)
         SS_OWNERDRAW;
 }
 
+static int ButtonGrid_NormalizeTextOverride(int value)
+{
+    if (value != BUTTON_GRID_TEXT_USE_DEFAULT &&
+        value != BUTTON_GRID_TEXT_HIDE &&
+        value != BUTTON_GRID_TEXT_SHOW)
+    {
+        return BUTTON_GRID_TEXT_USE_DEFAULT;
+    }
+
+    return value;
+}
+
 static void ButtonGrid_SetDefaultButtonName(ButtonGrid *grid, int buttonIndex)
 {
     int indexNumber;
@@ -77,6 +89,7 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
     grid->buttons[buttonIndex].widthOverride = 0;
     grid->buttons[buttonIndex].heightOverride = 0;
     grid->buttons[buttonIndex].sizeModeOverride = BUTTON_GRID_SIZE_USE_DEFAULT;
+    grid->buttons[buttonIndex].showTextOverride = BUTTON_GRID_TEXT_USE_DEFAULT;
 
     if (item)
     {
@@ -101,6 +114,7 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
         grid->buttons[buttonIndex].widthOverride = item->widthOverride;
         grid->buttons[buttonIndex].heightOverride = item->heightOverride;
         grid->buttons[buttonIndex].sizeModeOverride = item->sizeModeOverride;
+        grid->buttons[buttonIndex].showTextOverride = ButtonGrid_NormalizeTextOverride(item->showTextOverride);
 
         grid->buttons[buttonIndex].pictureOff = item->pictureOff;
         grid->buttons[buttonIndex].pictureOn = item->pictureOn;

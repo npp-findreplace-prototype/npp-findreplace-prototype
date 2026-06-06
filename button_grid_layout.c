@@ -5,7 +5,8 @@ int ButtonGrid_NormalizeSizeMode(int sizeMode)
     if (sizeMode != BUTTON_GRID_SIZE_FIXED &&
         sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE &&
         sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL &&
-        sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL)
+        sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL &&
+        sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT)
     {
         return BUTTON_GRID_SIZE_FIXED;
     }
@@ -13,10 +14,135 @@ int ButtonGrid_NormalizeSizeMode(int sizeMode)
     return sizeMode;
 }
 
-static void ButtonGrid_MoveChildClean(HWND hwnd, int x, int y, int w, int h)
+static int ButtonGrid_HasBorderSpace(ButtonGrid *grid)
 {
+    if (!grid)
+        return 0;
+
+    if (!grid->showBorder)
+        return 0;
+
+    if (grid->borderStyle == BUTTON_GRID_BORDER_STYLE_NONE)
+        return 0;
+
+    return 1;
+}
+
+static int ButtonGrid_GetFrameExtraWidth(ButtonGrid *grid)
+{
+    if (!ButtonGrid_HasBorderSpace(grid))
+        return 0;
+
+    return grid->borderPadding * 2;
+}
+
+static int ButtonGrid_GetFrameExtraHeight(ButtonGrid *grid)
+{
+    int extra;
+
+    if (!ButtonGrid_HasBorderSpace(grid))
+        return 0;
+
+    extra = grid->borderPadding * 2;
+
+    if (grid->borderTitle[0])
+        extra += grid->borderTitleHeight;
+
+    return extra;
+}
+
+static int ButtonGrid_SnapContentSizeToStep(int contentSize, int itemSize, int spacing)
+{
+    int count;
+    int result;
+
+    if (itemSize < 1)
+        itemSize = 1;
+
+    if (spacing < 0)
+        spacing = 0;
+
+    if (contentSize < itemSize)
+        return itemSize;
+
+    count = (contentSize + spacing) / (itemSize + spacing);
+
+    if (count < 1)
+        count = 1;
+
+    result = count * itemSize + (count - 1) * spacing;
+
+    if (result < itemSize)
+        result = itemSize;
+
+    return result;
+}
+
+void ButtonGrid_AdjustRectToLayoutSteps(ButtonGrid *grid, int *width, int *height)
+{
+    int contentW;
+    int contentH;
+    int extraW;
+    int extraH;
+
+    if (!grid || !width || !height)
+        return;
+
+    if (!grid->resizeInLayoutSteps)
+        return;
+
+    extraW = ButtonGrid_GetFrameExtraWidth(grid);
+    extraH = ButtonGrid_GetFrameExtraHeight(grid);
+
+    contentW = *width - extraW;
+    contentH = *height - extraH;
+
+    if (contentW < 1)
+        contentW = 1;
+
+    if (contentH < 1)
+        contentH = 1;
+
+    if (grid->layout == BUTTON_GRID_LAYOUT_VERTICAL)
+    {
+        contentH = ButtonGrid_SnapContentSizeToStep(
+            contentH,
+            grid->buttonHeight,
+            grid->verticalSpacing
+        );
+    }
+    else
+    {
+        contentW = ButtonGrid_SnapContentSizeToStep(
+            contentW,
+            grid->buttonWidth,
+            grid->horizontalSpacing
+        );
+    }
+
+    *width = contentW + extraW;
+    *height = contentH + extraH;
+
+    if (*width < 1)
+        *width = 1;
+
+    if (*height < 1)
+        *height = 1;
+}
+
+static void ButtonGrid_MoveChildClean(HWND hwnd, int x, int y, int w, int h, int visible)
+{
+    UINT flags;
+
     if (!hwnd)
         return;
+
+    flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS;
+
+    if (visible)
+        flags |= SWP_SHOWWINDOW;
+    else
+        flags |= SWP_HIDEWINDOW;
 
     SetWindowPos(
         hwnd,
@@ -25,10 +151,11 @@ static void ButtonGrid_MoveChildClean(HWND hwnd, int x, int y, int w, int h)
         y,
         w,
         h,
-        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS
+        flags
     );
 
-    InvalidateRect(hwnd, NULL, TRUE);
+    if (visible)
+        InvalidateRect(hwnd, NULL, TRUE);
 }
 
 void ButtonGrid_RedrawContainer(HWND hwnd)
@@ -110,6 +237,14 @@ void ButtonGrid_ResolveButtonSize(ButtonGrid *grid, ButtonItem *button)
 
     sizeMode = ButtonGrid_NormalizeSizeMode(sizeMode);
 
+    if (sizeMode == BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT)
+    {
+        if (grid->layout == BUTTON_GRID_LAYOUT_VERTICAL)
+            sizeMode = BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL;
+        else
+            sizeMode = BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL;
+    }
+
     imageW = 0;
     imageH = 0;
 
@@ -172,7 +307,7 @@ static void ButtonGrid_GetContentRect(ButtonGrid *grid, RECT *rc)
 {
     GetClientRect(grid->hwnd, rc);
 
-    if (!grid->showBorder)
+    if (!ButtonGrid_HasBorderSpace(grid))
         return;
 
     rc->left += grid->borderPadding;
@@ -332,6 +467,29 @@ static void ButtonGrid_LayoutVertical(
         size->height = 1;
 }
 
+static int ButtonGrid_ButtonFullyInsideContentRect(
+    const RECT *rc,
+    int x,
+    int y,
+    int w,
+    int h
+)
+{
+    if (x < rc->left)
+        return 0;
+
+    if (y < rc->top)
+        return 0;
+
+    if (x + w > rc->right)
+        return 0;
+
+    if (y + h > rc->bottom)
+        return 0;
+
+    return 1;
+}
+
 void ButtonGrid_Layout(ButtonGrid *grid)
 {
     RECT rc;
@@ -383,12 +541,33 @@ void ButtonGrid_Layout(ButtonGrid *grid)
 
     for (i = 0; i < grid->buttonCount; i++)
     {
+        int x;
+        int y;
+        int visible;
+
+        x = positions[i].x + offsetX;
+        y = positions[i].y + offsetY;
+
+        visible = 1;
+
+        if (grid->hidePartialButtons)
+        {
+            visible = ButtonGrid_ButtonFullyInsideContentRect(
+                &rc,
+                x,
+                y,
+                grid->buttons[i].width,
+                grid->buttons[i].height
+            );
+        }
+
         ButtonGrid_MoveChildClean(
             grid->buttons[i].hwnd,
-            positions[i].x + offsetX,
-            positions[i].y + offsetY,
+            x,
+            y,
             grid->buttons[i].width,
-            grid->buttons[i].height
+            grid->buttons[i].height,
+            visible
         );
     }
 

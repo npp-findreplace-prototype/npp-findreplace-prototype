@@ -43,27 +43,29 @@ typedef struct SearchGridButtonDefinition
     int widthOverride;
     int heightOverride;
     int sizeModeOverride;
+
+    int showTextOverride;
 } SearchGridButtonDefinition;
 
-#define SEARCH_GRID_BUTTON(name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride) \
-    { name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride }
+#define SEARCH_GRID_BUTTON(name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride, showTextOverride) \
+    { name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride, showTextOverride }
 
 static const SearchGridButtonDefinition SEARCH_GRID_BUTTONS[] =
 {
-    SEARCH_GRID_BUTTON("LiteralSearch",        NULL, "Literal",   "Literal Search",         NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 1, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("EscapedLiteralSearch", NULL, "Escaped",   "Escaped Literal Search", NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("RegExSearch",          NULL, "Regex",     "Regex Search",           NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("SemanticSearch",       NULL, "Semantic",  "Semantic Search",        NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("LiteralSearch",        NULL, "Literal",   "Literal Search",         NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 1, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("EscapedLiteralSearch", NULL, "Escaped",   "Escaped Literal Search", NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("RegExSearch",          NULL, "Regex",     "Regex Search",           NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("SemanticSearch",       NULL, "Semantic",  "Semantic Search",        NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
 
-    SEARCH_GRID_BUTTON("CaseSensitive",        NULL, "Case",      "Case Sensitive",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("DiacriticSensitive",   NULL, "Diacritic", "Diacritic Sensitive",    NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("DotIncludesNewline",   NULL, "Dot NL",    "Dot Includes Newline",   NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("FuzzyLogicSearch",     NULL, "Fuzzy",     "Fuzzy Logic Search",     NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("CaseSensitive",        NULL, "Case",      "Case Sensitive",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("DiacriticSensitive",   NULL, "Diacritic", "Diacritic Sensitive",    NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("DotIncludesNewline",   NULL, "Dot NL",    "Dot Includes Newline",   NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("FuzzyLogicSearch",     NULL, "Fuzzy",     "Fuzzy Logic Search",     NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
 
-    SEARCH_GRID_BUTTON("WrapAround",           NULL, "Wrap",      "Wrap Around",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("WholeWord",            NULL, "Word",      "Whole Word",             NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("BooleanSearch",        NULL, "Boolean",   "Boolean Search",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("Settings",             NULL, "Settings",  "Settings",               NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT)
+    SEARCH_GRID_BUTTON("WrapAround",           NULL, "Wrap",      "Wrap Around",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("WholeWord",            NULL, "Word",      "Whole Word",             NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("BooleanSearch",        NULL, "Boolean",   "Boolean Search",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("Settings",             NULL, "Settings",  "Settings",               NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT, BUTTON_GRID_TEXT_USE_DEFAULT)
 };
 
 #define SEARCH_GRID_BUTTON_COUNT (sizeof(SEARCH_GRID_BUTTONS) / sizeof(SEARCH_GRID_BUTTONS[0]))
@@ -115,6 +117,7 @@ static void PrepareSearchGridItems(HINSTANCE hInstance, const char *themeName)
         g_searchGridItems[i].widthOverride = SEARCH_GRID_BUTTONS[i].widthOverride;
         g_searchGridItems[i].heightOverride = SEARCH_GRID_BUTTONS[i].heightOverride;
         g_searchGridItems[i].sizeModeOverride = SEARCH_GRID_BUTTONS[i].sizeModeOverride;
+        g_searchGridItems[i].showTextOverride = SEARCH_GRID_BUTTONS[i].showTextOverride;
 
         g_searchGridItems[i].pictureOff = ImageLoader_LoadButtonIcon(
             hInstance,
@@ -160,14 +163,30 @@ static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
     config->verticalSpacing = 10;
 
     config->layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
-    config->sizeMode = BUTTON_GRID_SIZE_FIXED;
+    config->sizeMode = BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT;
+
+    config->showText = 0;
+
+    config->hidePartialButtons = 1;
+
+    /*
+        Set to 1 if you want the grid window itself to resize only
+        in column/row reorganisation steps.
+    */
+    config->resizeInLayoutSteps = 0;
 
     config->showBorder = 1;
     config->borderTitle = "Search Options";
-    config->borderPadding = 10;
+    config->borderPadding = 12;
     config->borderTitleHeight = 22;
-    config->borderColor = RGB(0, 0, 0);
+    config->borderStyle = BUTTON_GRID_BORDER_STYLE_ROUNDED;
+    config->borderThickness = 1;
+    config->borderCornerRadius = 10;
+    config->borderColor = RGB(96, 96, 96);
+    config->borderLightColor = RGB(255, 255, 255);
+    config->borderShadowColor = RGB(128, 128, 128);
     config->borderTitleColor = RGB(0, 0, 0);
+    config->borderTitleBackColor = RGB(240, 240, 240);
 
     config->backColor = RGB(192, 192, 192);
     config->foreColor = RGB(0, 0, 0);
