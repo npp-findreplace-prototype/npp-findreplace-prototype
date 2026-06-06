@@ -10,6 +10,7 @@ void ImageLoader_Shutdown(void);
 
 AppImage *ImageLoader_LoadButtonIcon(
     HINSTANCE hInstance,
+    const char *themeName,
     const char *buttonName,
     const char *stateName,
     int *loadFailed
@@ -22,6 +23,12 @@ int ImageLoader_Draw(
     AppImage *image,
     const RECT *rect,
     int stretch
+);
+
+int ImageLoader_GetSize(
+    AppImage *image,
+    int *width,
+    int *height
 );
 
 #endif

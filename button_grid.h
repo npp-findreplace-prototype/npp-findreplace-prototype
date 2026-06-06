@@ -22,6 +22,12 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_BUTTON_RADIO 1
 #define BUTTON_GRID_BUTTON_DISABLED 2
 
+#define BUTTON_GRID_SIZE_USE_DEFAULT -1
+#define BUTTON_GRID_SIZE_FIXED 0
+#define BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE 1
+#define BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL 2
+#define BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL 3
+
 #define BUTTON_GRID_DEFAULT_NAME_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_TEXT_FORMAT "%d"
 #define BUTTON_GRID_DEFAULT_CLICK_IDENTIFIER_FORMAT "%s"
@@ -36,6 +42,8 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_DEFAULT_TOGGLE_ON_CLICK 1
 #define BUTTON_GRID_DEFAULT_STATE 0
 #define BUTTON_GRID_DEFAULT_STRETCH_PICTURES 1
+
+#define BUTTON_GRID_DEFAULT_SIZE_MODE BUTTON_GRID_SIZE_FIXED
 
 #define BUTTON_GRID_DEFAULT_OFF_PICTURE_COLOR RGB(150, 150, 150)
 #define BUTTON_GRID_DEFAULT_ON_PICTURE_COLOR RGB(80, 190, 80)
@@ -52,6 +60,10 @@ typedef struct ButtonGridItemConfig
     int behavior;
     int radioGroup;
     int defaultState;
+
+    int widthOverride;
+    int heightOverride;
+    int sizeModeOverride;
 
     AppImage *pictureOff;
     AppImage *pictureOn;
@@ -76,6 +88,8 @@ typedef struct ButtonGridConfig
     int verticalSpacing;
 
     int layout;
+
+    int sizeMode;
 
     int idBase;
     int firstIndex;
@@ -122,6 +136,11 @@ HWND ButtonGrid_Create(
     ButtonGridClickCallback onClick
 );
 
+void ButtonGrid_SetClickCallback(
+    HWND gridHwnd,
+    ButtonGridClickCallback onClick
+);
+
 void ButtonGrid_SetRect(
     HWND gridHwnd,
     int x,
@@ -134,6 +153,11 @@ void ButtonGrid_SetButtonSize(
     HWND gridHwnd,
     int buttonWidth,
     int buttonHeight
+);
+
+void ButtonGrid_SetSizeMode(
+    HWND gridHwnd,
+    int sizeMode
 );
 
 void ButtonGrid_SetSpacing(

@@ -13,8 +13,28 @@
 #define SWP_NOCOPYBITS 0x0100
 #endif
 
+#ifndef TTS_ALWAYSTIP
+#define TTS_ALWAYSTIP 0x01
+#endif
+
 #ifndef TTS_NOPREFIX
 #define TTS_NOPREFIX 0x02
+#endif
+
+#ifndef TTF_IDISHWND
+#define TTF_IDISHWND 0x0001
+#endif
+
+#ifndef TTF_SUBCLASS
+#define TTF_SUBCLASS 0x0010
+#endif
+
+#ifndef TTM_ADDTOOLA
+#define TTM_ADDTOOLA (WM_USER + 4)
+#endif
+
+#ifndef TOOLTIPS_CLASSA
+#define TOOLTIPS_CLASSA "tooltips_class32"
 #endif
 
 #define BUTTON_GRID_CLASS_NAME "ButtonGridChildClass"
@@ -41,6 +61,13 @@ typedef struct ButtonItem
     int radioGroup;
     int isOn;
 
+    int widthOverride;
+    int heightOverride;
+    int sizeModeOverride;
+
+    int width;
+    int height;
+
     AppImage *pictureOff;
     AppImage *pictureOn;
 
@@ -51,13 +78,17 @@ typedef struct ButtonItem
     int pictureOnLoadFailed;
 } ButtonItem;
 
-typedef struct GridLayout
+typedef struct GridPosition
 {
-    int cols;
-    int rows;
-    int startX;
-    int startY;
-} GridLayout;
+    int x;
+    int y;
+} GridPosition;
+
+typedef struct GridSize
+{
+    int width;
+    int height;
+} GridSize;
 
 typedef struct ButtonGrid
 {
@@ -81,6 +112,7 @@ typedef struct ButtonGrid
     int verticalSpacing;
 
     int layout;
+    int sizeMode;
 
     int idBase;
     int firstIndex;
@@ -148,6 +180,19 @@ static int ClampInt(int value, int minValue, int maxValue)
     return value;
 }
 
+static int NormalizeSizeMode(int sizeMode)
+{
+    if (sizeMode != BUTTON_GRID_SIZE_FIXED &&
+        sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE &&
+        sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL &&
+        sizeMode != BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL)
+    {
+        return BUTTON_GRID_SIZE_FIXED;
+    }
+
+    return sizeMode;
+}
+
 static void MoveChildClean(HWND hwnd, int x, int y, int w, int h)
 {
     if (!hwnd)
@@ -191,6 +236,7 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->verticalSpacing = BUTTON_GRID_DEFAULT_VERTICAL_SPACING;
 
     config->layout = BUTTON_GRID_DEFAULT_LAYOUT;
+    config->sizeMode = BUTTON_GRID_DEFAULT_SIZE_MODE;
 
     config->idBase = BUTTON_GRID_DEFAULT_ID_BASE;
     config->firstIndex = BUTTON_GRID_DEFAULT_FIRST_INDEX;
@@ -235,6 +281,8 @@ static void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
         config->layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
     }
 
+    config->sizeMode = NormalizeSizeMode(config->sizeMode);
+
     if (!config->namePrefix)
         config->namePrefix = BUTTON_GRID_DEFAULT_NAME_PREFIX;
 
@@ -264,6 +312,7 @@ static void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *con
     grid->verticalSpacing = config->verticalSpacing;
 
     grid->layout = config->layout;
+    grid->sizeMode = config->sizeMode;
 
     grid->idBase = config->idBase;
     grid->firstIndex = config->firstIndex;
@@ -297,6 +346,133 @@ static DWORD ButtonGrid_GetButtonStyle(void)
         SS_OWNERDRAW;
 }
 
+static void ButtonGrid_GetBestImageSize(ButtonItem *button, int *imageW, int *imageH)
+{
+    int w1;
+    int h1;
+    int w2;
+    int h2;
+    int hasOff;
+    int hasOn;
+
+    w1 = 0;
+    h1 = 0;
+    w2 = 0;
+    h2 = 0;
+
+    hasOff = ImageLoader_GetSize(button->pictureOff, &w1, &h1);
+    hasOn = ImageLoader_GetSize(button->pictureOn, &w2, &h2);
+
+    if (hasOff && hasOn)
+    {
+        if (w2 * h2 >= w1 * h1)
+        {
+            *imageW = w2;
+            *imageH = h2;
+        }
+        else
+        {
+            *imageW = w1;
+            *imageH = h1;
+        }
+
+        return;
+    }
+
+    if (hasOn)
+    {
+        *imageW = w2;
+        *imageH = h2;
+        return;
+    }
+
+    if (hasOff)
+    {
+        *imageW = w1;
+        *imageH = h1;
+        return;
+    }
+
+    *imageW = 0;
+    *imageH = 0;
+}
+
+static void ButtonGrid_ResolveButtonSize(ButtonGrid *grid, ButtonItem *button)
+{
+    int sizeMode;
+    int imageW;
+    int imageH;
+    int w;
+    int h;
+
+    if (!grid || !button)
+        return;
+
+    sizeMode = button->sizeModeOverride;
+
+    if (sizeMode == BUTTON_GRID_SIZE_USE_DEFAULT)
+        sizeMode = grid->sizeMode;
+
+    sizeMode = NormalizeSizeMode(sizeMode);
+
+    imageW = 0;
+    imageH = 0;
+
+    ButtonGrid_GetBestImageSize(button, &imageW, &imageH);
+
+    w = grid->buttonWidth;
+    h = grid->buttonHeight;
+
+    if (sizeMode == BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE)
+    {
+        if (imageW > 0)
+            w = imageW;
+
+        if (imageH > 0)
+            h = imageH;
+    }
+    else if (sizeMode == BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL)
+    {
+        w = grid->buttonWidth;
+
+        if (imageW > 0 && imageH > 0)
+            h = (w * imageH) / imageW;
+    }
+    else if (sizeMode == BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL)
+    {
+        h = grid->buttonHeight;
+
+        if (imageW > 0 && imageH > 0)
+            w = (h * imageW) / imageH;
+    }
+
+    if (button->widthOverride > 0)
+        w = button->widthOverride;
+
+    if (button->heightOverride > 0)
+        h = button->heightOverride;
+
+    if (w < 1)
+        w = 1;
+
+    if (h < 1)
+        h = 1;
+
+    button->width = w;
+    button->height = h;
+}
+
+static void ButtonGrid_UpdateAllButtonSizes(ButtonGrid *grid)
+{
+    int i;
+
+    if (!grid || !grid->buttons)
+        return;
+
+    for (i = 0; i < grid->buttonCount; i++)
+        ButtonGrid_ResolveButtonSize(grid, &grid->buttons[i]);
+}
+
 static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
 {
     int indexNumber;
@@ -317,6 +493,10 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
         grid->buttons[buttonIndex].radioGroup = item->radioGroup;
         grid->buttons[buttonIndex].isOn = item->defaultState ? 1 : 0;
 
+        grid->buttons[buttonIndex].widthOverride = item->widthOverride;
+        grid->buttons[buttonIndex].heightOverride = item->heightOverride;
+        grid->buttons[buttonIndex].sizeModeOverride = item->sizeModeOverride;
+
         grid->buttons[buttonIndex].pictureOff = item->pictureOff;
         grid->buttons[buttonIndex].pictureOn = item->pictureOn;
 
@@ -333,6 +513,10 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
             grid->buttons[buttonIndex].behavior = BUTTON_GRID_BUTTON_TOGGLE;
         }
 
+        if (grid->buttons[buttonIndex].sizeModeOverride != BUTTON_GRID_SIZE_USE_DEFAULT)
+            grid->buttons[buttonIndex].sizeModeOverride = NormalizeSizeMode(grid->buttons[buttonIndex].sizeModeOverride);
+
+        ButtonGrid_ResolveButtonSize(grid, &grid->buttons[buttonIndex]);
         return;
     }
 
@@ -360,6 +544,12 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
     grid->buttons[buttonIndex].behavior = BUTTON_GRID_BUTTON_TOGGLE;
     grid->buttons[buttonIndex].radioGroup = 0;
     grid->buttons[buttonIndex].isOn = grid->defaultState;
+
+    grid->buttons[buttonIndex].widthOverride = 0;
+    grid->buttons[buttonIndex].heightOverride = 0;
+    grid->buttons[buttonIndex].sizeModeOverride = BUTTON_GRID_SIZE_USE_DEFAULT;
+
+    ButtonGrid_ResolveButtonSize(grid, &grid->buttons[buttonIndex]);
 }
 
 static HWND ButtonGrid_CreateOneButton(ButtonGrid *grid, int buttonIndex)
@@ -371,8 +561,8 @@ static HWND ButtonGrid_CreateOneButton(ButtonGrid *grid, int buttonIndex)
         ButtonGrid_GetButtonStyle(),
         0,
         0,
-        grid->buttonWidth,
-        grid->buttonHeight,
+        grid->buttons[buttonIndex].width,
+        grid->buttons[buttonIndex].height,
         grid->hwnd,
         (HMENU)(grid->idBase + buttonIndex),
         grid->hInstance,
@@ -386,7 +576,7 @@ static void ButtonGrid_CreateTooltipWindow(ButtonGrid *grid)
 
     grid->tooltipHwnd = CreateWindowEx(
         WS_EX_TOPMOST,
-        TOOLTIPS_CLASS,
+        TOOLTIPS_CLASSA,
         NULL,
         WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
         CW_USEDEFAULT,
@@ -415,7 +605,7 @@ static void ButtonGrid_CreateTooltipWindow(ButtonGrid *grid)
 
 static void ButtonGrid_AddTooltip(ButtonGrid *grid, int buttonIndex)
 {
-    TOOLINFO ti;
+    TOOLINFOA ti;
 
     if (!grid || !grid->tooltipHwnd)
         return;
@@ -434,84 +624,162 @@ static void ButtonGrid_AddTooltip(ButtonGrid *grid, int buttonIndex)
     ti.uId = (UINT_PTR)grid->buttons[buttonIndex].hwnd;
     ti.lpszText = grid->buttons[buttonIndex].tooltip;
 
-    SendMessage(grid->tooltipHwnd, TTM_ADDTOOL, 0, (LPARAM)&ti);
+    SendMessage(grid->tooltipHwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti);
 }
 
-static void ButtonGrid_CalculateLayout(ButtonGrid *grid, int clientW, int clientH, GridLayout *layout)
-{
-    int gridW;
-    int gridH;
-
-    layout->cols = 1;
-    layout->rows = 1;
-
-    if (grid->layout == BUTTON_GRID_LAYOUT_HORIZONTAL)
-    {
-        layout->cols =
-            (clientW + grid->horizontalSpacing) /
-            (grid->buttonWidth + grid->horizontalSpacing);
-
-        layout->cols = ClampInt(layout->cols, 1, grid->buttonCount);
-
-        layout->rows = (grid->buttonCount + layout->cols - 1) / layout->cols;
-    }
-    else
-    {
-        layout->rows =
-            (clientH + grid->verticalSpacing) /
-            (grid->buttonHeight + grid->verticalSpacing);
-
-        layout->rows = ClampInt(layout->rows, 1, grid->buttonCount);
-
-        layout->cols = (grid->buttonCount + layout->rows - 1) / layout->rows;
-    }
-
-    gridW =
-        layout->cols * grid->buttonWidth +
-        (layout->cols - 1) * grid->horizontalSpacing;
-
-    gridH =
-        layout->rows * grid->buttonHeight +
-        (layout->rows - 1) * grid->verticalSpacing;
-
-    layout->startX = (clientW - gridW) / 2;
-    layout->startY = (clientH - gridH) / 2;
-
-    if (layout->startX < 0)
-        layout->startX = 0;
-
-    if (layout->startY < 0)
-        layout->startY = 0;
-}
-
-static void ButtonGrid_GetButtonGridPosition(
+static void ButtonGrid_LayoutHorizontal(
     ButtonGrid *grid,
-    int buttonIndex,
-    const GridLayout *layout,
-    int *row,
-    int *col
+    int clientW,
+    GridPosition *positions,
+    GridSize *size
 )
 {
-    if (grid->layout == BUTTON_GRID_LAYOUT_HORIZONTAL)
+    int i;
+    int x;
+    int y;
+    int rowH;
+    int rowItems;
+    int maxW;
+
+    x = 0;
+    y = 0;
+    rowH = 0;
+    rowItems = 0;
+    maxW = 0;
+
+    for (i = 0; i < grid->buttonCount; i++)
     {
-        *row = buttonIndex / layout->cols;
-        *col = buttonIndex % layout->cols;
+        ButtonItem *button;
+        int nextX;
+
+        button = &grid->buttons[i];
+
+        if (rowItems > 0)
+            nextX = x + grid->horizontalSpacing + button->width;
+        else
+            nextX = x + button->width;
+
+        if (rowItems > 0 && nextX > clientW)
+        {
+            if (x > maxW)
+                maxW = x;
+
+            y += rowH + grid->verticalSpacing;
+
+            x = 0;
+            rowH = 0;
+            rowItems = 0;
+        }
+
+        if (rowItems > 0)
+            x += grid->horizontalSpacing;
+
+        positions[i].x = x;
+        positions[i].y = y;
+
+        x += button->width;
+
+        if (button->height > rowH)
+            rowH = button->height;
+
+        rowItems++;
     }
-    else
+
+    if (x > maxW)
+        maxW = x;
+
+    size->width = maxW;
+    size->height = y + rowH;
+
+    if (size->width < 1)
+        size->width = 1;
+
+    if (size->height < 1)
+        size->height = 1;
+}
+
+static void ButtonGrid_LayoutVertical(
+    ButtonGrid *grid,
+    int clientH,
+    GridPosition *positions,
+    GridSize *size
+)
+{
+    int i;
+    int x;
+    int y;
+    int colW;
+    int colItems;
+    int maxH;
+
+    x = 0;
+    y = 0;
+    colW = 0;
+    colItems = 0;
+    maxH = 0;
+
+    for (i = 0; i < grid->buttonCount; i++)
     {
-        *col = buttonIndex / layout->rows;
-        *row = buttonIndex % layout->rows;
+        ButtonItem *button;
+        int nextY;
+
+        button = &grid->buttons[i];
+
+        if (colItems > 0)
+            nextY = y + grid->verticalSpacing + button->height;
+        else
+            nextY = y + button->height;
+
+        if (colItems > 0 && nextY > clientH)
+        {
+            if (y > maxH)
+                maxH = y;
+
+            x += colW + grid->horizontalSpacing;
+
+            y = 0;
+            colW = 0;
+            colItems = 0;
+        }
+
+        if (colItems > 0)
+            y += grid->verticalSpacing;
+
+        positions[i].x = x;
+        positions[i].y = y;
+
+        y += button->height;
+
+        if (button->width > colW)
+            colW = button->width;
+
+        if (y > maxH)
+            maxH = y;
+
+        colItems++;
     }
+
+    size->width = x + colW;
+    size->height = maxH;
+
+    if (size->width < 1)
+        size->width = 1;
+
+    if (size->height < 1)
+        size->height = 1;
 }
 
 static void ButtonGrid_Layout(ButtonGrid *grid)
 {
     RECT rc;
-    GridLayout layout;
-
     int clientW;
     int clientH;
     int i;
+    int offsetX;
+    int offsetY;
+
+    GridPosition *positions;
+    GridSize gridSize;
 
     if (!grid || !grid->buttons)
         return;
@@ -521,28 +789,47 @@ static void ButtonGrid_Layout(ButtonGrid *grid)
     clientW = rc.right - rc.left;
     clientH = rc.bottom - rc.top;
 
-    ButtonGrid_CalculateLayout(grid, clientW, clientH, &layout);
+    if (clientW < 1)
+        clientW = 1;
+
+    if (clientH < 1)
+        clientH = 1;
+
+    ButtonGrid_UpdateAllButtonSizes(grid);
+
+    positions = (GridPosition *)malloc(sizeof(GridPosition) * grid->buttonCount);
+
+    if (!positions)
+        return;
+
+    ZeroMemory(positions, sizeof(GridPosition) * grid->buttonCount);
+
+    if (grid->layout == BUTTON_GRID_LAYOUT_VERTICAL)
+        ButtonGrid_LayoutVertical(grid, clientH, positions, &gridSize);
+    else
+        ButtonGrid_LayoutHorizontal(grid, clientW, positions, &gridSize);
+
+    offsetX = (clientW - gridSize.width) / 2;
+    offsetY = (clientH - gridSize.height) / 2;
+
+    if (offsetX < 0)
+        offsetX = 0;
+
+    if (offsetY < 0)
+        offsetY = 0;
 
     for (i = 0; i < grid->buttonCount; i++)
     {
-        int row;
-        int col;
-        int x;
-        int y;
-
-        ButtonGrid_GetButtonGridPosition(grid, i, &layout, &row, &col);
-
-        x = layout.startX + col * (grid->buttonWidth + grid->horizontalSpacing);
-        y = layout.startY + row * (grid->buttonHeight + grid->verticalSpacing);
-
         MoveChildClean(
             grid->buttons[i].hwnd,
-            x,
-            y,
-            grid->buttonWidth,
-            grid->buttonHeight
+            positions[i].x + offsetX,
+            positions[i].y + offsetY,
+            grid->buttons[i].width,
+            grid->buttons[i].height
         );
     }
+
+    free(positions);
 
     RedrawContainer(grid->hwnd);
 }
@@ -1087,6 +1374,21 @@ HWND ButtonGrid_Create(
     );
 }
 
+void ButtonGrid_SetClickCallback(
+    HWND gridHwnd,
+    ButtonGridClickCallback onClick
+)
+{
+    ButtonGrid *grid;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return;
+
+    grid->onClick = onClick;
+}
+
 void ButtonGrid_SetRect(
     HWND gridHwnd,
     int x,
@@ -1139,6 +1441,25 @@ void ButtonGrid_SetButtonSize(
     grid->buttonWidth = buttonWidth;
     grid->buttonHeight = buttonHeight;
 
+    ButtonGrid_UpdateAllButtonSizes(grid);
+    ButtonGrid_Layout(grid);
+}
+
+void ButtonGrid_SetSizeMode(
+    HWND gridHwnd,
+    int sizeMode
+)
+{
+    ButtonGrid *grid;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return;
+
+    grid->sizeMode = NormalizeSizeMode(sizeMode);
+
+    ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_Layout(grid);
 }
 
@@ -1219,11 +1540,14 @@ void ButtonGrid_SetPictures(
 
         grid->buttons[i].pictureOffLoadFailed = 0;
         grid->buttons[i].pictureOnLoadFailed = 0;
+
+        ButtonGrid_ResolveButtonSize(grid, &grid->buttons[i]);
     }
 
     grid->stretchPictures = stretchPictures ? 1 : 0;
     grid->usePictures = 1;
 
+    ButtonGrid_Layout(grid);
     ButtonGrid_RedrawAllButtons(grid);
 }
 

@@ -351,17 +351,61 @@ static int FileExists(const char *path)
     return 1;
 }
 
-static void MakeResourceName(
+static void MakeThemedResourceName(
+    char *buffer,
+    const char *themeName,
+    const char *buttonName,
+    const char *stateName,
+    const char *extensionUpper
+)
+{
+    wsprintf(
+        buffer,
+        "THEME_%s_%s_%s_%s",
+        themeName,
+        buttonName,
+        stateName,
+        extensionUpper
+    );
+}
+
+static void MakeDefaultResourceName(
     char *buffer,
     const char *buttonName,
     const char *stateName,
     const char *extensionUpper
 )
 {
-    wsprintf(buffer, "%s_%s_%s", buttonName, stateName, extensionUpper);
+    wsprintf(
+        buffer,
+        "%s_%s_%s",
+        buttonName,
+        stateName,
+        extensionUpper
+    );
 }
 
-static void MakeFilePath(
+static void MakeThemedFilePath(
+    char *buffer,
+    const char *directory,
+    const char *themeName,
+    const char *buttonName,
+    const char *stateName,
+    const char *extensionLower
+)
+{
+    wsprintf(
+        buffer,
+        "%s\\themes\\%s\\%s_%s.%s",
+        directory,
+        themeName,
+        buttonName,
+        stateName,
+        extensionLower
+    );
+}
+
+static void MakeDefaultFilePath(
     char *buffer,
     const char *directory,
     const char *buttonName,
@@ -379,49 +423,42 @@ static void MakeFilePath(
     );
 }
 
-AppImage *ImageLoader_LoadButtonIcon(
+static AppImage *TryLoadResourceSet(
     HINSTANCE hInstance,
+    const char *themeName,
     const char *buttonName,
     const char *stateName,
     int *loadFailed
 )
 {
-    static const char *extensionsLower[] = { "bmp", "png", "jpg" };
     static const char *extensionsUpper[] = { "BMP", "PNG", "JPG" };
 
     int i;
     char resourceName[256];
-    char exeDir[MAX_PATH];
-    char filePath[MAX_PATH];
-    AppImage *image;
     HRSRC resource;
-
-    if (loadFailed)
-        *loadFailed = 0;
-
-    if (!buttonName || !stateName)
-        return NULL;
-
-    /*
-        First try embedded resources:
-            LiteralSearch_OFF_BMP
-            LiteralSearch_OFF_PNG
-            LiteralSearch_OFF_JPG
-
-        Then try files beside the exe:
-            LiteralSearch_OFF.bmp
-            LiteralSearch_OFF.png
-            LiteralSearch_OFF.jpg
-    */
+    AppImage *image;
 
     for (i = 0; i < 3; i++)
     {
-        MakeResourceName(
-            resourceName,
-            buttonName,
-            stateName,
-            extensionsUpper[i]
-        );
+        if (themeName && themeName[0])
+        {
+            MakeThemedResourceName(
+                resourceName,
+                themeName,
+                buttonName,
+                stateName,
+                extensionsUpper[i]
+            );
+        }
+        else
+        {
+            MakeDefaultResourceName(
+                resourceName,
+                buttonName,
+                stateName,
+                extensionsUpper[i]
+            );
+        }
 
         resource = FindResource(hInstance, resourceName, RT_RCDATA);
 
@@ -439,17 +476,48 @@ AppImage *ImageLoader_LoadButtonIcon(
         }
     }
 
+    return NULL;
+}
+
+static AppImage *TryLoadFileSet(
+    const char *themeName,
+    const char *buttonName,
+    const char *stateName,
+    int *loadFailed
+)
+{
+    static const char *extensionsLower[] = { "bmp", "png", "jpg" };
+
+    int i;
+    char exeDir[MAX_PATH];
+    char filePath[MAX_PATH];
+    AppImage *image;
+
     GetExeDirectory(exeDir, MAX_PATH);
 
     for (i = 0; i < 3; i++)
     {
-        MakeFilePath(
-            filePath,
-            exeDir,
-            buttonName,
-            stateName,
-            extensionsLower[i]
-        );
+        if (themeName && themeName[0])
+        {
+            MakeThemedFilePath(
+                filePath,
+                exeDir,
+                themeName,
+                buttonName,
+                stateName,
+                extensionsLower[i]
+            );
+        }
+        else
+        {
+            MakeDefaultFilePath(
+                filePath,
+                exeDir,
+                buttonName,
+                stateName,
+                extensionsLower[i]
+            );
+        }
 
         if (FileExists(filePath))
         {
@@ -468,6 +536,67 @@ AppImage *ImageLoader_LoadButtonIcon(
     return NULL;
 }
 
+AppImage *ImageLoader_LoadButtonIcon(
+    HINSTANCE hInstance,
+    const char *themeName,
+    const char *buttonName,
+    const char *stateName,
+    int *loadFailed
+)
+{
+    AppImage *image;
+
+    if (loadFailed)
+        *loadFailed = 0;
+
+    if (!buttonName || !stateName)
+        return NULL;
+
+    /*
+        Search order:
+
+        1. File in selected theme folder:
+               themes\Dark\LiteralSearch_OFF.png
+
+        2. Embedded selected theme resource:
+               THEME_Dark_LiteralSearch_OFF_PNG
+
+        3. Default file beside exe:
+               LiteralSearch_OFF.png
+
+        4. Default embedded resource:
+               LiteralSearch_OFF_PNG
+
+        Missing image:
+            not an error
+
+        Existing image/resource that fails to decode:
+            loadFailed = 1
+    */
+
+    if (themeName && themeName[0])
+    {
+        image = TryLoadFileSet(themeName, buttonName, stateName, loadFailed);
+
+        if (image || (loadFailed && *loadFailed))
+            return image;
+
+        image = TryLoadResourceSet(hInstance, themeName, buttonName, stateName, loadFailed);
+
+        if (image || (loadFailed && *loadFailed))
+            return image;
+    }
+
+    image = TryLoadFileSet(NULL, buttonName, stateName, loadFailed);
+
+    if (image || (loadFailed && *loadFailed))
+        return image;
+
+    image = TryLoadResourceSet(hInstance, NULL, buttonName, stateName, loadFailed);
+
+    return image;
+}
+
 void ImageLoader_Free(AppImage *image)
 {
     if (!image)
@@ -479,6 +608,24 @@ void ImageLoader_Free(AppImage *image)
     image->image = NULL;
 
     free(image);
+}
+
+int ImageLoader_GetSize(
+    AppImage *image,
+    int *width,
+    int *height
+)
+{
+    if (!image)
+        return 0;
+
+    if (width)
+        *width = (int)image->width;
+
+    if (height)
+        *height = (int)image->height;
+
+    return 1;
 }
 
 int ImageLoader_Draw(
