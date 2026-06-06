@@ -7,6 +7,10 @@
 #include "button_grid_internal.h"
 #include "button_grid_settings.h"
 
+#ifndef GA_ROOT
+#define GA_ROOT 2
+#endif
+
 #ifndef TRACKBAR_CLASSA
 #define TRACKBAR_CLASSA "msctls_trackbar32"
 #endif
@@ -31,7 +35,7 @@
 #define TBS_TOOLTIPS 0x0100
 #endif
 
-#define BUTTON_GRID_SETTINGS_CLASS_NAME "ButtonGridSettingsPageClass"
+#define BUTTON_GRID_SETTINGS_CLASS_NAME "ButtonGridSettingsWindowClass"
 #define BUTTON_GRID_SETTINGS_PROP_NAME "ButtonGridSettingsGrid"
 
 #define BG_SETTINGS_ID_CLOSE 5001
@@ -42,6 +46,10 @@
 #define BG_SETTINGS_PART_LABEL 0
 #define BG_SETTINGS_PART_PRIMARY 1
 #define BG_SETTINGS_PART_RAW 2
+
+#define BG_SETTINGS_WINDOW_WIDTH 760
+#define BG_SETTINGS_WINDOW_HEIGHT 520
+#define BG_SETTINGS_WINDOW_GAP 12
 
 #define BG_SETTINGS_TOP 42
 #define BG_SETTINGS_LEFT 12
@@ -76,6 +84,8 @@ typedef struct ButtonGridSettingDefinition
 } ButtonGridSettingDefinition;
 
 static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd);
 
 static int g_settingsUpdatingControls = 0;
 
@@ -123,44 +133,44 @@ static const ButtonGridSettingOption g_gearCornerOptions[] =
 
 static const ButtonGridSettingDefinition g_settings[] =
 {
-    { "buttonWidth",             "Button width",             BG_SETTING_INT,   offsetof(ButtonGrid, buttonWidth),             10, 400, NULL },
-    { "buttonHeight",            "Button height",            BG_SETTING_INT,   offsetof(ButtonGrid, buttonHeight),            10, 400, NULL },
-    { "horizontalSpacing",       "Horizontal spacing",       BG_SETTING_INT,   offsetof(ButtonGrid, horizontalSpacing),        0, 100, NULL },
-    { "verticalSpacing",         "Vertical spacing",         BG_SETTING_INT,   offsetof(ButtonGrid, verticalSpacing),          0, 100, NULL },
+    { "buttonWidth",              "Button width",              BG_SETTING_INT,   offsetof(ButtonGrid, buttonWidth),              10, 400, NULL },
+    { "buttonHeight",             "Button height",             BG_SETTING_INT,   offsetof(ButtonGrid, buttonHeight),             10, 400, NULL },
+    { "horizontalSpacing",        "Horizontal spacing",        BG_SETTING_INT,   offsetof(ButtonGrid, horizontalSpacing),         0, 100, NULL },
+    { "verticalSpacing",          "Vertical spacing",          BG_SETTING_INT,   offsetof(ButtonGrid, verticalSpacing),           0, 100, NULL },
 
-    { "layout",                  "Layout",                   BG_SETTING_ENUM,  offsetof(ButtonGrid, layout),                   0,   0, g_layoutOptions },
-    { "sizeMode",                "Size mode",                BG_SETTING_ENUM,  offsetof(ButtonGrid, sizeMode),                 0,   0, g_sizeModeOptions },
+    { "layout",                   "Layout",                    BG_SETTING_ENUM,  offsetof(ButtonGrid, layout),                    0,   0, g_layoutOptions },
+    { "sizeMode",                 "Size mode",                 BG_SETTING_ENUM,  offsetof(ButtonGrid, sizeMode),                  0,   0, g_sizeModeOptions },
 
-    { "showText",                "Show button text",         BG_SETTING_BOOL,  offsetof(ButtonGrid, showText),                 0,   1, g_boolOptions },
-    { "hidePartialButtons",      "Hide partial buttons",     BG_SETTING_BOOL,  offsetof(ButtonGrid, hidePartialButtons),       0,   1, g_boolOptions },
-    { "resizeInLayoutSteps",     "Resize in layout steps",   BG_SETTING_BOOL,  offsetof(ButtonGrid, resizeInLayoutSteps),      0,   1, g_boolOptions },
+    { "showText",                 "Show button text",          BG_SETTING_BOOL,  offsetof(ButtonGrid, showText),                  0,   1, g_boolOptions },
+    { "hidePartialButtons",       "Hide partial buttons",      BG_SETTING_BOOL,  offsetof(ButtonGrid, hidePartialButtons),        0,   1, g_boolOptions },
+    { "resizeInLayoutSteps",      "Resize in layout steps",    BG_SETTING_BOOL,  offsetof(ButtonGrid, resizeInLayoutSteps),       0,   1, g_boolOptions },
 
-    { "showBorder",              "Show border",              BG_SETTING_BOOL,  offsetof(ButtonGrid, showBorder),               0,   1, g_boolOptions },
-    { "borderTitle",             "Border title",             BG_SETTING_TEXT,  offsetof(ButtonGrid, borderTitle),              0,   0, NULL },
-    { "borderPadding",           "Border padding",           BG_SETTING_INT,   offsetof(ButtonGrid, borderPadding),            0, 100, NULL },
-    { "borderTitleHeight",       "Border title height",      BG_SETTING_INT,   offsetof(ButtonGrid, borderTitleHeight),        0,  80, NULL },
-    { "borderStyle",             "Border style",             BG_SETTING_ENUM,  offsetof(ButtonGrid, borderStyle),              0,   0, g_borderStyleOptions },
-    { "borderThickness",         "Border thickness",         BG_SETTING_INT,   offsetof(ButtonGrid, borderThickness),          1,   8, NULL },
-    { "borderCornerRadius",      "Border corner radius",     BG_SETTING_INT,   offsetof(ButtonGrid, borderCornerRadius),       0,  50, NULL },
-    { "borderColor",             "Border color",             BG_SETTING_COLOR, offsetof(ButtonGrid, borderColor),              0,   0, NULL },
-    { "borderLightColor",        "Border light color",       BG_SETTING_COLOR, offsetof(ButtonGrid, borderLightColor),         0,   0, NULL },
-    { "borderShadowColor",       "Border shadow color",      BG_SETTING_COLOR, offsetof(ButtonGrid, borderShadowColor),        0,   0, NULL },
-    { "borderTitleColor",        "Border title color",       BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleColor),         0,   0, NULL },
-    { "borderTitleBackColor",    "Border title back color",  BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleBackColor),     0,   0, NULL },
+    { "showBorder",               "Show border",               BG_SETTING_BOOL,  offsetof(ButtonGrid, showBorder),                0,   1, g_boolOptions },
+    { "borderTitle",              "Border title",              BG_SETTING_TEXT,  offsetof(ButtonGrid, borderTitle),               0,   0, NULL },
+    { "borderPadding",            "Border padding",            BG_SETTING_INT,   offsetof(ButtonGrid, borderPadding),             0, 100, NULL },
+    { "borderTitleHeight",        "Border title height",       BG_SETTING_INT,   offsetof(ButtonGrid, borderTitleHeight),         0,  80, NULL },
+    { "borderStyle",              "Border style",              BG_SETTING_ENUM,  offsetof(ButtonGrid, borderStyle),               0,   0, g_borderStyleOptions },
+    { "borderThickness",          "Border thickness",          BG_SETTING_INT,   offsetof(ButtonGrid, borderThickness),           1,   8, NULL },
+    { "borderCornerRadius",       "Border corner radius",      BG_SETTING_INT,   offsetof(ButtonGrid, borderCornerRadius),        0,  50, NULL },
+    { "borderColor",              "Border color",              BG_SETTING_COLOR, offsetof(ButtonGrid, borderColor),               0,   0, NULL },
+    { "borderLightColor",         "Border light color",        BG_SETTING_COLOR, offsetof(ButtonGrid, borderLightColor),          0,   0, NULL },
+    { "borderShadowColor",        "Border shadow color",       BG_SETTING_COLOR, offsetof(ButtonGrid, borderShadowColor),         0,   0, NULL },
+    { "borderTitleColor",         "Border title color",        BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleColor),          0,   0, NULL },
+    { "borderTitleBackColor",     "Border title back color",   BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleBackColor),      0,   0, NULL },
 
-    { "showGearIcon",            "Show gear icon",           BG_SETTING_BOOL,  offsetof(ButtonGrid, showGearIcon),             0,   1, g_boolOptions },
-    { "gearCorner",              "Gear corner",              BG_SETTING_ENUM,  offsetof(ButtonGrid, gearCorner),               0,   0, g_gearCornerOptions },
-    { "gearSize",                "Gear size",                BG_SETTING_INT,   offsetof(ButtonGrid, gearSize),                10,  80, NULL },
-    { "gearMargin",              "Gear margin",              BG_SETTING_INT,   offsetof(ButtonGrid, gearMargin),               0,  80, NULL },
-    { "gearColor",               "Gear color",               BG_SETTING_COLOR, offsetof(ButtonGrid, gearColor),                0,   0, NULL },
-    { "gearBackColor",           "Gear background color",    BG_SETTING_COLOR, offsetof(ButtonGrid, gearBackColor),            0,   0, NULL },
-    { "gearBorderColor",         "Gear border color",        BG_SETTING_COLOR, offsetof(ButtonGrid, gearBorderColor),          0,   0, NULL },
+    { "showGearIcon",             "Show gear icon",            BG_SETTING_BOOL,  offsetof(ButtonGrid, showGearIcon),              0,   1, g_boolOptions },
+    { "gearCorner",               "Gear corner",               BG_SETTING_ENUM,  offsetof(ButtonGrid, gearCorner),                0,   0, g_gearCornerOptions },
+    { "gearSize",                 "Gear size",                 BG_SETTING_INT,   offsetof(ButtonGrid, gearSize),                 10,  80, NULL },
+    { "gearMargin",               "Gear margin",               BG_SETTING_INT,   offsetof(ButtonGrid, gearMargin),                0,  80, NULL },
+    { "gearColor",                "Gear color",                BG_SETTING_COLOR, offsetof(ButtonGrid, gearColor),                 0,   0, NULL },
+    { "gearBackColor",            "Gear background color",     BG_SETTING_COLOR, offsetof(ButtonGrid, gearBackColor),             0,   0, NULL },
+    { "gearBorderColor",          "Gear border color",         BG_SETTING_COLOR, offsetof(ButtonGrid, gearBorderColor),           0,   0, NULL },
 
-    { "backColor",               "Button back color",        BG_SETTING_COLOR, offsetof(ButtonGrid, backColor),                0,   0, NULL },
-    { "foreColor",               "Button text color",        BG_SETTING_COLOR, offsetof(ButtonGrid, foreColor),                0,   0, NULL },
-    { "generatedOffPictureColor","Fallback OFF color",       BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOffPictureColor), 0,   0, NULL },
-    { "generatedOnPictureColor", "Fallback ON color",        BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOnPictureColor),  0,   0, NULL },
-    { "generatedErrorPictureColor","Fallback error color",   BG_SETTING_COLOR, offsetof(ButtonGrid, generatedErrorPictureColor),0,  0, NULL }
+    { "backColor",                "Button back color",         BG_SETTING_COLOR, offsetof(ButtonGrid, backColor),                 0,   0, NULL },
+    { "foreColor",                "Button text color",         BG_SETTING_COLOR, offsetof(ButtonGrid, foreColor),                 0,   0, NULL },
+    { "generatedOffPictureColor", "Fallback OFF color",        BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOffPictureColor),  0,   0, NULL },
+    { "generatedOnPictureColor",  "Fallback ON color",         BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOnPictureColor),   0,   0, NULL },
+    { "generatedErrorPictureColor","Fallback error color",     BG_SETTING_COLOR, offsetof(ButtonGrid, generatedErrorPictureColor),0,   0, NULL }
 };
 
 #define BG_SETTINGS_COUNT ((int)(sizeof(g_settings) / sizeof(g_settings[0])))
@@ -298,9 +308,7 @@ static int ParseHexColor(const char *text, COLORREF *color)
 
 static int ParseRgbColor(const char *text, COLORREF *color)
 {
-    int r;
-    int g;
-    int b;
+    int r, g, b;
 
     if (!text)
         return 0;
@@ -354,9 +362,7 @@ static void ButtonGrid_SettingsApplyGridChange(ButtonGrid *grid)
 
     if (grid->layout != BUTTON_GRID_LAYOUT_HORIZONTAL &&
         grid->layout != BUTTON_GRID_LAYOUT_VERTICAL)
-    {
         grid->layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
-    }
 
     grid->sizeMode = ButtonGrid_NormalizeSizeMode(grid->sizeMode);
 
@@ -364,9 +370,7 @@ static void ButtonGrid_SettingsApplyGridChange(ButtonGrid *grid)
         grid->borderStyle != BUTTON_GRID_BORDER_STYLE_SIMPLE &&
         grid->borderStyle != BUTTON_GRID_BORDER_STYLE_ETCHED &&
         grid->borderStyle != BUTTON_GRID_BORDER_STYLE_ROUNDED)
-    {
         grid->borderStyle = BUTTON_GRID_BORDER_STYLE_ETCHED;
-    }
 
     if (grid->borderPadding < 0)
         grid->borderPadding = 0;
@@ -385,9 +389,7 @@ static void ButtonGrid_SettingsApplyGridChange(ButtonGrid *grid)
 
     if (grid->gearCorner < BUTTON_GRID_GEAR_CORNER_TOP_LEFT ||
         grid->gearCorner > BUTTON_GRID_GEAR_CORNER_BOTTOM_RIGHT)
-    {
         grid->gearCorner = BUTTON_GRID_GEAR_CORNER_TOP_RIGHT;
-    }
 
     if (grid->gearSize < 8)
         grid->gearSize = 8;
@@ -409,21 +411,14 @@ static void ButtonGrid_SettingsSetRawText(HWND pageHwnd, int index, ButtonGrid *
     char buffer[256];
 
     def = &g_settings[index];
-
     buffer[0] = '\0';
 
     if (def->type == BG_SETTING_COLOR)
-    {
         ColorToText(GetColorField(grid, def), buffer, sizeof(buffer));
-    }
     else if (def->type == BG_SETTING_TEXT)
-    {
         ButtonGrid_CopyText(buffer, sizeof(buffer), GetTextField(grid, def));
-    }
     else
-    {
         wsprintf(buffer, "%d", GetIntField(grid, def));
-    }
 
     SetWindowText(GetDlgItem(pageHwnd, BgIdRaw(index)), buffer);
 }
@@ -438,44 +433,36 @@ static void ButtonGrid_SettingsRefreshOne(HWND pageHwnd, int index, ButtonGrid *
     def = &g_settings[index];
     primary = GetDlgItem(pageHwnd, BgIdPrimary(index));
 
-    if (!primary)
-        return;
-
-    if (def->type == BG_SETTING_BOOL)
+    if (primary)
     {
-        value = GetIntField(grid, def);
-        SendMessage(primary, BM_SETCHECK, value ? BST_CHECKED : BST_UNCHECKED, 0);
-    }
-    else if (def->type == BG_SETTING_INT)
-    {
-        value = GetIntField(grid, def);
-
-        SendMessage(primary, TBM_SETRANGE, TRUE, MAKELONG(def->minValue, def->maxValue));
-        SendMessage(primary, TBM_SETPOS, TRUE, value);
-    }
-    else if (def->type == BG_SETTING_ENUM)
-    {
-        value = GetIntField(grid, def);
-
-        SendMessage(primary, CB_RESETCONTENT, 0, 0);
-
-        if (def->options)
+        if (def->type == BG_SETTING_BOOL)
         {
-            for (i = 0; def->options[i].label; i++)
+            value = GetIntField(grid, def);
+            SendMessage(primary, BM_SETCHECK, value ? BST_CHECKED : BST_UNCHECKED, 0);
+        }
+        else if (def->type == BG_SETTING_INT)
+        {
+            value = GetIntField(grid, def);
+            SendMessage(primary, TBM_SETRANGE, TRUE, MAKELONG(def->minValue, def->maxValue));
+            SendMessage(primary, TBM_SETPOS, TRUE, value);
+        }
+        else if (def->type == BG_SETTING_ENUM)
+        {
+            value = GetIntField(grid, def);
+            SendMessage(primary, CB_RESETCONTENT, 0, 0);
+
+            if (def->options)
             {
-                int item;
+                for (i = 0; def->options[i].label; i++)
+                {
+                    int item;
 
-                item = (int)SendMessage(
-                    primary,
-                    CB_ADDSTRING,
-                    0,
-                    (LPARAM)def->options[i].label
-                );
+                    item = (int)SendMessage(primary, CB_ADDSTRING, 0, (LPARAM)def->options[i].label);
+                    SendMessage(primary, CB_SETITEMDATA, item, def->options[i].value);
 
-                SendMessage(primary, CB_SETITEMDATA, item, def->options[i].value);
-
-                if (def->options[i].value == value)
-                    SendMessage(primary, CB_SETCURSEL, item, 0);
+                    if (def->options[i].value == value)
+                        SendMessage(primary, CB_SETCURSEL, item, 0);
+                }
             }
         }
     }
@@ -526,30 +513,18 @@ static void ButtonGrid_SettingsApplyValue(
 
     if (def->type == BG_SETTING_BOOL)
     {
-        if (usePrimary)
-            value = valueFromPrimary ? 1 : 0;
-        else
-            value = atoi(textValue) ? 1 : 0;
-
+        value = usePrimary ? (valueFromPrimary ? 1 : 0) : (atoi(textValue) ? 1 : 0);
         SetIntField(grid, def, value);
     }
     else if (def->type == BG_SETTING_INT)
     {
-        if (usePrimary)
-            value = valueFromPrimary;
-        else
-            value = atoi(textValue);
-
+        value = usePrimary ? valueFromPrimary : atoi(textValue);
         value = ClampInt(value, def->minValue, def->maxValue);
         SetIntField(grid, def, value);
     }
     else if (def->type == BG_SETTING_ENUM)
     {
-        if (usePrimary)
-            value = valueFromPrimary;
-        else
-            value = atoi(textValue);
-
+        value = usePrimary ? valueFromPrimary : atoi(textValue);
         SetIntField(grid, def, value);
     }
     else if (def->type == BG_SETTING_COLOR)
@@ -559,11 +534,7 @@ static void ButtonGrid_SettingsApplyValue(
     }
     else if (def->type == BG_SETTING_TEXT)
     {
-        ButtonGrid_CopyText(
-            GetTextField(grid, def),
-            BUTTON_GRID_TITLE_SIZE,
-            textValue
-        );
+        ButtonGrid_CopyText(GetTextField(grid, def), BUTTON_GRID_TITLE_SIZE, textValue);
     }
 
     ButtonGrid_SettingsApplyGridChange(grid);
@@ -578,7 +549,6 @@ static void ButtonGrid_SettingsApplyRawEdit(HWND pageHwnd, int index)
     char buffer[256];
 
     buffer[0] = '\0';
-
     GetWindowText(GetDlgItem(pageHwnd, BgIdRaw(index)), buffer, sizeof(buffer));
 
     ButtonGrid_SettingsApplyValue(pageHwnd, index, buffer, 0, 0);
@@ -630,6 +600,8 @@ static void ButtonGrid_SettingsApplyPrimary(HWND pageHwnd, int index)
 static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
 {
     int i;
+
+    InitCommonControls();
 
     CreateWindowEx(
         0,
@@ -755,22 +727,10 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
 
 void ButtonGrid_LayoutSettingsPage(ButtonGrid *grid)
 {
-    RECT rc;
-
     if (!grid || !grid->settingsPageHwnd)
         return;
 
-    GetClientRect(grid->hwnd, &rc);
-
-    SetWindowPos(
-        grid->settingsPageHwnd,
-        HWND_TOP,
-        0,
-        0,
-        rc.right - rc.left,
-        rc.bottom - rc.top,
-        SWP_NOACTIVATE
-    );
+    ButtonGrid_SettingsLayoutControls(grid->settingsPageHwnd);
 }
 
 static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
@@ -948,6 +908,8 @@ BOOL ButtonGrid_SettingsRegisterClass(HINSTANCE hInstance)
     if (registered)
         return TRUE;
 
+    InitCommonControls();
+
     ZeroMemory(&wc, sizeof(wc));
 
     wc.lpfnWndProc = ButtonGrid_SettingsWndProc;
@@ -963,9 +925,99 @@ BOOL ButtonGrid_SettingsRegisterClass(HINSTANCE hInstance)
     return TRUE;
 }
 
+static void ButtonGrid_GetSettingsWindowRect(ButtonGrid *grid, RECT *outRc)
+{
+    RECT gridRc;
+    RECT workRc;
+    int w;
+    int h;
+    int x;
+    int y;
+
+    SetRect(outRc, 100, 100, 100 + BG_SETTINGS_WINDOW_WIDTH, 100 + BG_SETTINGS_WINDOW_HEIGHT);
+
+    if (!grid || !grid->hwnd)
+        return;
+
+    GetWindowRect(grid->hwnd, &gridRc);
+
+    if (!SystemParametersInfo(SPI_GETWORKAREA, 0, &workRc, 0))
+    {
+        workRc.left = 0;
+        workRc.top = 0;
+        workRc.right = GetSystemMetrics(SM_CXSCREEN);
+        workRc.bottom = GetSystemMetrics(SM_CYSCREEN);
+    }
+
+    w = BG_SETTINGS_WINDOW_WIDTH;
+    h = BG_SETTINGS_WINDOW_HEIGHT;
+
+    if (w > workRc.right - workRc.left)
+        w = workRc.right - workRc.left;
+
+    if (h > workRc.bottom - workRc.top)
+        h = workRc.bottom - workRc.top;
+
+    x = gridRc.right + BG_SETTINGS_WINDOW_GAP;
+    y = gridRc.top;
+
+    if (x + w > workRc.right)
+        x = gridRc.left - w - BG_SETTINGS_WINDOW_GAP;
+
+    if (x < workRc.left)
+        x = workRc.right - w - BG_SETTINGS_WINDOW_GAP;
+
+    if (x < workRc.left)
+        x = workRc.left;
+
+    if (y + h > workRc.bottom)
+        y = workRc.bottom - h - BG_SETTINGS_WINDOW_GAP;
+
+    if (y < workRc.top)
+        y = workRc.top;
+
+    SetRect(outRc, x, y, x + w, y + h);
+}
+
+static void ButtonGrid_PositionSettingsWindow(ButtonGrid *grid, HWND pageHwnd)
+{
+    RECT rc;
+
+    if (!grid || !pageHwnd)
+        return;
+
+    ButtonGrid_GetSettingsWindowRect(grid, &rc);
+
+    SetWindowPos(
+        pageHwnd,
+        HWND_TOP,
+        rc.left,
+        rc.top,
+        rc.right - rc.left,
+        rc.bottom - rc.top,
+        SWP_NOACTIVATE
+    );
+}
+
+static HWND ButtonGrid_GetOwnerWindow(ButtonGrid *grid)
+{
+    HWND owner;
+
+    owner = NULL;
+
+    if (grid && grid->hwnd)
+        owner = GetAncestor(grid->hwnd, GA_ROOT);
+
+    if (!owner && grid)
+        owner = grid->hwnd;
+
+    return owner;
+}
+
 static HWND ButtonGrid_CreateSettingsPage(ButtonGrid *grid)
 {
     RECT rc;
+    HWND owner;
 
     if (!grid)
         return NULL;
@@ -976,18 +1028,19 @@ static HWND ButtonGrid_CreateSettingsPage(ButtonGrid *grid)
     if (!ButtonGrid_SettingsRegisterClass(grid->hInstance))
         return NULL;
 
-    GetClientRect(grid->hwnd, &rc);
+    ButtonGrid_GetSettingsWindowRect(grid, &rc);
+    owner = ButtonGrid_GetOwnerWindow(grid);
 
     grid->settingsPageHwnd = CreateWindowEx(
-        WS_EX_CLIENTEDGE,
+        WS_EX_TOOLWINDOW,
         BUTTON_GRID_SETTINGS_CLASS_NAME,
-        "",
-        WS_CHILD | WS_CLIPCHILDREN | WS_VSCROLL,
-        0,
-        0,
+        "Grid Settings",
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_VSCROLL,
+        rc.left,
+        rc.top,
         rc.right - rc.left,
         rc.bottom - rc.top,
-        grid->hwnd,
+        owner,
         NULL,
         grid->hInstance,
         grid
@@ -1012,11 +1065,15 @@ void ButtonGrid_ShowSettingsPage(ButtonGrid *grid, int show)
 
         grid->settingsPageVisible = 1;
 
-        ButtonGrid_LayoutSettingsPage(grid);
-        ButtonGrid_SettingsRefreshAll(pageHwnd);
+        if (!IsWindowVisible(pageHwnd))
+            ButtonGrid_PositionSettingsWindow(grid, pageHwnd);
 
-        ShowWindow(pageHwnd, SW_SHOW);
+        ButtonGrid_SettingsRefreshAll(pageHwnd);
+        ButtonGrid_SettingsLayoutControls(pageHwnd);
+
+        ShowWindow(pageHwnd, SW_SHOWNORMAL);
         BringWindowToTop(pageHwnd);
+        SetForegroundWindow(pageHwnd);
         SetFocus(pageHwnd);
     }
     else
@@ -1040,16 +1097,18 @@ void ButtonGrid_ToggleSettingsPage(ButtonGrid *grid)
 
 void ButtonGrid_DestroySettingsPage(ButtonGrid *grid)
 {
+    HWND pageHwnd;
+
     if (!grid)
         return;
 
-    if (grid->settingsPageHwnd)
-    {
-        DestroyWindow(grid->settingsPageHwnd);
-        grid->settingsPageHwnd = NULL;
-    }
+    pageHwnd = grid->settingsPageHwnd;
 
+    grid->settingsPageHwnd = NULL;
     grid->settingsPageVisible = 0;
+
+    if (pageHwnd)
+        DestroyWindow(pageHwnd);
 }
 
 static void ButtonGrid_GetGearRect(ButtonGrid *grid, RECT *rc)
@@ -1121,9 +1180,6 @@ void ButtonGrid_DrawGearIcon(ButtonGrid *grid, HDC hdc)
     if (!grid->showGearIcon)
         return;
 
-    if (grid->settingsPageVisible)
-        return;
-
     ButtonGrid_GetGearRect(grid, &rc);
 
     size = rc.right - rc.left;
@@ -1177,24 +1233,12 @@ void ButtonGrid_DrawGearIcon(ButtonGrid *grid, HDC hdc)
     MoveToEx(hdc, rc.right - 7, rc.bottom - 7, NULL);
     LineTo(hdc, cx, cy);
 
-    Ellipse(
-        hdc,
-        cx - outerR,
-        cy - outerR,
-        cx + outerR,
-        cy + outerR
-    );
+    Ellipse(hdc, cx - outerR, cy - outerR, cx + outerR, cy + outerR);
 
     holeBrush = CreateSolidBrush(grid->gearBackColor);
     SelectObject(hdc, holeBrush);
 
-    Ellipse(
-        hdc,
-        cx - innerR,
-        cy - innerR,
-        cx + innerR,
-        cy + innerR
-    );
+    Ellipse(hdc, cx - innerR, cy - innerR, cx + innerR, cy + innerR);
 
     SelectObject(hdc, oldPen);
     SelectObject(hdc, oldBrush);
@@ -1248,6 +1292,16 @@ static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM w
         case WM_SIZE:
         {
             ButtonGrid_SettingsLayoutControls(hwnd);
+            return 0;
+        }
+
+        case WM_CLOSE:
+        {
+            if (grid)
+                ButtonGrid_ShowSettingsPage(grid, 0);
+            else
+                DestroyWindow(hwnd);
+
             return 0;
         }
 
@@ -1347,6 +1401,12 @@ static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM w
 
         case WM_NCDESTROY:
         {
+            if (grid && grid->settingsPageHwnd == hwnd)
+            {
+                grid->settingsPageHwnd = NULL;
+                grid->settingsPageVisible = 0;
+            }
+
             RemoveProp(hwnd, BUTTON_GRID_SETTINGS_PROP_NAME);
             break;
         }
