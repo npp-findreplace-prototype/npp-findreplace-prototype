@@ -39,6 +39,8 @@
 #define BUTTON_GRID_SETTINGS_PROP_NAME "ButtonGridSettingsGrid"
 
 #define BG_SETTINGS_ID_CLOSE 5001
+#define BG_SETTINGS_ID_FILTER_LABEL 5002
+#define BG_SETTINGS_ID_FILTER 5003
 
 #define BG_SETTINGS_ID_BASE 6000
 #define BG_SETTINGS_ID_STEP 10
@@ -51,7 +53,7 @@
 #define BG_SETTINGS_WINDOW_HEIGHT 520
 #define BG_SETTINGS_WINDOW_GAP 12
 
-#define BG_SETTINGS_TOP 42
+#define BG_SETTINGS_TOP 76
 #define BG_SETTINGS_LEFT 12
 #define BG_SETTINGS_ROW_HEIGHT 34
 #define BG_SETTINGS_LABEL_WIDTH 170
@@ -84,7 +86,6 @@ typedef struct ButtonGridSettingDefinition
 } ButtonGridSettingDefinition;
 
 static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
 static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd);
 
 static int g_settingsUpdatingControls = 0;
@@ -133,44 +134,44 @@ static const ButtonGridSettingOption g_gearCornerOptions[] =
 
 static const ButtonGridSettingDefinition g_settings[] =
 {
-    { "buttonWidth",              "Button width",              BG_SETTING_INT,   offsetof(ButtonGrid, buttonWidth),              10, 400, NULL },
-    { "buttonHeight",             "Button height",             BG_SETTING_INT,   offsetof(ButtonGrid, buttonHeight),             10, 400, NULL },
-    { "horizontalSpacing",        "Horizontal spacing",        BG_SETTING_INT,   offsetof(ButtonGrid, horizontalSpacing),         0, 100, NULL },
-    { "verticalSpacing",          "Vertical spacing",          BG_SETTING_INT,   offsetof(ButtonGrid, verticalSpacing),           0, 100, NULL },
+    { "buttonWidth",               "Button width",               BG_SETTING_INT,   offsetof(ButtonGrid, buttonWidth),               10, 400, NULL },
+    { "buttonHeight",              "Button height",              BG_SETTING_INT,   offsetof(ButtonGrid, buttonHeight),              10, 400, NULL },
+    { "horizontalSpacing",         "Horizontal spacing",         BG_SETTING_INT,   offsetof(ButtonGrid, horizontalSpacing),          0, 100, NULL },
+    { "verticalSpacing",           "Vertical spacing",           BG_SETTING_INT,   offsetof(ButtonGrid, verticalSpacing),            0, 100, NULL },
 
-    { "layout",                   "Layout",                    BG_SETTING_ENUM,  offsetof(ButtonGrid, layout),                    0,   0, g_layoutOptions },
-    { "sizeMode",                 "Size mode",                 BG_SETTING_ENUM,  offsetof(ButtonGrid, sizeMode),                  0,   0, g_sizeModeOptions },
+    { "layout",                    "Layout",                     BG_SETTING_ENUM,  offsetof(ButtonGrid, layout),                     0,   0, g_layoutOptions },
+    { "sizeMode",                  "Size mode",                  BG_SETTING_ENUM,  offsetof(ButtonGrid, sizeMode),                   0,   0, g_sizeModeOptions },
 
-    { "showText",                 "Show button text",          BG_SETTING_BOOL,  offsetof(ButtonGrid, showText),                  0,   1, g_boolOptions },
-    { "hidePartialButtons",       "Hide partial buttons",      BG_SETTING_BOOL,  offsetof(ButtonGrid, hidePartialButtons),        0,   1, g_boolOptions },
-    { "resizeInLayoutSteps",      "Resize in layout steps",    BG_SETTING_BOOL,  offsetof(ButtonGrid, resizeInLayoutSteps),       0,   1, g_boolOptions },
+    { "showText",                  "Show button text",           BG_SETTING_BOOL,  offsetof(ButtonGrid, showText),                   0,   1, g_boolOptions },
+    { "hidePartialButtons",        "Hide partial buttons",       BG_SETTING_BOOL,  offsetof(ButtonGrid, hidePartialButtons),         0,   1, g_boolOptions },
+    { "resizeInLayoutSteps",       "Resize in layout steps",     BG_SETTING_BOOL,  offsetof(ButtonGrid, resizeInLayoutSteps),        0,   1, g_boolOptions },
 
-    { "showBorder",               "Show border",               BG_SETTING_BOOL,  offsetof(ButtonGrid, showBorder),                0,   1, g_boolOptions },
-    { "borderTitle",              "Border title",              BG_SETTING_TEXT,  offsetof(ButtonGrid, borderTitle),               0,   0, NULL },
-    { "borderPadding",            "Border padding",            BG_SETTING_INT,   offsetof(ButtonGrid, borderPadding),             0, 100, NULL },
-    { "borderTitleHeight",        "Border title height",       BG_SETTING_INT,   offsetof(ButtonGrid, borderTitleHeight),         0,  80, NULL },
-    { "borderStyle",              "Border style",              BG_SETTING_ENUM,  offsetof(ButtonGrid, borderStyle),               0,   0, g_borderStyleOptions },
-    { "borderThickness",          "Border thickness",          BG_SETTING_INT,   offsetof(ButtonGrid, borderThickness),           1,   8, NULL },
-    { "borderCornerRadius",       "Border corner radius",      BG_SETTING_INT,   offsetof(ButtonGrid, borderCornerRadius),        0,  50, NULL },
-    { "borderColor",              "Border color",              BG_SETTING_COLOR, offsetof(ButtonGrid, borderColor),               0,   0, NULL },
-    { "borderLightColor",         "Border light color",        BG_SETTING_COLOR, offsetof(ButtonGrid, borderLightColor),          0,   0, NULL },
-    { "borderShadowColor",        "Border shadow color",       BG_SETTING_COLOR, offsetof(ButtonGrid, borderShadowColor),         0,   0, NULL },
-    { "borderTitleColor",         "Border title color",        BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleColor),          0,   0, NULL },
-    { "borderTitleBackColor",     "Border title back color",   BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleBackColor),      0,   0, NULL },
+    { "showBorder",                "Show border",                BG_SETTING_BOOL,  offsetof(ButtonGrid, showBorder),                 0,   1, g_boolOptions },
+    { "borderTitle",               "Border title",               BG_SETTING_TEXT,  offsetof(ButtonGrid, borderTitle),                0,   0, NULL },
+    { "borderPadding",             "Border padding",             BG_SETTING_INT,   offsetof(ButtonGrid, borderPadding),              0, 100, NULL },
+    { "borderTitleHeight",         "Border title height",        BG_SETTING_INT,   offsetof(ButtonGrid, borderTitleHeight),          0,  80, NULL },
+    { "borderStyle",               "Border style",               BG_SETTING_ENUM,  offsetof(ButtonGrid, borderStyle),                0,   0, g_borderStyleOptions },
+    { "borderThickness",           "Border thickness",           BG_SETTING_INT,   offsetof(ButtonGrid, borderThickness),            1,   8, NULL },
+    { "borderCornerRadius",        "Border corner radius",       BG_SETTING_INT,   offsetof(ButtonGrid, borderCornerRadius),         0,  50, NULL },
+    { "borderColor",               "Border color",               BG_SETTING_COLOR, offsetof(ButtonGrid, borderColor),                0,   0, NULL },
+    { "borderLightColor",          "Border light color",         BG_SETTING_COLOR, offsetof(ButtonGrid, borderLightColor),           0,   0, NULL },
+    { "borderShadowColor",         "Border shadow color",        BG_SETTING_COLOR, offsetof(ButtonGrid, borderShadowColor),          0,   0, NULL },
+    { "borderTitleColor",          "Border title color",         BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleColor),           0,   0, NULL },
+    { "borderTitleBackColor",      "Border title back color",    BG_SETTING_COLOR, offsetof(ButtonGrid, borderTitleBackColor),       0,   0, NULL },
 
-    { "showGearIcon",             "Show gear icon",            BG_SETTING_BOOL,  offsetof(ButtonGrid, showGearIcon),              0,   1, g_boolOptions },
-    { "gearCorner",               "Gear corner",               BG_SETTING_ENUM,  offsetof(ButtonGrid, gearCorner),                0,   0, g_gearCornerOptions },
-    { "gearSize",                 "Gear size",                 BG_SETTING_INT,   offsetof(ButtonGrid, gearSize),                 10,  80, NULL },
-    { "gearMargin",               "Gear margin",               BG_SETTING_INT,   offsetof(ButtonGrid, gearMargin),                0,  80, NULL },
-    { "gearColor",                "Gear color",                BG_SETTING_COLOR, offsetof(ButtonGrid, gearColor),                 0,   0, NULL },
-    { "gearBackColor",            "Gear background color",     BG_SETTING_COLOR, offsetof(ButtonGrid, gearBackColor),             0,   0, NULL },
-    { "gearBorderColor",          "Gear border color",         BG_SETTING_COLOR, offsetof(ButtonGrid, gearBorderColor),           0,   0, NULL },
+    { "showGearIcon",              "Show gear icon",             BG_SETTING_BOOL,  offsetof(ButtonGrid, showGearIcon),               0,   1, g_boolOptions },
+    { "gearCorner",                "Gear corner",                BG_SETTING_ENUM,  offsetof(ButtonGrid, gearCorner),                 0,   0, g_gearCornerOptions },
+    { "gearSize",                  "Gear size",                  BG_SETTING_INT,   offsetof(ButtonGrid, gearSize),                  10,  80, NULL },
+    { "gearMargin",                "Gear margin",                BG_SETTING_INT,   offsetof(ButtonGrid, gearMargin),                 0,  80, NULL },
+    { "gearColor",                 "Gear color",                 BG_SETTING_COLOR, offsetof(ButtonGrid, gearColor),                  0,   0, NULL },
+    { "gearBackColor",             "Gear background color",      BG_SETTING_COLOR, offsetof(ButtonGrid, gearBackColor),              0,   0, NULL },
+    { "gearBorderColor",           "Gear border color",          BG_SETTING_COLOR, offsetof(ButtonGrid, gearBorderColor),            0,   0, NULL },
 
-    { "backColor",                "Button back color",         BG_SETTING_COLOR, offsetof(ButtonGrid, backColor),                 0,   0, NULL },
-    { "foreColor",                "Button text color",         BG_SETTING_COLOR, offsetof(ButtonGrid, foreColor),                 0,   0, NULL },
-    { "generatedOffPictureColor", "Fallback OFF color",        BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOffPictureColor),  0,   0, NULL },
-    { "generatedOnPictureColor",  "Fallback ON color",         BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOnPictureColor),   0,   0, NULL },
-    { "generatedErrorPictureColor","Fallback error color",     BG_SETTING_COLOR, offsetof(ButtonGrid, generatedErrorPictureColor),0,   0, NULL }
+    { "backColor",                 "Button back color",          BG_SETTING_COLOR, offsetof(ButtonGrid, backColor),                  0,   0, NULL },
+    { "foreColor",                 "Button text color",          BG_SETTING_COLOR, offsetof(ButtonGrid, foreColor),                  0,   0, NULL },
+    { "generatedOffPictureColor",  "Fallback OFF color",         BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOffPictureColor),   0,   0, NULL },
+    { "generatedOnPictureColor",   "Fallback ON color",          BG_SETTING_COLOR, offsetof(ButtonGrid, generatedOnPictureColor),    0,   0, NULL },
+    { "generatedErrorPictureColor","Fallback error color",        BG_SETTING_COLOR, offsetof(ButtonGrid, generatedErrorPictureColor), 0,   0, NULL }
 };
 
 #define BG_SETTINGS_COUNT ((int)(sizeof(g_settings) / sizeof(g_settings[0])))
@@ -233,6 +234,88 @@ static int ClampInt(int value, int minValue, int maxValue)
         return maxValue;
 
     return value;
+}
+
+static char LowerAscii(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return (char)(c - 'A' + 'a');
+
+    return c;
+}
+
+static int TextContainsNoCase(const char *text, const char *find)
+{
+    int i;
+    int j;
+
+    if (!find || !find[0])
+        return 1;
+
+    if (!text)
+        return 0;
+
+    for (i = 0; text[i]; i++)
+    {
+        j = 0;
+
+        while (find[j] &&
+               text[i + j] &&
+               LowerAscii(text[i + j]) == LowerAscii(find[j]))
+        {
+            j++;
+        }
+
+        if (!find[j])
+            return 1;
+    }
+
+    return 0;
+}
+
+static void ButtonGrid_SettingsGetFilterText(HWND pageHwnd, char *buffer, int bufferSize)
+{
+    HWND edit;
+
+    if (!buffer || bufferSize <= 0)
+        return;
+
+    buffer[0] = '\0';
+
+    edit = GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER);
+
+    if (edit)
+        GetWindowText(edit, buffer, bufferSize);
+}
+
+static int ButtonGrid_SettingMatchesFilter(
+    const ButtonGridSettingDefinition *def,
+    const char *filterText
+)
+{
+    if (!filterText || !filterText[0])
+        return 1;
+
+    if (TextContainsNoCase(def->label, filterText))
+        return 1;
+
+    if (TextContainsNoCase(def->key, filterText))
+        return 1;
+
+    return 0;
+}
+
+static void ButtonGrid_SettingsSetScrollPos(HWND pageHwnd, int pos)
+{
+    SCROLLINFO si;
+
+    ZeroMemory(&si, sizeof(si));
+
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_POS;
+    si.nPos = pos;
+
+    SetScrollInfo(pageHwnd, SB_VERT, &si, TRUE);
 }
 
 static int GetIntField(ButtonGrid *grid, const ButtonGridSettingDefinition *def)
@@ -633,6 +716,36 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
         NULL
     );
 
+    CreateWindowEx(
+        0,
+        "STATIC",
+        "Filter:",
+        WS_CHILD | WS_VISIBLE,
+        12,
+        42,
+        50,
+        22,
+        pageHwnd,
+        (HMENU)BG_SETTINGS_ID_FILTER_LABEL,
+        grid->hInstance,
+        NULL
+    );
+
+    CreateWindowEx(
+        WS_EX_CLIENTEDGE,
+        "EDIT",
+        "",
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+        66,
+        38,
+        360,
+        24,
+        pageHwnd,
+        (HMENU)BG_SETTINGS_ID_FILTER,
+        grid->hInstance,
+        NULL
+    );
+
     for (i = 0; i < BG_SETTINGS_COUNT; i++)
     {
         const ButtonGridSettingDefinition *def;
@@ -733,16 +846,39 @@ void ButtonGrid_LayoutSettingsPage(ButtonGrid *grid)
     ButtonGrid_SettingsLayoutControls(grid->settingsPageHwnd);
 }
 
+static void ButtonGrid_SettingsShowSettingControls(HWND pageHwnd, int index, int show)
+{
+    HWND label;
+    HWND primary;
+    HWND raw;
+
+    label = GetDlgItem(pageHwnd, BgIdLabel(index));
+    primary = GetDlgItem(pageHwnd, BgIdPrimary(index));
+    raw = GetDlgItem(pageHwnd, BgIdRaw(index));
+
+    if (label)
+        ShowWindow(label, show ? SW_SHOW : SW_HIDE);
+
+    if (primary)
+        ShowWindow(primary, show ? SW_SHOW : SW_HIDE);
+
+    if (raw)
+        ShowWindow(raw, show ? SW_SHOW : SW_HIDE);
+}
+
 static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
 {
     RECT rc;
     SCROLLINFO si;
+    char filterText[128];
     int clientW;
     int clientH;
     int contentH;
     int maxScroll;
     int scrollY;
     int i;
+    int visibleIndex;
+    int visibleCount;
     int labelX;
     int primaryX;
     int rawX;
@@ -759,7 +895,21 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
     clientW = rc.right - rc.left;
     clientH = rc.bottom - rc.top;
 
-    contentH = BG_SETTINGS_TOP + BG_SETTINGS_COUNT * BG_SETTINGS_ROW_HEIGHT + BG_SETTINGS_BOTTOM_PADDING;
+    ButtonGrid_SettingsGetFilterText(pageHwnd, filterText, sizeof(filterText));
+
+    visibleCount = 0;
+
+    for (i = 0; i < BG_SETTINGS_COUNT; i++)
+    {
+        if (ButtonGrid_SettingMatchesFilter(&g_settings[i], filterText))
+            visibleCount++;
+    }
+
+    contentH = BG_SETTINGS_TOP + visibleCount * BG_SETTINGS_ROW_HEIGHT + BG_SETTINGS_BOTTOM_PADDING;
+
+    if (contentH < clientH)
+        contentH = clientH;
+
     maxScroll = contentH - clientH;
 
     if (maxScroll < 0)
@@ -793,19 +943,47 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
         TRUE
     );
 
+    MoveWindow(
+        GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER_LABEL),
+        BG_SETTINGS_LEFT,
+        43,
+        50,
+        22,
+        TRUE
+    );
+
+    MoveWindow(
+        GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER),
+        BG_SETTINGS_LEFT + 54,
+        38,
+        clientW - BG_SETTINGS_LEFT - 54 - 20,
+        24,
+        TRUE
+    );
+
     labelX = BG_SETTINGS_LEFT;
     primaryX = labelX + BG_SETTINGS_LABEL_WIDTH + BG_SETTINGS_GAP;
     rawX = primaryX + BG_SETTINGS_PRIMARY_WIDTH + BG_SETTINGS_GAP;
+
+    visibleIndex = 0;
 
     for (i = 0; i < BG_SETTINGS_COUNT; i++)
     {
         const ButtonGridSettingDefinition *def;
         HWND primary;
+        int matches;
 
         def = &g_settings[i];
-        primary = GetDlgItem(pageHwnd, BgIdPrimary(i));
 
-        rowY = BG_SETTINGS_TOP + i * BG_SETTINGS_ROW_HEIGHT - scrollY;
+        matches = ButtonGrid_SettingMatchesFilter(def, filterText);
+
+        ButtonGrid_SettingsShowSettingControls(pageHwnd, i, matches);
+
+        if (!matches)
+            continue;
+
+        primary = GetDlgItem(pageHwnd, BgIdPrimary(i));
+        rowY = BG_SETTINGS_TOP + visibleIndex * BG_SETTINGS_ROW_HEIGHT - scrollY;
 
         MoveWindow(
             GetDlgItem(pageHwnd, BgIdLabel(i)),
@@ -850,6 +1028,8 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
                 TRUE
             );
         }
+
+        visibleIndex++;
     }
 }
 
@@ -1074,7 +1254,7 @@ void ButtonGrid_ShowSettingsPage(ButtonGrid *grid, int show)
         ShowWindow(pageHwnd, SW_SHOWNORMAL);
         BringWindowToTop(pageHwnd);
         SetForegroundWindow(pageHwnd);
-        SetFocus(pageHwnd);
+        SetFocus(GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER));
     }
     else
     {
@@ -1331,6 +1511,16 @@ static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM w
             {
                 ButtonGrid_ShowSettingsPage(grid, 0);
                 return 0;
+            }
+
+            if (id == BG_SETTINGS_ID_FILTER)
+            {
+                if (code == EN_CHANGE)
+                {
+                    ButtonGrid_SettingsSetScrollPos(hwnd, 0);
+                    ButtonGrid_SettingsLayoutControls(hwnd);
+                    return 0;
+                }
             }
 
             if (g_settingsUpdatingControls)
