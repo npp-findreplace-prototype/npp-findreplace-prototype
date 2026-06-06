@@ -22,6 +22,9 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->resizeInLayoutSteps = BUTTON_GRID_DEFAULT_RESIZE_IN_LAYOUT_STEPS;
     config->settingsWheelScrub = BUTTON_GRID_DEFAULT_SETTINGS_WHEEL_SCRUB;
 
+    config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
+    config->allowThemeSelection = BUTTON_GRID_DEFAULT_ALLOW_THEME_SELECTION;
+
     config->showBorder = BUTTON_GRID_DEFAULT_SHOW_BORDER;
     config->borderTitle = BUTTON_GRID_DEFAULT_BORDER_TITLE;
     config->borderPadding = BUTTON_GRID_DEFAULT_BORDER_PADDING;
@@ -93,6 +96,11 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     config->hidePartialButtons = config->hidePartialButtons ? 1 : 0;
     config->resizeInLayoutSteps = config->resizeInLayoutSteps ? 1 : 0;
     config->settingsWheelScrub = config->settingsWheelScrub ? 1 : 0;
+
+    if (!config->themeName)
+        config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
+
+    config->allowThemeSelection = config->allowThemeSelection ? 1 : 0;
 
     config->showBorder = config->showBorder ? 1 : 0;
 
@@ -174,6 +182,14 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
     grid->hidePartialButtons = config->hidePartialButtons;
     grid->resizeInLayoutSteps = config->resizeInLayoutSteps;
     grid->settingsWheelScrub = config->settingsWheelScrub;
+
+    ButtonGrid_CopyText(
+        grid->themeName,
+        BUTTON_GRID_THEME_NAME_SIZE,
+        config->themeName
+    );
+
+    grid->allowThemeSelection = config->allowThemeSelection;
 
     grid->showBorder = config->showBorder;
     ButtonGrid_CopyText(grid->borderTitle, BUTTON_GRID_TITLE_SIZE, config->borderTitle);

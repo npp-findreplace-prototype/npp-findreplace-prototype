@@ -63,6 +63,52 @@ static void ButtonGrid_SetDefaultButtonText(ButtonGrid *grid, int buttonIndex)
     );
 }
 
+static void ButtonGrid_LoadThemeImagesForButton(ButtonGrid *grid, ButtonItem *button)
+{
+    int offFailed;
+    int onFailed;
+    const char *iconBaseName;
+
+    if (!grid || !button)
+        return;
+
+    if (!grid->usePictures)
+        return;
+
+    if (!grid->themeName[0])
+        return;
+
+    iconBaseName = button->iconBaseName;
+
+    if (!iconBaseName || !iconBaseName[0])
+        iconBaseName = button->name;
+
+    offFailed = 0;
+    onFailed = 0;
+
+    button->pictureOff = ImageLoader_LoadButtonIcon(
+        grid->hInstance,
+        grid->themeName,
+        iconBaseName,
+        "OFF",
+        &offFailed
+    );
+
+    button->pictureOn = ImageLoader_LoadButtonIcon(
+        grid->hInstance,
+        grid->themeName,
+        iconBaseName,
+        "ON",
+        &onFailed
+    );
+
+    button->ownsPictureOff = button->pictureOff != NULL;
+    button->ownsPictureOn = button->pictureOn != NULL;
+
+    button->pictureOffLoadFailed = offFailed;
+    button->pictureOnLoadFailed = onFailed;
+}
+
 static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
 {
     const ButtonGridItemConfig *item;
@@ -79,6 +125,12 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
     ButtonGrid_CopyText(
         grid->buttons[buttonIndex].tooltip,
         BUTTON_GRID_TOOLTIP_SIZE,
+        grid->buttons[buttonIndex].name
+    );
+
+    ButtonGrid_CopyText(
+        grid->buttons[buttonIndex].iconBaseName,
+        BUTTON_GRID_NAME_SIZE,
         grid->buttons[buttonIndex].name
     );
 
@@ -106,6 +158,15 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
 
         if (item->tooltip)
             ButtonGrid_CopyText(grid->buttons[buttonIndex].tooltip, BUTTON_GRID_TOOLTIP_SIZE, item->tooltip);
+
+        if (item->iconBaseName && item->iconBaseName[0])
+        {
+            ButtonGrid_CopyText(
+                grid->buttons[buttonIndex].iconBaseName,
+                BUTTON_GRID_NAME_SIZE,
+                item->iconBaseName
+            );
+        }
 
         grid->buttons[buttonIndex].behavior = item->behavior;
         grid->buttons[buttonIndex].radioGroup = item->radioGroup;
@@ -140,6 +201,13 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
     }
 
     ButtonGrid_ResolveButtonSize(grid, &grid->buttons[buttonIndex]);
+
+    if (!grid->buttons[buttonIndex].pictureOff &&
+        !grid->buttons[buttonIndex].pictureOn)
+    {
+        ButtonGrid_LoadThemeImagesForButton(grid, &grid->buttons[buttonIndex]);
+        ButtonGrid_ResolveButtonSize(grid, &grid->buttons[buttonIndex]);
+    }
 }
 
 static HWND ButtonGrid_CreateOneButton(ButtonGrid *grid, int buttonIndex)
@@ -235,6 +303,24 @@ void ButtonGrid_Free(ButtonGrid *grid)
     }
 
     free(grid);
+}
+
+void ButtonGrid_ReloadThemeImages(ButtonGrid *grid)
+{
+    int i;
+
+    if (!grid || !grid->buttons)
+        return;
+
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        ButtonGrid_FreeButtonImages(&grid->buttons[i]);
+        ButtonGrid_LoadThemeImagesForButton(grid, &grid->buttons[i]);
+        ButtonGrid_ResolveButtonSize(grid, &grid->buttons[i]);
+    }
+
+    ButtonGrid_Layout(grid);
+    ButtonGrid_RedrawAllButtons(grid);
 }
 
 int ButtonGrid_FindButtonIndexByName(ButtonGrid *grid, const char *name)

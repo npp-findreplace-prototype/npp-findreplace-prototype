@@ -1,61 +1,71 @@
 #include <windows.h>
-#include <objidl.h>
 #include <stdlib.h>
-#include <string.h>
+#include <ole2.h>
 
 #include "image_loader.h"
+#include "theme_resources.h"
+
+#ifndef Ok
+#define Ok 0
+#endif
 
 typedef int GpStatus;
-typedef void GpImage;
-typedef void GpGraphics;
-typedef DWORD ARGB;
+typedef struct GpGraphics GpGraphics;
 
-typedef struct GdiplusStartupInputLocal
+typedef struct GdiplusStartupInput
 {
-    UINT GdiplusVersion;
+    UINT32 GdiplusVersion;
     void *DebugEventCallback;
     BOOL SuppressBackgroundThread;
     BOOL SuppressExternalCodecs;
-} GdiplusStartupInputLocal;
+} GdiplusStartupInput;
 
-typedef GpStatus (WINAPI *GdiplusStartupProc)(
+typedef struct GdiplusStartupOutput
+{
+    void *NotificationHook;
+    void *NotificationUnhook;
+} GdiplusStartupOutput;
+
+extern GpStatus __stdcall GdiplusStartup(
     ULONG_PTR *token,
-    const GdiplusStartupInputLocal *input,
-    void *output
+    const GdiplusStartupInput *input,
+    GdiplusStartupOutput *output
 );
 
-typedef void (WINAPI *GdiplusShutdownProc)(ULONG_PTR token);
+extern void __stdcall GdiplusShutdown(ULONG_PTR token);
 
-typedef GpStatus (WINAPI *GdipLoadImageFromFileProc)(
+extern GpStatus __stdcall GdipLoadImageFromFile(
     const WCHAR *filename,
     GpImage **image
 );
 
-typedef GpStatus (WINAPI *GdipLoadImageFromStreamProc)(
+extern GpStatus __stdcall GdipLoadImageFromStream(
     IStream *stream,
     GpImage **image
 );
 
-typedef GpStatus (WINAPI *GdipDisposeImageProc)(GpImage *image);
+extern GpStatus __stdcall GdipDisposeImage(GpImage *image);
 
-typedef GpStatus (WINAPI *GdipGetImageWidthProc)(
+extern GpStatus __stdcall GdipGetImageWidth(
     GpImage *image,
     UINT *width
 );
 
-typedef GpStatus (WINAPI *GdipGetImageHeightProc)(
+extern GpStatus __stdcall GdipGetImageHeight(
     GpImage *image,
     UINT *height
 );
 
-typedef GpStatus (WINAPI *GdipCreateFromHDCProc)(
+extern GpStatus __stdcall GdipCreateFromHDC(
     HDC hdc,
     GpGraphics **graphics
 );
 
-typedef GpStatus (WINAPI *GdipDeleteGraphicsProc)(GpGraphics *graphics);
+extern GpStatus __stdcall GdipDeleteGraphics(
+    GpGraphics *graphics
+);
 
-typedef GpStatus (WINAPI *GdipDrawImageRectIProc)(
+extern GpStatus __stdcall GdipDrawImageRectI(
     GpGraphics *graphics,
     GpImage *image,
     INT x,
@@ -64,250 +74,42 @@ typedef GpStatus (WINAPI *GdipDrawImageRectIProc)(
     INT height
 );
 
-typedef GpStatus (WINAPI *GdipSetInterpolationModeProc)(
-    GpGraphics *graphics,
-    int interpolationMode
-);
-
-struct AppImage
-{
-    GpImage *image;
-    UINT width;
-    UINT height;
-};
-
-static HMODULE g_gdiplus = NULL;
 static ULONG_PTR g_gdiplusToken = 0;
-static int g_started = 0;
+static int g_gdiplusStarted = 0;
 
-static GdiplusStartupProc pGdiplusStartup = NULL;
-static GdiplusShutdownProc pGdiplusShutdown = NULL;
-static GdipLoadImageFromFileProc pGdipLoadImageFromFile = NULL;
-static GdipLoadImageFromStreamProc pGdipLoadImageFromStream = NULL;
-static GdipDisposeImageProc pGdipDisposeImage = NULL;
-static GdipGetImageWidthProc pGdipGetImageWidth = NULL;
-static GdipGetImageHeightProc pGdipGetImageHeight = NULL;
-static GdipCreateFromHDCProc pGdipCreateFromHDC = NULL;
-static GdipDeleteGraphicsProc pGdipDeleteGraphics = NULL;
-static GdipDrawImageRectIProc pGdipDrawImageRectI = NULL;
-static GdipSetInterpolationModeProc pGdipSetInterpolationMode = NULL;
-
-static FARPROC LoadGdiPlusFunction(const char *name)
+static void ImageLoader_CopyText(char *dest, int destSize, const char *src)
 {
-    return GetProcAddress(g_gdiplus, name);
+    if (!dest || destSize <= 0)
+        return;
+
+    if (!src)
+        src = "";
+
+    lstrcpyn(dest, src, destSize);
+    dest[destSize - 1] = '\0';
 }
 
-static int LoadGdiPlusFunctions(void)
+static int ImageLoader_IsExeTheme(const char *themeName)
 {
-    pGdiplusStartup = (GdiplusStartupProc)LoadGdiPlusFunction("GdiplusStartup");
-    pGdiplusShutdown = (GdiplusShutdownProc)LoadGdiPlusFunction("GdiplusShutdown");
-    pGdipLoadImageFromFile = (GdipLoadImageFromFileProc)LoadGdiPlusFunction("GdipLoadImageFromFile");
-    pGdipLoadImageFromStream = (GdipLoadImageFromStreamProc)LoadGdiPlusFunction("GdipLoadImageFromStream");
-    pGdipDisposeImage = (GdipDisposeImageProc)LoadGdiPlusFunction("GdipDisposeImage");
-    pGdipGetImageWidth = (GdipGetImageWidthProc)LoadGdiPlusFunction("GdipGetImageWidth");
-    pGdipGetImageHeight = (GdipGetImageHeightProc)LoadGdiPlusFunction("GdipGetImageHeight");
-    pGdipCreateFromHDC = (GdipCreateFromHDCProc)LoadGdiPlusFunction("GdipCreateFromHDC");
-    pGdipDeleteGraphics = (GdipDeleteGraphicsProc)LoadGdiPlusFunction("GdipDeleteGraphics");
-    pGdipDrawImageRectI = (GdipDrawImageRectIProc)LoadGdiPlusFunction("GdipDrawImageRectI");
-    pGdipSetInterpolationMode = (GdipSetInterpolationModeProc)LoadGdiPlusFunction("GdipSetInterpolationMode");
-
-    if (!pGdiplusStartup ||
-        !pGdiplusShutdown ||
-        !pGdipLoadImageFromFile ||
-        !pGdipLoadImageFromStream ||
-        !pGdipDisposeImage ||
-        !pGdipGetImageWidth ||
-        !pGdipGetImageHeight ||
-        !pGdipCreateFromHDC ||
-        !pGdipDeleteGraphics ||
-        !pGdipDrawImageRectI)
-    {
-        return 0;
-    }
-
-    return 1;
-}
-
-int ImageLoader_Startup(void)
-{
-    GdiplusStartupInputLocal input;
-
-    if (g_started)
-        return 1;
-
-    g_gdiplus = LoadLibrary("gdiplus.dll");
-
-    if (!g_gdiplus)
+    if (!themeName)
         return 0;
 
-    if (!LoadGdiPlusFunctions())
-    {
-        FreeLibrary(g_gdiplus);
-        g_gdiplus = NULL;
-        return 0;
-    }
-
-    ZeroMemory(&input, sizeof(input));
-
-    input.GdiplusVersion = 1;
-    input.DebugEventCallback = NULL;
-    input.SuppressBackgroundThread = FALSE;
-    input.SuppressExternalCodecs = FALSE;
-
-    if (pGdiplusStartup(&g_gdiplusToken, &input, NULL) != 0)
-    {
-        FreeLibrary(g_gdiplus);
-        g_gdiplus = NULL;
-        return 0;
-    }
-
-    g_started = 1;
-    return 1;
+    return
+        themeName[0] == 'e' &&
+        themeName[1] == 'x' &&
+        themeName[2] == 'e' &&
+        themeName[3] == ':';
 }
 
-void ImageLoader_Shutdown(void)
+static const char *ImageLoader_StripExeThemePrefix(const char *themeName)
 {
-    if (g_started && pGdiplusShutdown)
-        pGdiplusShutdown(g_gdiplusToken);
+    if (ImageLoader_IsExeTheme(themeName))
+        return themeName + 4;
 
-    g_started = 0;
-    g_gdiplusToken = 0;
-
-    if (g_gdiplus)
-    {
-        FreeLibrary(g_gdiplus);
-        g_gdiplus = NULL;
-    }
+    return themeName;
 }
 
-static AppImage *ImageLoader_CreateFromGpImage(GpImage *gpImage)
-{
-    AppImage *image;
-    UINT width;
-    UINT height;
-
-    if (!gpImage)
-        return NULL;
-
-    width = 0;
-    height = 0;
-
-    if (pGdipGetImageWidth(gpImage, &width) != 0 ||
-        pGdipGetImageHeight(gpImage, &height) != 0)
-    {
-        pGdipDisposeImage(gpImage);
-        return NULL;
-    }
-
-    image = (AppImage *)malloc(sizeof(AppImage));
-
-    if (!image)
-    {
-        pGdipDisposeImage(gpImage);
-        return NULL;
-    }
-
-    image->image = gpImage;
-    image->width = width;
-    image->height = height;
-
-    return image;
-}
-
-static AppImage *ImageLoader_LoadFromFile(const char *path)
-{
-    WCHAR widePath[MAX_PATH];
-    GpImage *gpImage;
-
-    if (!g_started || !path)
-        return NULL;
-
-    if (!MultiByteToWideChar(CP_ACP, 0, path, -1, widePath, MAX_PATH))
-        return NULL;
-
-    gpImage = NULL;
-
-    if (pGdipLoadImageFromFile(widePath, &gpImage) != 0)
-        return NULL;
-
-    return ImageLoader_CreateFromGpImage(gpImage);
-}
-
-static AppImage *ImageLoader_LoadFromResource(
-    HINSTANCE hInstance,
-    const char *resourceName
-)
-{
-    HRSRC resource;
-    HGLOBAL loadedResource;
-    DWORD resourceSize;
-    void *resourceData;
-
-    HGLOBAL memory;
-    void *memoryData;
-    IStream *stream;
-    GpImage *gpImage;
-    AppImage *image;
-
-    if (!g_started || !hInstance || !resourceName)
-        return NULL;
-
-    resource = FindResource(hInstance, resourceName, RT_RCDATA);
-
-    if (!resource)
-        return NULL;
-
-    loadedResource = LoadResource(hInstance, resource);
-
-    if (!loadedResource)
-        return NULL;
-
-    resourceSize = SizeofResource(hInstance, resource);
-    resourceData = LockResource(loadedResource);
-
-    if (!resourceData || resourceSize == 0)
-        return NULL;
-
-    memory = GlobalAlloc(GMEM_MOVEABLE, resourceSize);
-
-    if (!memory)
-        return NULL;
-
-    memoryData = GlobalLock(memory);
-
-    if (!memoryData)
-    {
-        GlobalFree(memory);
-        return NULL;
-    }
-
-    CopyMemory(memoryData, resourceData, resourceSize);
-    GlobalUnlock(memory);
-
-    stream = NULL;
-
-    if (CreateStreamOnHGlobal(memory, TRUE, &stream) != S_OK)
-    {
-        GlobalFree(memory);
-        return NULL;
-    }
-
-    gpImage = NULL;
-
-    if (pGdipLoadImageFromStream(stream, &gpImage) != 0)
-    {
-        stream->lpVtbl->Release(stream);
-        return NULL;
-    }
-
-    stream->lpVtbl->Release(stream);
-
-    image = ImageLoader_CreateFromGpImage(gpImage);
-
-    return image;
-}
-
-static void GetExeDirectory(char *buffer, int bufferSize)
+static void ImageLoader_GetExeDirectory(char *buffer, int bufferSize)
 {
     int len;
     int i;
@@ -330,271 +132,335 @@ static void GetExeDirectory(char *buffer, int bufferSize)
         }
     }
 
-    lstrcpy(buffer, ".");
+    ImageLoader_CopyText(buffer, bufferSize, ".");
 }
 
-static int FileExists(const char *path)
+static int ImageLoader_FileExists(const char *path)
 {
-    DWORD attrs;
+    DWORD attr;
 
-    if (!path)
+    if (!path || !path[0])
         return 0;
 
-    attrs = GetFileAttributes(path);
+    attr = GetFileAttributes(path);
 
-    if (attrs == INVALID_FILE_ATTRIBUTES)
+    if (attr == INVALID_FILE_ATTRIBUTES)
         return 0;
 
-    if (attrs & FILE_ATTRIBUTE_DIRECTORY)
+    if (attr & FILE_ATTRIBUTE_DIRECTORY)
         return 0;
 
     return 1;
 }
 
-static void MakeThemedResourceName(
-    char *buffer,
-    const char *themeName,
-    const char *buttonName,
-    const char *stateName,
-    const char *extensionUpper
+static void ImageLoader_ToWide(
+    const char *src,
+    WCHAR *dest,
+    int destCount
 )
 {
-    wsprintf(
-        buffer,
-        "THEME_%s_%s_%s_%s",
-        themeName,
-        buttonName,
-        stateName,
-        extensionUpper
+    if (!dest || destCount <= 0)
+        return;
+
+    dest[0] = 0;
+
+    if (!src)
+        return;
+
+    MultiByteToWideChar(
+        CP_ACP,
+        0,
+        src,
+        -1,
+        dest,
+        destCount
     );
+
+    dest[destCount - 1] = 0;
 }
 
-static void MakeDefaultResourceName(
-    char *buffer,
-    const char *buttonName,
-    const char *stateName,
-    const char *extensionUpper
-)
+int ImageLoader_Startup(void)
 {
-    wsprintf(
-        buffer,
-        "%s_%s_%s",
-        buttonName,
-        stateName,
-        extensionUpper
-    );
+    GdiplusStartupInput input;
+
+    if (g_gdiplusStarted)
+        return 1;
+
+    ZeroMemory(&input, sizeof(input));
+
+    input.GdiplusVersion = 1;
+    input.DebugEventCallback = NULL;
+    input.SuppressBackgroundThread = FALSE;
+    input.SuppressExternalCodecs = FALSE;
+
+    if (GdiplusStartup(&g_gdiplusToken, &input, NULL) != Ok)
+        return 0;
+
+    g_gdiplusStarted = 1;
+    return 1;
 }
 
-static void MakeThemedFilePath(
-    char *buffer,
-    const char *directory,
-    const char *themeName,
-    const char *buttonName,
-    const char *stateName,
-    const char *extensionLower
-)
+void ImageLoader_Shutdown(void)
 {
-    wsprintf(
-        buffer,
-        "%s\\themes\\%s\\%s_%s.%s",
-        directory,
-        themeName,
-        buttonName,
-        stateName,
-        extensionLower
-    );
+    if (!g_gdiplusStarted)
+        return;
+
+    GdiplusShutdown(g_gdiplusToken);
+
+    g_gdiplusToken = 0;
+    g_gdiplusStarted = 0;
 }
 
-static void MakeDefaultFilePath(
-    char *buffer,
-    const char *directory,
-    const char *buttonName,
-    const char *stateName,
-    const char *extensionLower
-)
+AppImage *ImageLoader_Load(const char *fileName)
 {
-    wsprintf(
-        buffer,
-        "%s\\%s_%s.%s",
-        directory,
-        buttonName,
-        stateName,
-        extensionLower
-    );
-}
+    WCHAR widePath[MAX_PATH];
+    GpImage *image;
+    AppImage *appImage;
 
-static AppImage *TryLoadResourceSet(
-    HINSTANCE hInstance,
-    const char *themeName,
-    const char *buttonName,
-    const char *stateName,
-    int *loadFailed
-)
-{
-    static const char *extensionsUpper[] = { "BMP", "PNG", "JPG" };
+    if (!fileName || !fileName[0])
+        return NULL;
 
-    int i;
-    char resourceName[256];
-    HRSRC resource;
-    AppImage *image;
+    if (!g_gdiplusStarted)
+        return NULL;
 
-    for (i = 0; i < 3; i++)
+    ImageLoader_ToWide(fileName, widePath, MAX_PATH);
+
+    image = NULL;
+
+    if (GdipLoadImageFromFile(widePath, &image) != Ok)
+        return NULL;
+
+    appImage = (AppImage *)malloc(sizeof(AppImage));
+
+    if (!appImage)
     {
-        if (themeName && themeName[0])
-        {
-            MakeThemedResourceName(
-                resourceName,
-                themeName,
-                buttonName,
-                stateName,
-                extensionsUpper[i]
-            );
-        }
-        else
-        {
-            MakeDefaultResourceName(
-                resourceName,
-                buttonName,
-                stateName,
-                extensionsUpper[i]
-            );
-        }
-
-        resource = FindResource(hInstance, resourceName, RT_RCDATA);
-
-        if (resource)
-        {
-            image = ImageLoader_LoadFromResource(hInstance, resourceName);
-
-            if (image)
-                return image;
-
-            if (loadFailed)
-                *loadFailed = 1;
-
-            return NULL;
-        }
+        GdipDisposeImage(image);
+        return NULL;
     }
 
-    return NULL;
+    ZeroMemory(appImage, sizeof(AppImage));
+
+    appImage->image = image;
+
+    GdipGetImageWidth(image, &appImage->width);
+    GdipGetImageHeight(image, &appImage->height);
+
+    return appImage;
 }
 
-static AppImage *TryLoadFileSet(
-    const char *themeName,
-    const char *buttonName,
-    const char *stateName,
-    int *loadFailed
+AppImage *ImageLoader_LoadFromMemory(
+    const unsigned char *data,
+    unsigned int size
 )
 {
-    static const char *extensionsLower[] = { "bmp", "png", "jpg" };
+    HGLOBAL memory;
+    void *locked;
+    IStream *stream;
+    GpImage *image;
+    AppImage *appImage;
 
-    int i;
+    if (!data || size < 1)
+        return NULL;
+
+    if (!g_gdiplusStarted)
+        return NULL;
+
+    memory = GlobalAlloc(GMEM_MOVEABLE, size);
+
+    if (!memory)
+        return NULL;
+
+    locked = GlobalLock(memory);
+
+    if (!locked)
+    {
+        GlobalFree(memory);
+        return NULL;
+    }
+
+    CopyMemory(locked, data, size);
+    GlobalUnlock(memory);
+
+    stream = NULL;
+
+    if (CreateStreamOnHGlobal(memory, TRUE, &stream) != S_OK)
+    {
+        GlobalFree(memory);
+        return NULL;
+    }
+
+    image = NULL;
+
+    if (GdipLoadImageFromStream(stream, &image) != Ok)
+    {
+        stream->lpVtbl->Release(stream);
+        return NULL;
+    }
+
+    stream->lpVtbl->Release(stream);
+
+    appImage = (AppImage *)malloc(sizeof(AppImage));
+
+    if (!appImage)
+    {
+        GdipDisposeImage(image);
+        return NULL;
+    }
+
+    ZeroMemory(appImage, sizeof(AppImage));
+
+    appImage->image = image;
+
+    GdipGetImageWidth(image, &appImage->width);
+    GdipGetImageHeight(image, &appImage->height);
+
+    return appImage;
+}
+
+static AppImage *ImageLoader_LoadThemeFileFromFolder(
+    const char *themeName,
+    const char *fileName
+)
+{
     char exeDir[MAX_PATH];
-    char filePath[MAX_PATH];
+    char path[MAX_PATH];
+
+    if (!themeName || !themeName[0] || !fileName || !fileName[0])
+        return NULL;
+
+    ImageLoader_GetExeDirectory(exeDir, MAX_PATH);
+
+    wsprintf(
+        path,
+        "%s\\themes\\%s\\%s",
+        exeDir,
+        themeName,
+        fileName
+    );
+
+    if (!ImageLoader_FileExists(path))
+        return NULL;
+
+    return ImageLoader_Load(path);
+}
+
+static AppImage *ImageLoader_LoadThemeFileFromExe(
+    const char *themeName,
+    const char *fileName
+)
+{
+    const unsigned char *data;
+    unsigned int size;
+
+    if (!themeName || !themeName[0] || !fileName || !fileName[0])
+        return NULL;
+
+    size = 0;
+
+    data = ThemeResources_FindFile(
+        themeName,
+        fileName,
+        &size
+    );
+
+    if (!data || size < 1)
+        return NULL;
+
+    return ImageLoader_LoadFromMemory(data, size);
+}
+
+static AppImage *ImageLoader_LoadThemeFile(
+    const char *themeName,
+    const char *fileName
+)
+{
+    const char *plainThemeName;
     AppImage *image;
 
-    GetExeDirectory(exeDir, MAX_PATH);
+    if (!themeName || !themeName[0] || !fileName || !fileName[0])
+        return NULL;
 
-    for (i = 0; i < 3; i++)
+    plainThemeName = ImageLoader_StripExeThemePrefix(themeName);
+
+    if (ImageLoader_IsExeTheme(themeName))
     {
-        if (themeName && themeName[0])
-        {
-            MakeThemedFilePath(
-                filePath,
-                exeDir,
-                themeName,
-                buttonName,
-                stateName,
-                extensionsLower[i]
-            );
-        }
-        else
-        {
-            MakeDefaultFilePath(
-                filePath,
-                exeDir,
-                buttonName,
-                stateName,
-                extensionsLower[i]
-            );
-        }
-
-        if (FileExists(filePath))
-        {
-            image = ImageLoader_LoadFromFile(filePath);
-
-            if (image)
-                return image;
-
-            if (loadFailed)
-                *loadFailed = 1;
-
-            return NULL;
-        }
+        return ImageLoader_LoadThemeFileFromExe(
+            plainThemeName,
+            fileName
+        );
     }
 
-    return NULL;
+    image = ImageLoader_LoadThemeFileFromFolder(
+        plainThemeName,
+        fileName
+    );
+
+    if (image)
+        return image;
+
+    return ImageLoader_LoadThemeFileFromExe(
+        plainThemeName,
+        fileName
+    );
 }
 
 AppImage *ImageLoader_LoadButtonIcon(
     HINSTANCE hInstance,
     const char *themeName,
-    const char *buttonName,
+    const char *iconBaseName,
     const char *stateName,
     int *loadFailed
 )
 {
+    static const char *extensions[] =
+    {
+        "bmp",
+        "png",
+        "jpg",
+        NULL
+    };
+
+    char fileName[MAX_PATH];
+    int i;
     AppImage *image;
+
+    (void)hInstance;
 
     if (loadFailed)
         *loadFailed = 0;
 
-    if (!buttonName || !stateName)
+    if (!themeName || !themeName[0])
         return NULL;
 
-    /*
-        Search order:
+    if (!iconBaseName || !iconBaseName[0])
+        return NULL;
 
-        1. File in selected theme folder:
-               themes\Dark\LiteralSearch_OFF.png
+    if (!stateName || !stateName[0])
+        return NULL;
 
-        2. Embedded selected theme resource:
-               THEME_Dark_LiteralSearch_OFF_PNG
-
-        3. Default file beside exe:
-               LiteralSearch_OFF.png
-
-        4. Default embedded resource:
-               LiteralSearch_OFF_PNG
-
-        Missing image:
-            not an error
-
-        Existing image/resource that fails to decode:
-            loadFailed = 1
-    */
-
-    if (themeName && themeName[0])
+    for (i = 0; extensions[i]; i++)
     {
-        image = TryLoadFileSet(themeName, buttonName, stateName, loadFailed);
+        wsprintf(
+            fileName,
+            "%s_%s.%s",
+            iconBaseName,
+            stateName,
+            extensions[i]
+        );
 
-        if (image || (loadFailed && *loadFailed))
-            return image;
+        image = ImageLoader_LoadThemeFile(
+            themeName,
+            fileName
+        );
 
-        image = TryLoadResourceSet(hInstance, themeName, buttonName, stateName, loadFailed);
-
-        if (image || (loadFailed && *loadFailed))
+        if (image)
             return image;
     }
 
-    image = TryLoadFileSet(NULL, buttonName, stateName, loadFailed);
+    if (loadFailed)
+        *loadFailed = 0;
 
-    if (image || (loadFailed && *loadFailed))
-        return image;
-
-    image = TryLoadResourceSet(hInstance, NULL, buttonName, stateName, loadFailed);
-
-    return image;
+    return NULL;
 }
 
 void ImageLoader_Free(AppImage *image)
@@ -602,10 +468,11 @@ void ImageLoader_Free(AppImage *image)
     if (!image)
         return;
 
-    if (image->image && pGdipDisposeImage)
-        pGdipDisposeImage(image->image);
-
-    image->image = NULL;
+    if (image->image)
+    {
+        GdipDisposeImage(image->image);
+        image->image = NULL;
+    }
 
     free(image);
 }
@@ -616,6 +483,12 @@ int ImageLoader_GetSize(
     int *height
 )
 {
+    if (width)
+        *width = 0;
+
+    if (height)
+        *height = 0;
+
     if (!image)
         return 0;
 
@@ -625,68 +498,68 @@ int ImageLoader_GetSize(
     if (height)
         *height = (int)image->height;
 
-    return 1;
+    return image->width > 0 && image->height > 0;
 }
 
-int ImageLoader_Draw(
+void ImageLoader_Draw(
     HDC hdc,
     AppImage *image,
-    const RECT *rect,
+    const RECT *targetRect,
     int stretch
 )
 {
     GpGraphics *graphics;
-    int rectW;
-    int rectH;
+    int targetW;
+    int targetH;
     int drawW;
     int drawH;
-    int x;
-    int y;
-    int result;
+    int drawX;
+    int drawY;
 
-    if (!g_started || !hdc || !image || !image->image || !rect)
-        return 0;
+    if (!hdc || !image || !image->image || !targetRect)
+        return;
 
-    rectW = rect->right - rect->left;
-    rectH = rect->bottom - rect->top;
+    targetW = targetRect->right - targetRect->left;
+    targetH = targetRect->bottom - targetRect->top;
 
-    if (rectW < 1 || rectH < 1)
-        return 0;
-
-    graphics = NULL;
-
-    if (pGdipCreateFromHDC(hdc, &graphics) != 0)
-        return 0;
-
-    if (pGdipSetInterpolationMode)
-        pGdipSetInterpolationMode(graphics, 7);
+    if (targetW <= 0 || targetH <= 0)
+        return;
 
     if (stretch)
     {
-        x = rect->left;
-        y = rect->top;
-        drawW = rectW;
-        drawH = rectH;
+        drawX = targetRect->left;
+        drawY = targetRect->top;
+        drawW = targetW;
+        drawH = targetH;
     }
     else
     {
         drawW = (int)image->width;
         drawH = (int)image->height;
 
-        x = rect->left + (rectW - drawW) / 2;
-        y = rect->top + (rectH - drawH) / 2;
+        if (drawW > targetW)
+            drawW = targetW;
+
+        if (drawH > targetH)
+            drawH = targetH;
+
+        drawX = targetRect->left + (targetW - drawW) / 2;
+        drawY = targetRect->top + (targetH - drawH) / 2;
     }
 
-    result = pGdipDrawImageRectI(
+    graphics = NULL;
+
+    if (GdipCreateFromHDC(hdc, &graphics) != Ok)
+        return;
+
+    GdipDrawImageRectI(
         graphics,
         image->image,
-        x,
-        y,
+        drawX,
+        drawY,
         drawW,
         drawH
-    ) == 0;
+    );
 
-    pGdipDeleteGraphics(graphics);
-
-    return result;
+    GdipDeleteGraphics(graphics);
 }

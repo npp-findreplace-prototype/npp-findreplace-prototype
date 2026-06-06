@@ -185,7 +185,7 @@ void ButtonGrid_SettingsWriteRawText(HWND pageHwnd, int index, ButtonGrid *grid)
             sizeof(buffer)
         );
     }
-    else if (def->type == BG_SETTING_TEXT)
+    else if (def->type == BG_SETTING_TEXT || def->type == BG_SETTING_THEME)
     {
         ButtonGrid_CopyText(
             buffer,
@@ -237,6 +237,17 @@ static void ButtonGrid_SettingsNormalizeLiveGrid(ButtonGrid *grid)
     grid->hidePartialButtons = grid->hidePartialButtons ? 1 : 0;
     grid->resizeInLayoutSteps = grid->resizeInLayoutSteps ? 1 : 0;
     grid->settingsWheelScrub = grid->settingsWheelScrub ? 1 : 0;
+
+    if (!grid->themeName[0])
+    {
+        ButtonGrid_CopyText(
+            grid->themeName,
+            BUTTON_GRID_THEME_NAME_SIZE,
+            BUTTON_GRID_DEFAULT_THEME_NAME
+        );
+    }
+
+    grid->allowThemeSelection = grid->allowThemeSelection ? 1 : 0;
 
     if (grid->borderStyle != BUTTON_GRID_BORDER_STYLE_NONE &&
         grid->borderStyle != BUTTON_GRID_BORDER_STYLE_SIMPLE &&
@@ -301,6 +312,7 @@ void ButtonGrid_SettingsApplyValue(
     const ButtonGridSettingDefinition *def;
     int value;
     COLORREF color;
+    int reloadTheme;
 
     if (index < 0 || index >= ButtonGrid_SettingsGetCount())
         return;
@@ -314,6 +326,8 @@ void ButtonGrid_SettingsApplyValue(
 
     if (!def)
         return;
+
+    reloadTheme = 0;
 
     if (def->type == BG_SETTING_BOOL)
     {
@@ -361,6 +375,19 @@ void ButtonGrid_SettingsApplyValue(
             textValue
         );
     }
+    else if (def->type == BG_SETTING_THEME)
+    {
+        ButtonGrid_CopyText(
+            ButtonGrid_SettingsGetTextField(grid, def),
+            BUTTON_GRID_THEME_NAME_SIZE,
+            textValue
+        );
+
+        reloadTheme = 1;
+    }
+
+    if (reloadTheme)
+        ButtonGrid_ReloadThemeImages(grid);
 
     ButtonGrid_SettingsApplyGridChange(grid);
 

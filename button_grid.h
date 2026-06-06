@@ -43,6 +43,10 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_GEAR_CORNER_BOTTOM_LEFT 2
 #define BUTTON_GRID_GEAR_CORNER_BOTTOM_RIGHT 3
 
+#define BUTTON_GRID_THEME_NAME_SIZE 128
+#define BUTTON_GRID_DEFAULT_THEME_NAME "darkmetalred"
+#define BUTTON_GRID_DEFAULT_ALLOW_THEME_SELECTION 1
+
 #define BUTTON_GRID_DEFAULT_NAME_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_ACTION_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_TEXT_FORMAT "%d"
@@ -99,6 +103,7 @@ typedef struct ButtonGridItemConfig
     const char *action;
     const char *text;
     const char *tooltip;
+    const char *iconBaseName;
 
     int behavior;
     int radioGroup;
@@ -139,6 +144,9 @@ typedef struct ButtonGridConfig
     int hidePartialButtons;
     int resizeInLayoutSteps;
     int settingsWheelScrub;
+
+    const char *themeName;
+    int allowThemeSelection;
 
     int showBorder;
     const char *borderTitle;

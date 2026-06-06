@@ -1,66 +1,56 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal EnableExtensions EnableDelayedExpansion
 
-set "EXE=window.exe"
-set "OLD_DIR=oldbuild"
+set APP_NAME=window
+set EXE_NAME=window.exe
 
-rem Example timestamp: 2026-06-04.15h35s07
-set "TIME_FORMAT=yyyy-MM-dd.HH'h'mm's'ss"
+set TIME_FORMAT=yyyy-MM-dd.HH'h'mm's'ss
+set LIBS=-luser32 -lgdi32 -lcomctl32 -lgdiplus -lole32
+set TCC_FLAGS=-mwindows
+set THEME_ROOT=themes
+set THEME_GENERATED_C=theme_resources_generated.c
 
-set "TCC_MODE=-mwindows"
-set "TCC_LIBS=-luser32 -lgdi32 -lcomctl32 -lole32"
+for /f %%A in ('powershell -NoProfile -Command "Get-Date -Format \"%TIME_FORMAT%\""') do set BUILD_STAMP=%%A
 
-for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format $env:TIME_FORMAT"') do set "STAMP=%%I"
+set BUILD_DIR=build_%BUILD_STAMP%
+set SOURCE_DIR=source_%BUILD_STAMP%
+set OLDBUILDS_DIR=oldbuilds
+set OUTPUT_EXE=%BUILD_DIR%\%EXE_NAME%
+set CURRENT_HARDLINK=%EXE_NAME%
 
-set "BUILD_DIR=build_%STAMP%"
-set "SOURCE_DIR=source_%STAMP%"
+if not exist "%OLDBUILDS_DIR%" mkdir "%OLDBUILDS_DIR%"
 
-if not exist "%OLD_DIR%" mkdir "%OLD_DIR%"
+for /d %%D in (build_*) do if /i not "%%~nxD"=="%BUILD_DIR%" move "%%D" "%OLDBUILDS_DIR%\%%~nxD" >nul
+for /d %%D in (source_*) do if /i not "%%~nxD"=="%SOURCE_DIR%" move "%%D" "%OLDBUILDS_DIR%\%%~nxD" >nul
 
-for /d %%D in (build_* source_*) do if exist "%%D" if exist "%OLD_DIR%\%%~nxD" (move "%%D" "%OLD_DIR%\%%~nxD_archived_%STAMP%" >nul) else (move "%%D" "%OLD_DIR%\" >nul)
+if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
+if not exist "%SOURCE_DIR%" mkdir "%SOURCE_DIR%"
 
-mkdir "%BUILD_DIR%"
-mkdir "%SOURCE_DIR%"
+echo Generating embedded theme resource source...
+powershell -NoProfile -ExecutionPolicy Bypass -File generate_theme_resources.ps1 -ThemeRoot "%THEME_ROOT%" -OutFile "%THEME_GENERATED_C%"
+if errorlevel 1 echo Theme resource generation failed. & pause & exit /b 1
 
-set "SOURCES="
-for %%F in (*.c) do set SOURCES=!SOURCES! "%%F"
+set CFILES=
+for %%F in (*.c) do set CFILES=!CFILES! "%%F"
 
-if not defined SOURCES (echo No .c source files found.& pause& exit /b 1)
+echo Building to %OUTPUT_EXE%...
+tcc %TCC_FLAGS% -o "%OUTPUT_EXE%" !CFILES! %LIBS%
+if errorlevel 1 echo Build failed. & pause & exit /b 1
 
-set "RESOURCES="
+echo Copying source snapshot to %SOURCE_DIR%...
+robocopy . "%SOURCE_DIR%" /E /XD build_* source_* oldbuilds /XF "%EXE_NAME%" >nul
+if %ERRORLEVEL% GEQ 8 echo Source copy failed. & pause & exit /b 1
 
-if exist resources.rc (
-    where windres >nul 2>nul
-    if errorlevel 1 (
-        echo resources.rc found, but windres was not found.
-        echo Building without embedded resources. Folder icon files can still be loaded.
-    ) else (
-        echo Compiling resources.rc...
-        windres resources.rc -O coff -o "%BUILD_DIR%\resources.res"
-        if errorlevel 1 (echo Resource compile failed.& pause& exit /b 1)
-        set "RESOURCES="%BUILD_DIR%\resources.res""
-    )
-)
+echo Copying source snapshot into %BUILD_DIR%\%SOURCE_DIR%...
+robocopy "%SOURCE_DIR%" "%BUILD_DIR%\%SOURCE_DIR%" /E >nul
+if %ERRORLEVEL% GEQ 8 echo Build source copy failed. & pause & exit /b 1
 
-echo Building to %BUILD_DIR%\%EXE%...
-echo Sources:%SOURCES%
+if exist "%CURRENT_HARDLINK%" del "%CURRENT_HARDLINK%"
+mklink /H "%CURRENT_HARDLINK%" "%OUTPUT_EXE%" >nul
+if errorlevel 1 copy /Y "%OUTPUT_EXE%" "%CURRENT_HARDLINK%" >nul
 
-tcc %SOURCES% %RESOURCES% %TCC_MODE% %TCC_LIBS% -o "%BUILD_DIR%\%EXE%"
+echo Build complete.
+echo Output: %OUTPUT_EXE%
+echo Link:   %CURRENT_HARDLINK%
 
-if errorlevel 1 (echo Build failed.& pause& exit /b 1)
-
-robocopy "." "%SOURCE_DIR%" /E /XD "build_*" "source_*" "%OLD_DIR%" /NFL /NDL /NJH /NJS /NC /NS
-
-if errorlevel 8 (echo Source copy failed.& pause& exit /b 1)
-
-if exist "%EXE%" del /f /q "%EXE%"
-
-mklink /H "%EXE%" "%BUILD_DIR%\%EXE%"
-
-if errorlevel 1 (echo Build succeeded, but hardlink creation failed.& echo Built exe is here: %BUILD_DIR%\%EXE%& pause& exit /b 1)
-
-echo Build successful.
-echo Output: %BUILD_DIR%\%EXE%
-echo Source snapshot: %SOURCE_DIR%
-echo Hardlink: %EXE%
-pause
+endlocal

@@ -45,6 +45,26 @@ static const ButtonGridSettingOption g_gearCornerOptions[] =
 static const ButtonGridSettingDefinition g_settings[] =
 {
     {
+        "themeName",
+        "Theme",
+        BG_SETTING_THEME,
+        offsetof(ButtonGrid, themeName),
+        0,
+        0,
+        NULL
+    },
+
+    {
+        "allowThemeSelection",
+        "Allow theme selector",
+        BG_SETTING_BOOL,
+        offsetof(ButtonGrid, allowThemeSelection),
+        0,
+        1,
+        g_boolOptions
+    },
+
+    {
         "buttonWidth",
         "Button width",
         BG_SETTING_INT,

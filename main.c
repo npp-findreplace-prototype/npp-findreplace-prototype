@@ -4,7 +4,6 @@
 #include "console.h"
 #include "button_grid.h"
 #include "image_loader.h"
-#include "theme_manager.h"
 
 #ifndef VK_OEM_PLUS
 #define VK_OEM_PLUS 0xBB
@@ -12,14 +11,6 @@
 
 #ifndef VK_OEM_MINUS
 #define VK_OEM_MINUS 0xBD
-#endif
-
-#ifndef VK_F6
-#define VK_F6 0x75
-#endif
-
-#ifndef VK_F7
-#define VK_F7 0x76
 #endif
 
 #define MAIN_WINDOW_CLASS_NAME "SimpleWindowClass"
@@ -70,22 +61,14 @@ static const SearchGridButtonDefinition SEARCH_GRID_BUTTONS[] =
 
 #define SEARCH_GRID_BUTTON_COUNT (sizeof(SEARCH_GRID_BUTTONS) / sizeof(SEARCH_GRID_BUTTONS[0]))
 
-static const char *APP_BUILT_IN_THEMES[] =
-{
-    "Default"
-};
-
-#define APP_BUILT_IN_THEME_COUNT (sizeof(APP_BUILT_IN_THEMES) / sizeof(APP_BUILT_IN_THEMES[0]))
-
 static HINSTANCE g_hInstance = NULL;
 static HWND g_buttonGrid = NULL;
 
 static int g_squareSize = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
 
-static ThemeManager g_themes;
 static ButtonGridItemConfig g_searchGridItems[SEARCH_GRID_BUTTON_COUNT];
 
-static void PrepareSearchGridItems(HINSTANCE hInstance, const char *themeName)
+static void PrepareSearchGridItems(void)
 {
     int i;
 
@@ -94,21 +77,17 @@ static void PrepareSearchGridItems(HINSTANCE hInstance, const char *themeName)
     for (i = 0; i < (int)SEARCH_GRID_BUTTON_COUNT; i++)
     {
         const char *iconBaseName;
-        int offFailed;
-        int onFailed;
 
         iconBaseName = SEARCH_GRID_BUTTONS[i].iconBaseName;
 
         if (!iconBaseName)
             iconBaseName = SEARCH_GRID_BUTTONS[i].name;
 
-        offFailed = 0;
-        onFailed = 0;
-
         g_searchGridItems[i].name = SEARCH_GRID_BUTTONS[i].name;
         g_searchGridItems[i].action = SEARCH_GRID_BUTTONS[i].action;
         g_searchGridItems[i].text = SEARCH_GRID_BUTTONS[i].text;
         g_searchGridItems[i].tooltip = SEARCH_GRID_BUTTONS[i].tooltip;
+        g_searchGridItems[i].iconBaseName = iconBaseName;
 
         g_searchGridItems[i].behavior = SEARCH_GRID_BUTTONS[i].behavior;
         g_searchGridItems[i].radioGroup = SEARCH_GRID_BUTTONS[i].radioGroup;
@@ -119,39 +98,22 @@ static void PrepareSearchGridItems(HINSTANCE hInstance, const char *themeName)
         g_searchGridItems[i].sizeModeOverride = SEARCH_GRID_BUTTONS[i].sizeModeOverride;
         g_searchGridItems[i].showTextOverride = SEARCH_GRID_BUTTONS[i].showTextOverride;
 
-        g_searchGridItems[i].pictureOff = ImageLoader_LoadButtonIcon(
-            hInstance,
-            themeName,
-            iconBaseName,
-            "OFF",
-            &offFailed
-        );
+        g_searchGridItems[i].pictureOff = NULL;
+        g_searchGridItems[i].pictureOn = NULL;
 
-        g_searchGridItems[i].pictureOn = ImageLoader_LoadButtonIcon(
-            hInstance,
-            themeName,
-            iconBaseName,
-            "ON",
-            &onFailed
-        );
+        g_searchGridItems[i].ownsPictureOff = 0;
+        g_searchGridItems[i].ownsPictureOn = 0;
 
-        g_searchGridItems[i].ownsPictureOff = g_searchGridItems[i].pictureOff != NULL;
-        g_searchGridItems[i].ownsPictureOn = g_searchGridItems[i].pictureOn != NULL;
-
-        g_searchGridItems[i].pictureOffLoadFailed = offFailed;
-        g_searchGridItems[i].pictureOnLoadFailed = onFailed;
+        g_searchGridItems[i].pictureOffLoadFailed = 0;
+        g_searchGridItems[i].pictureOnLoadFailed = 0;
     }
 }
 
-static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
+static void ConfigureButtonGrid(ButtonGridConfig *config)
 {
-    const char *themeName;
-
     ButtonGrid_GetDefaultConfig(config);
 
-    themeName = ThemeManager_GetCurrentLoadName(&g_themes);
-
-    PrepareSearchGridItems(hInstance, themeName);
+    PrepareSearchGridItems();
 
     config->buttonCount = (int)SEARCH_GRID_BUTTON_COUNT;
     config->items = g_searchGridItems;
@@ -168,6 +130,10 @@ static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
     config->showText = 0;
     config->hidePartialButtons = 1;
     config->resizeInLayoutSteps = 0;
+    config->settingsWheelScrub = 0;
+
+    config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
+    config->allowThemeSelection = 1;
 
     config->showBorder = 1;
     config->borderTitle = "Search Options";
@@ -209,11 +175,10 @@ static void SetMainWindowTitle(HWND hwnd)
 
     wsprintf(
         title,
-        "%s - square size %d x %d - theme: %s",
+        "%s - square size %d x %d",
         MAIN_WINDOW_TITLE,
         g_squareSize,
-        g_squareSize,
-        ThemeManager_GetCurrentDisplayName(&g_themes)
+        g_squareSize
     );
 
     SetWindowText(hwnd, title);
@@ -259,22 +224,11 @@ static void OnSquareClicked(const char *actionName)
     );
 }
 
-static void DestroySearchGrid(void)
-{
-    if (g_buttonGrid)
-    {
-        DestroyWindow(g_buttonGrid);
-        g_buttonGrid = NULL;
-    }
-}
-
-static int RecreateSearchGrid(HWND hwnd)
+static int CreateSearchGrid(HWND hwnd)
 {
     ButtonGridConfig gridConfig;
 
-    DestroySearchGrid();
-
-    ConfigureButtonGrid(&gridConfig, g_hInstance);
+    ConfigureButtonGrid(&gridConfig);
 
     g_squareSize = gridConfig.buttonWidth;
 
@@ -296,16 +250,6 @@ static int RecreateSearchGrid(HWND hwnd)
     SetMainWindowTitle(hwnd);
 
     return 1;
-}
-
-static void CycleTheme(HWND hwnd, int direction)
-{
-    ThemeManager_Cycle(&g_themes, direction);
-
-    printf("Theme changed to: %s\n", ThemeManager_GetCurrentDisplayName(&g_themes));
-
-    if (!RecreateSearchGrid(hwnd))
-        AppNotify("Error", "Could not recreate button grid for theme.");
 }
 
 static void SetSquareSize(HWND hwnd, int newSize)
@@ -337,13 +281,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
             cs = (CREATESTRUCT *)lParam;
             g_hInstance = cs->hInstance;
 
-            ThemeManager_Rebuild(
-                &g_themes,
-                APP_BUILT_IN_THEMES,
-                (int)APP_BUILT_IN_THEME_COUNT
-            );
-
-            if (!RecreateSearchGrid(hwnd))
+            if (!CreateSearchGrid(hwnd))
             {
                 AppNotify("Error", "Could not create button grid.");
                 return -1;
@@ -372,18 +310,6 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                 return 0;
             }
 
-            if (wParam == VK_F6)
-            {
-                CycleTheme(hwnd, -1);
-                return 0;
-            }
-
-            if (wParam == VK_F7)
-            {
-                CycleTheme(hwnd, 1);
-                return 0;
-            }
-
             break;
         }
 
@@ -408,6 +334,9 @@ int WINAPI WinMain(
     WNDCLASS wc;
     HWND hwnd;
     MSG msg;
+
+    (void)hPrevInstance;
+    (void)lpCmdLine;
 
     Console_Setup();
 
@@ -456,9 +385,9 @@ int WINAPI WinMain(
 
     printf("Application started.\n");
     printf("Press + or - to change default square size.\n");
-    printf("Press F6 / F7 to cycle themes.\n");
     printf("Click a square to toggle or select it.\n");
     printf("Click the gear icon to open live grid settings.\n");
+    printf("Use the Theme setting to choose folder or embedded themes.\n");
 
     while (GetMessage(&msg, NULL, 0, 0))
     {

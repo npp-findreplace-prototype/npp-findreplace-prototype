@@ -73,6 +73,7 @@
 #define BG_SETTING_ENUM 3
 #define BG_SETTING_COLOR 4
 #define BG_SETTING_TEXT 5
+#define BG_SETTING_THEME 6
 
 typedef struct ButtonGridSettingOption
 {

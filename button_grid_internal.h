@@ -62,6 +62,7 @@ typedef struct ButtonItem
     char action[BUTTON_GRID_ACTION_SIZE];
     char text[BUTTON_GRID_TEXT_SIZE];
     char tooltip[BUTTON_GRID_TOOLTIP_SIZE];
+    char iconBaseName[BUTTON_GRID_NAME_SIZE];
 
     int behavior;
     int radioGroup;
@@ -126,6 +127,9 @@ typedef struct ButtonGrid
     int hidePartialButtons;
     int resizeInLayoutSteps;
     int settingsWheelScrub;
+
+    char themeName[BUTTON_GRID_THEME_NAME_SIZE];
+    int allowThemeSelection;
 
     int showBorder;
     char borderTitle[BUTTON_GRID_TITLE_SIZE];
@@ -206,6 +210,8 @@ void ButtonGrid_AddTooltip(ButtonGrid *grid, int buttonIndex);
 int ButtonGrid_CreateButtons(ButtonGrid *grid);
 void ButtonGrid_Free(ButtonGrid *grid);
 void ButtonGrid_FreeButtonImages(ButtonItem *button);
+
+void ButtonGrid_ReloadThemeImages(ButtonGrid *grid);
 
 int ButtonGrid_FindButtonIndexByName(ButtonGrid *grid, const char *name);
 int ButtonGrid_FindButtonIndexByAction(ButtonGrid *grid, const char *action);
