@@ -1,4 +1,5 @@
 #include "button_grid_internal.h"
+#include "button_grid_settings.h"
 
 static int ButtonGrid_HasVisibleBorder(ButtonGrid *grid)
 {
@@ -170,6 +171,7 @@ LRESULT ButtonGrid_HandlePaint(HWND hwnd)
     hdc = BeginPaint(hwnd, &ps);
 
     ButtonGrid_DrawBorder(grid, hdc);
+    ButtonGrid_DrawGearIcon(grid, hdc);
 
     EndPaint(hwnd, &ps);
 
@@ -301,6 +303,7 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
     int failed;
     int pictureType;
     COLORREF fallbackColor;
+    HBRUSH backBrush;
 
     if (!grid || !draw)
         return;
@@ -315,10 +318,9 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
     hdc = draw->hDC;
     rc = draw->rcItem;
 
-    if (grid->buttonBrush)
-        FillRect(hdc, &rc, grid->buttonBrush);
-    else
-        FillRect(hdc, &rc, (HBRUSH)(COLOR_WINDOW + 1));
+    backBrush = CreateSolidBrush(grid->backColor);
+    FillRect(hdc, &rc, backBrush);
+    DeleteObject(backBrush);
 
     if (grid->usePictures)
     {

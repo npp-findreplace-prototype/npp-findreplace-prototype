@@ -1,4 +1,5 @@
 #include "button_grid_internal.h"
+#include "button_grid_settings.h"
 
 static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -82,6 +83,8 @@ static void ButtonGrid_HandleDestroy(HWND hwnd)
 
     if (!grid)
         return;
+
+    ButtonGrid_DestroySettingsPage(grid);
 
     RemoveProp(hwnd, BUTTON_GRID_PROP_NAME);
     ButtonGrid_Free(grid);
@@ -336,7 +339,22 @@ static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, L
         case WM_SIZE:
         {
             ButtonGrid_Layout(grid);
+            ButtonGrid_LayoutSettingsPage(grid);
             return 0;
+        }
+
+        case WM_LBUTTONDOWN:
+        {
+            int x;
+            int y;
+
+            x = LOWORD(lParam);
+            y = HIWORD(lParam);
+
+            if (ButtonGrid_HandleGearClick(grid, x, y))
+                return 0;
+
+            break;
         }
 
         case WM_PAINT:

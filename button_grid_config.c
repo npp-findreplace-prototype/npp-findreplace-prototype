@@ -34,6 +34,14 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->borderTitleColor = BUTTON_GRID_DEFAULT_BORDER_TITLE_COLOR;
     config->borderTitleBackColor = BUTTON_GRID_DEFAULT_BORDER_TITLE_BACK_COLOR;
 
+    config->showGearIcon = BUTTON_GRID_DEFAULT_SHOW_GEAR_ICON;
+    config->gearCorner = BUTTON_GRID_DEFAULT_GEAR_CORNER;
+    config->gearSize = BUTTON_GRID_DEFAULT_GEAR_SIZE;
+    config->gearMargin = BUTTON_GRID_DEFAULT_GEAR_MARGIN;
+    config->gearColor = BUTTON_GRID_DEFAULT_GEAR_COLOR;
+    config->gearBackColor = BUTTON_GRID_DEFAULT_GEAR_BACK_COLOR;
+    config->gearBorderColor = BUTTON_GRID_DEFAULT_GEAR_BORDER_COLOR;
+
     config->idBase = BUTTON_GRID_DEFAULT_ID_BASE;
     config->firstIndex = BUTTON_GRID_DEFAULT_FIRST_INDEX;
 
@@ -112,6 +120,20 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     if (!config->borderTitle)
         config->borderTitle = "";
 
+    config->showGearIcon = config->showGearIcon ? 1 : 0;
+
+    if (config->gearCorner < BUTTON_GRID_GEAR_CORNER_TOP_LEFT ||
+        config->gearCorner > BUTTON_GRID_GEAR_CORNER_BOTTOM_RIGHT)
+    {
+        config->gearCorner = BUTTON_GRID_DEFAULT_GEAR_CORNER;
+    }
+
+    if (config->gearSize < 8)
+        config->gearSize = 8;
+
+    if (config->gearMargin < 0)
+        config->gearMargin = 0;
+
     if (!config->namePrefix)
         config->namePrefix = BUTTON_GRID_DEFAULT_NAME_PREFIX;
 
@@ -162,6 +184,17 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
     grid->borderShadowColor = config->borderShadowColor;
     grid->borderTitleColor = config->borderTitleColor;
     grid->borderTitleBackColor = config->borderTitleBackColor;
+
+    grid->showGearIcon = config->showGearIcon;
+    grid->gearCorner = config->gearCorner;
+    grid->gearSize = config->gearSize;
+    grid->gearMargin = config->gearMargin;
+    grid->gearColor = config->gearColor;
+    grid->gearBackColor = config->gearBackColor;
+    grid->gearBorderColor = config->gearBorderColor;
+
+    grid->settingsPageHwnd = NULL;
+    grid->settingsPageVisible = 0;
 
     grid->idBase = config->idBase;
     grid->firstIndex = config->firstIndex;

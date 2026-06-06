@@ -166,13 +166,7 @@ static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
     config->sizeMode = BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT;
 
     config->showText = 0;
-
     config->hidePartialButtons = 1;
-
-    /*
-        Set to 1 if you want the grid window itself to resize only
-        in column/row reorganisation steps.
-    */
     config->resizeInLayoutSteps = 0;
 
     config->showBorder = 1;
@@ -187,6 +181,14 @@ static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
     config->borderShadowColor = RGB(128, 128, 128);
     config->borderTitleColor = RGB(0, 0, 0);
     config->borderTitleBackColor = RGB(240, 240, 240);
+
+    config->showGearIcon = 1;
+    config->gearCorner = BUTTON_GRID_GEAR_CORNER_TOP_RIGHT;
+    config->gearSize = 24;
+    config->gearMargin = 8;
+    config->gearColor = RGB(60, 60, 60);
+    config->gearBackColor = RGB(245, 245, 245);
+    config->gearBorderColor = RGB(120, 120, 120);
 
     config->backColor = RGB(192, 192, 192);
     config->foreColor = RGB(0, 0, 0);
@@ -456,6 +458,7 @@ int WINAPI WinMain(
     printf("Press + or - to change default square size.\n");
     printf("Press F6 / F7 to cycle themes.\n");
     printf("Click a square to toggle or select it.\n");
+    printf("Click the gear icon to open live grid settings.\n");
 
     while (GetMessage(&msg, NULL, 0, 0))
     {

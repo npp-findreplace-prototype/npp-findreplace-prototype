@@ -139,6 +139,17 @@ typedef struct ButtonGrid
     COLORREF borderTitleColor;
     COLORREF borderTitleBackColor;
 
+    int showGearIcon;
+    int gearCorner;
+    int gearSize;
+    int gearMargin;
+    COLORREF gearColor;
+    COLORREF gearBackColor;
+    COLORREF gearBorderColor;
+
+    HWND settingsPageHwnd;
+    int settingsPageVisible;
+
     int idBase;
     int firstIndex;
 
