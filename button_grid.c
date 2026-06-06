@@ -41,9 +41,11 @@
 #define BUTTON_GRID_PROP_NAME "ButtonGridData"
 
 #define BUTTON_GRID_NAME_SIZE 64
+#define BUTTON_GRID_ACTION_SIZE 64
 #define BUTTON_GRID_TEXT_SIZE 64
 #define BUTTON_GRID_TOOLTIP_SIZE 128
 #define BUTTON_GRID_FORMAT_SIZE 64
+#define BUTTON_GRID_TITLE_SIZE 128
 
 #define BUTTON_GRID_PICTURE_TYPE_OFF 0
 #define BUTTON_GRID_PICTURE_TYPE_ON 1
@@ -54,6 +56,7 @@ typedef struct ButtonItem
     HWND hwnd;
 
     char name[BUTTON_GRID_NAME_SIZE];
+    char action[BUTTON_GRID_ACTION_SIZE];
     char text[BUTTON_GRID_TEXT_SIZE];
     char tooltip[BUTTON_GRID_TOOLTIP_SIZE];
 
@@ -114,10 +117,18 @@ typedef struct ButtonGrid
     int layout;
     int sizeMode;
 
+    int showBorder;
+    char borderTitle[BUTTON_GRID_TITLE_SIZE];
+    int borderPadding;
+    int borderTitleHeight;
+    COLORREF borderColor;
+    COLORREF borderTitleColor;
+
     int idBase;
     int firstIndex;
 
     char namePrefix[BUTTON_GRID_FORMAT_SIZE];
+    char actionPrefix[BUTTON_GRID_FORMAT_SIZE];
     char textFormat[BUTTON_GRID_FORMAT_SIZE];
     char clickIdentifierFormat[BUTTON_GRID_FORMAT_SIZE];
 
@@ -238,10 +249,18 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->layout = BUTTON_GRID_DEFAULT_LAYOUT;
     config->sizeMode = BUTTON_GRID_DEFAULT_SIZE_MODE;
 
+    config->showBorder = BUTTON_GRID_DEFAULT_SHOW_BORDER;
+    config->borderTitle = BUTTON_GRID_DEFAULT_BORDER_TITLE;
+    config->borderPadding = BUTTON_GRID_DEFAULT_BORDER_PADDING;
+    config->borderTitleHeight = BUTTON_GRID_DEFAULT_BORDER_TITLE_HEIGHT;
+    config->borderColor = BUTTON_GRID_DEFAULT_BORDER_COLOR;
+    config->borderTitleColor = BUTTON_GRID_DEFAULT_BORDER_TITLE_COLOR;
+
     config->idBase = BUTTON_GRID_DEFAULT_ID_BASE;
     config->firstIndex = BUTTON_GRID_DEFAULT_FIRST_INDEX;
 
     config->namePrefix = BUTTON_GRID_DEFAULT_NAME_PREFIX;
+    config->actionPrefix = BUTTON_GRID_DEFAULT_ACTION_PREFIX;
     config->textFormat = BUTTON_GRID_DEFAULT_TEXT_FORMAT;
     config->clickIdentifierFormat = BUTTON_GRID_DEFAULT_CLICK_IDENTIFIER_FORMAT;
 
@@ -283,8 +302,22 @@ static void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
 
     config->sizeMode = NormalizeSizeMode(config->sizeMode);
 
+    config->showBorder = config->showBorder ? 1 : 0;
+
+    if (config->borderPadding < 0)
+        config->borderPadding = 0;
+
+    if (config->borderTitleHeight < 0)
+        config->borderTitleHeight = 0;
+
+    if (!config->borderTitle)
+        config->borderTitle = "";
+
     if (!config->namePrefix)
         config->namePrefix = BUTTON_GRID_DEFAULT_NAME_PREFIX;
+
+    if (!config->actionPrefix)
+        config->actionPrefix = BUTTON_GRID_DEFAULT_ACTION_PREFIX;
 
     if (!config->textFormat)
         config->textFormat = BUTTON_GRID_DEFAULT_TEXT_FORMAT;
@@ -314,10 +347,18 @@ static void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *con
     grid->layout = config->layout;
     grid->sizeMode = config->sizeMode;
 
+    grid->showBorder = config->showBorder;
+    CopyText(grid->borderTitle, BUTTON_GRID_TITLE_SIZE, config->borderTitle);
+    grid->borderPadding = config->borderPadding;
+    grid->borderTitleHeight = config->borderTitleHeight;
+    grid->borderColor = config->borderColor;
+    grid->borderTitleColor = config->borderTitleColor;
+
     grid->idBase = config->idBase;
     grid->firstIndex = config->firstIndex;
 
     CopyText(grid->namePrefix, BUTTON_GRID_FORMAT_SIZE, config->namePrefix);
+    CopyText(grid->actionPrefix, BUTTON_GRID_FORMAT_SIZE, config->actionPrefix);
     CopyText(grid->textFormat, BUTTON_GRID_FORMAT_SIZE, config->textFormat);
     CopyText(grid->clickIdentifierFormat, BUTTON_GRID_FORMAT_SIZE, config->clickIdentifierFormat);
 
@@ -473,9 +514,49 @@ static void ButtonGrid_UpdateAllButtonSizes(ButtonGrid *grid)
         ButtonGrid_ResolveButtonSize(grid, &grid->buttons[i]);
 }
 
-static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
+static void ButtonGrid_SetDefaultButtonName(ButtonGrid *grid, int buttonIndex)
 {
     int indexNumber;
+
+    indexNumber = buttonIndex + grid->firstIndex;
+
+    wsprintf(
+        grid->buttons[buttonIndex].name,
+        "%s%d",
+        grid->namePrefix,
+        indexNumber
+    );
+}
+
+static void ButtonGrid_SetDefaultButtonAction(ButtonGrid *grid, int buttonIndex)
+{
+    int indexNumber;
+
+    indexNumber = buttonIndex + grid->firstIndex;
+
+    wsprintf(
+        grid->buttons[buttonIndex].action,
+        "%s%d",
+        grid->actionPrefix,
+        indexNumber
+    );
+}
+
+static void ButtonGrid_SetDefaultButtonText(ButtonGrid *grid, int buttonIndex)
+{
+    int indexNumber;
+
+    indexNumber = buttonIndex + grid->firstIndex;
+
+    wsprintf(
+        grid->buttons[buttonIndex].text,
+        grid->textFormat,
+        indexNumber
+    );
+}
+
+static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
+{
     const ButtonGridItemConfig *item;
 
     item = NULL;
@@ -483,11 +564,39 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
     if (grid->configuredItems && buttonIndex < grid->configuredItemCount)
         item = &grid->configuredItems[buttonIndex];
 
+    ButtonGrid_SetDefaultButtonName(grid, buttonIndex);
+    ButtonGrid_SetDefaultButtonAction(grid, buttonIndex);
+    ButtonGrid_SetDefaultButtonText(grid, buttonIndex);
+
+    CopyText(
+        grid->buttons[buttonIndex].tooltip,
+        BUTTON_GRID_TOOLTIP_SIZE,
+        grid->buttons[buttonIndex].name
+    );
+
+    grid->buttons[buttonIndex].behavior = BUTTON_GRID_BUTTON_TOGGLE;
+    grid->buttons[buttonIndex].radioGroup = 0;
+    grid->buttons[buttonIndex].isOn = grid->defaultState;
+
+    grid->buttons[buttonIndex].widthOverride = 0;
+    grid->buttons[buttonIndex].heightOverride = 0;
+    grid->buttons[buttonIndex].sizeModeOverride = BUTTON_GRID_SIZE_USE_DEFAULT;
+
     if (item)
     {
-        CopyText(grid->buttons[buttonIndex].name, BUTTON_GRID_NAME_SIZE, item->name);
-        CopyText(grid->buttons[buttonIndex].text, BUTTON_GRID_TEXT_SIZE, item->text);
-        CopyText(grid->buttons[buttonIndex].tooltip, BUTTON_GRID_TOOLTIP_SIZE, item->tooltip);
+        if (item->name && item->name[0])
+            CopyText(grid->buttons[buttonIndex].name, BUTTON_GRID_NAME_SIZE, item->name);
+
+        if (item->action && item->action[0])
+            CopyText(grid->buttons[buttonIndex].action, BUTTON_GRID_ACTION_SIZE, item->action);
+        else
+            CopyText(grid->buttons[buttonIndex].action, BUTTON_GRID_ACTION_SIZE, grid->buttons[buttonIndex].name);
+
+        if (item->text)
+            CopyText(grid->buttons[buttonIndex].text, BUTTON_GRID_TEXT_SIZE, item->text);
+
+        if (item->tooltip)
+            CopyText(grid->buttons[buttonIndex].tooltip, BUTTON_GRID_TOOLTIP_SIZE, item->tooltip);
 
         grid->buttons[buttonIndex].behavior = item->behavior;
         grid->buttons[buttonIndex].radioGroup = item->radioGroup;
@@ -515,39 +624,7 @@ static void ButtonGrid_InitializeButtonData(ButtonGrid *grid, int buttonIndex)
 
         if (grid->buttons[buttonIndex].sizeModeOverride != BUTTON_GRID_SIZE_USE_DEFAULT)
             grid->buttons[buttonIndex].sizeModeOverride = NormalizeSizeMode(grid->buttons[buttonIndex].sizeModeOverride);
-
-        ButtonGrid_ResolveButtonSize(grid, &grid->buttons[buttonIndex]);
-        return;
     }
-
-    indexNumber = buttonIndex + grid->firstIndex;
-
-    wsprintf(
-        grid->buttons[buttonIndex].name,
-        "%s%d",
-        grid->namePrefix,
-        indexNumber
-    );
-
-    wsprintf(
-        grid->buttons[buttonIndex].text,
-        grid->textFormat,
-        indexNumber
-    );
-
-    CopyText(
-        grid->buttons[buttonIndex].tooltip,
-        BUTTON_GRID_TOOLTIP_SIZE,
-        grid->buttons[buttonIndex].name
-    );
-
-    grid->buttons[buttonIndex].behavior = BUTTON_GRID_BUTTON_TOGGLE;
-    grid->buttons[buttonIndex].radioGroup = 0;
-    grid->buttons[buttonIndex].isOn = grid->defaultState;
-
-    grid->buttons[buttonIndex].widthOverride = 0;
-    grid->buttons[buttonIndex].heightOverride = 0;
-    grid->buttons[buttonIndex].sizeModeOverride = BUTTON_GRID_SIZE_USE_DEFAULT;
 
     ButtonGrid_ResolveButtonSize(grid, &grid->buttons[buttonIndex]);
 }
@@ -625,6 +702,28 @@ static void ButtonGrid_AddTooltip(ButtonGrid *grid, int buttonIndex)
     ti.lpszText = grid->buttons[buttonIndex].tooltip;
 
     SendMessage(grid->tooltipHwnd, TTM_ADDTOOLA, 0, (LPARAM)&ti);
+}
+
+static void ButtonGrid_GetContentRect(ButtonGrid *grid, RECT *rc)
+{
+    GetClientRect(grid->hwnd, rc);
+
+    if (!grid->showBorder)
+        return;
+
+    rc->left += grid->borderPadding;
+    rc->right -= grid->borderPadding;
+    rc->top += grid->borderPadding;
+    rc->bottom -= grid->borderPadding;
+
+    if (grid->borderTitle[0])
+        rc->top += grid->borderTitleHeight;
+
+    if (rc->right <= rc->left)
+        rc->right = rc->left + 1;
+
+    if (rc->bottom <= rc->top)
+        rc->bottom = rc->top + 1;
 }
 
 static void ButtonGrid_LayoutHorizontal(
@@ -784,7 +883,7 @@ static void ButtonGrid_Layout(ButtonGrid *grid)
     if (!grid || !grid->buttons)
         return;
 
-    GetClientRect(grid->hwnd, &rc);
+    ButtonGrid_GetContentRect(grid, &rc);
 
     clientW = rc.right - rc.left;
     clientH = rc.bottom - rc.top;
@@ -809,14 +908,14 @@ static void ButtonGrid_Layout(ButtonGrid *grid)
     else
         ButtonGrid_LayoutHorizontal(grid, clientW, positions, &gridSize);
 
-    offsetX = (clientW - gridSize.width) / 2;
-    offsetY = (clientH - gridSize.height) / 2;
+    offsetX = rc.left + (clientW - gridSize.width) / 2;
+    offsetY = rc.top + (clientH - gridSize.height) / 2;
 
-    if (offsetX < 0)
-        offsetX = 0;
+    if (offsetX < rc.left)
+        offsetX = rc.left;
 
-    if (offsetY < 0)
-        offsetY = 0;
+    if (offsetY < rc.top)
+        offsetY = rc.top;
 
     for (i = 0; i < grid->buttonCount; i++)
     {
@@ -897,6 +996,22 @@ static int ButtonGrid_FindButtonIndexByName(ButtonGrid *grid, const char *name)
     for (i = 0; i < grid->buttonCount; i++)
     {
         if (SameText(grid->buttons[i].name, name))
+            return i;
+    }
+
+    return -1;
+}
+
+static int ButtonGrid_FindButtonIndexByAction(ButtonGrid *grid, const char *action)
+{
+    int i;
+
+    if (!grid || !grid->buttons || !action)
+        return -1;
+
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        if (SameText(grid->buttons[i].action, action))
             return i;
     }
 
@@ -1013,6 +1128,79 @@ static void ButtonGrid_HandleDestroy(HWND hwnd)
 
     RemoveProp(hwnd, BUTTON_GRID_PROP_NAME);
     ButtonGrid_Free(grid);
+}
+
+static void ButtonGrid_DrawBorder(ButtonGrid *grid, HDC hdc)
+{
+    RECT rc;
+    RECT titleRc;
+    HPEN pen;
+    HGDIOBJ oldPen;
+    HBRUSH backgroundBrush;
+
+    if (!grid || !grid->showBorder)
+        return;
+
+    GetClientRect(grid->hwnd, &rc);
+
+    if (rc.right <= rc.left || rc.bottom <= rc.top)
+        return;
+
+    rc.left += 2;
+    rc.top += 8;
+    rc.right -= 2;
+    rc.bottom -= 2;
+
+    pen = CreatePen(PS_SOLID, 1, grid->borderColor);
+    oldPen = SelectObject(hdc, pen);
+
+    MoveToEx(hdc, rc.left, rc.top, NULL);
+    LineTo(hdc, rc.right, rc.top);
+    LineTo(hdc, rc.right, rc.bottom);
+    LineTo(hdc, rc.left, rc.bottom);
+    LineTo(hdc, rc.left, rc.top);
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
+
+    if (grid->borderTitle[0])
+    {
+        titleRc.left = rc.left + 10;
+        titleRc.top = 0;
+        titleRc.right = rc.right - 10;
+        titleRc.bottom = grid->borderTitleHeight;
+
+        backgroundBrush = (HBRUSH)(COLOR_WINDOW + 1);
+        FillRect(hdc, &titleRc, backgroundBrush);
+
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, grid->borderTitleColor);
+
+        DrawText(
+            hdc,
+            grid->borderTitle,
+            -1,
+            &titleRc,
+            DT_LEFT | DT_VCENTER | DT_SINGLELINE
+        );
+    }
+}
+
+static LRESULT ButtonGrid_HandlePaint(HWND hwnd)
+{
+    PAINTSTRUCT ps;
+    HDC hdc;
+    ButtonGrid *grid;
+
+    grid = ButtonGrid_Get(hwnd);
+
+    hdc = BeginPaint(hwnd, &ps);
+
+    ButtonGrid_DrawBorder(grid, hdc);
+
+    EndPaint(hwnd, &ps);
+
+    return 0;
 }
 
 static void ButtonGrid_DrawGeneratedFallback(
@@ -1268,7 +1456,7 @@ static void ButtonGrid_HandleStaticClick(ButtonGrid *grid, int controlId)
     wsprintf(
         identifier,
         grid->clickIdentifierFormat,
-        button->name
+        button->action
     );
 
     if (grid->onClick)
@@ -1703,6 +1891,82 @@ void ButtonGrid_ToggleButtonStateByName(
     }
 }
 
+void ButtonGrid_SetButtonStateByAction(
+    HWND gridHwnd,
+    const char *action,
+    int isOn
+)
+{
+    ButtonGrid *grid;
+    int index;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return;
+
+    index = ButtonGrid_FindButtonIndexByAction(grid, action);
+
+    if (index < 0)
+        return;
+
+    if (grid->buttons[index].behavior == BUTTON_GRID_BUTTON_RADIO && isOn)
+        ButtonGrid_SelectRadioButton(grid, index);
+    else
+    {
+        grid->buttons[index].isOn = isOn ? 1 : 0;
+        ButtonGrid_RedrawButton(grid, index);
+    }
+}
+
+int ButtonGrid_GetButtonStateByAction(
+    HWND gridHwnd,
+    const char *action
+)
+{
+    ButtonGrid *grid;
+    int index;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return -1;
+
+    index = ButtonGrid_FindButtonIndexByAction(grid, action);
+
+    if (index < 0)
+        return -1;
+
+    return grid->buttons[index].isOn;
+}
+
+void ButtonGrid_ToggleButtonStateByAction(
+    HWND gridHwnd,
+    const char *action
+)
+{
+    ButtonGrid *grid;
+    int index;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return;
+
+    index = ButtonGrid_FindButtonIndexByAction(grid, action);
+
+    if (index < 0)
+        return;
+
+    if (grid->buttons[index].behavior == BUTTON_GRID_BUTTON_RADIO)
+        ButtonGrid_SelectRadioButton(grid, index);
+    else
+    {
+        grid->buttons[index].isOn = !grid->buttons[index].isOn;
+        ButtonGrid_RedrawButton(grid, index);
+    }
+}
+
 static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     ButtonGrid *grid;
@@ -1720,6 +1984,11 @@ static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, L
         {
             ButtonGrid_Layout(grid);
             return 0;
+        }
+
+        case WM_PAINT:
+        {
+            return ButtonGrid_HandlePaint(hwnd);
         }
 
         case WM_COMMAND:

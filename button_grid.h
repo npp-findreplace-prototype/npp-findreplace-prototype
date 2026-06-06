@@ -29,6 +29,7 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL 3
 
 #define BUTTON_GRID_DEFAULT_NAME_PREFIX "mybutton_"
+#define BUTTON_GRID_DEFAULT_ACTION_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_TEXT_FORMAT "%d"
 #define BUTTON_GRID_DEFAULT_CLICK_IDENTIFIER_FORMAT "%s"
 
@@ -45,15 +46,23 @@ typedef struct AppImage AppImage;
 
 #define BUTTON_GRID_DEFAULT_SIZE_MODE BUTTON_GRID_SIZE_FIXED
 
+#define BUTTON_GRID_DEFAULT_SHOW_BORDER 0
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE ""
+#define BUTTON_GRID_DEFAULT_BORDER_PADDING 8
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE_HEIGHT 20
+#define BUTTON_GRID_DEFAULT_BORDER_COLOR RGB(0, 0, 0)
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE_COLOR RGB(0, 0, 0)
+
 #define BUTTON_GRID_DEFAULT_OFF_PICTURE_COLOR RGB(150, 150, 150)
 #define BUTTON_GRID_DEFAULT_ON_PICTURE_COLOR RGB(80, 190, 80)
 #define BUTTON_GRID_DEFAULT_ERROR_PICTURE_COLOR RGB(190, 100, 100)
 
-typedef void (*ButtonGridClickCallback)(const char *controlName);
+typedef void (*ButtonGridClickCallback)(const char *actionName);
 
 typedef struct ButtonGridItemConfig
 {
     const char *name;
+    const char *action;
     const char *text;
     const char *tooltip;
 
@@ -88,13 +97,20 @@ typedef struct ButtonGridConfig
     int verticalSpacing;
 
     int layout;
-
     int sizeMode;
+
+    int showBorder;
+    const char *borderTitle;
+    int borderPadding;
+    int borderTitleHeight;
+    COLORREF borderColor;
+    COLORREF borderTitleColor;
 
     int idBase;
     int firstIndex;
 
     const char *namePrefix;
+    const char *actionPrefix;
     const char *textFormat;
     const char *clickIdentifierFormat;
 
@@ -210,6 +226,22 @@ int ButtonGrid_GetButtonStateByName(
 void ButtonGrid_ToggleButtonStateByName(
     HWND gridHwnd,
     const char *name
+);
+
+void ButtonGrid_SetButtonStateByAction(
+    HWND gridHwnd,
+    const char *action,
+    int isOn
+);
+
+int ButtonGrid_GetButtonStateByAction(
+    HWND gridHwnd,
+    const char *action
+);
+
+void ButtonGrid_ToggleButtonStateByAction(
+    HWND gridHwnd,
+    const char *action
 );
 
 #endif

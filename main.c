@@ -33,6 +33,7 @@
 typedef struct SearchGridButtonDefinition
 {
     const char *name;
+    const char *action;
     const char *text;
     const char *tooltip;
     const char *iconBaseName;
@@ -53,31 +54,35 @@ typedef struct ThemeList
     int currentIndex;
 } ThemeList;
 
-#define SEARCH_GRID_BUTTON(name, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride) \
-    { name, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride }
+#define SEARCH_GRID_BUTTON(name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride) \
+    { name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride }
 
 /*
-    Clean, editable button grid definition.
+    Search grid definition.
 
     name:
-        Programmatic identifier.
+        Internal button name.
+        Also used as the default icon base name.
+
+    action:
+        Identifier passed to the click callback.
+        NULL means use name.
 
     text:
-        Text drawn on top of the button.
-        Use "" for icon-only buttons.
+        Text drawn on the button.
+        "" means icon-only / no text.
 
     tooltip:
-        Tooltip shown on hover.
+        Hover tooltip.
 
     iconBaseName:
         NULL means use name.
-        Icons are searched as:
-            iconBaseName_OFF.bmp
-            iconBaseName_OFF.png
-            iconBaseName_OFF.jpg
-            iconBaseName_ON.bmp
-            iconBaseName_ON.png
-            iconBaseName_ON.jpg
+        Loader searches:
+            themes\<ThemeName>\<iconBaseName>_OFF.bmp/png/jpg
+            themes\<ThemeName>\<iconBaseName>_ON.bmp/png/jpg
+            embedded theme resources
+            default files beside exe
+            default embedded resources
 
     behavior:
         BUTTON_GRID_BUTTON_RADIO
@@ -85,15 +90,14 @@ typedef struct ThemeList
         BUTTON_GRID_BUTTON_DISABLED
 
     radioGroup:
-        Radio buttons with the same non-zero radioGroup exclude each other.
+        Radio buttons with the same non-zero group exclude each other.
 
     defaultState:
         0 = OFF
         1 = ON
 
     widthOverride / heightOverride:
-        0 means use the grid default.
-        Any positive value overrides the grid default for that button.
+        0 means use grid default.
 
     sizeModeOverride:
         BUTTON_GRID_SIZE_USE_DEFAULT
@@ -105,39 +109,24 @@ typedef struct ThemeList
 
 static const SearchGridButtonDefinition SEARCH_GRID_BUTTONS[] =
 {
-    SEARCH_GRID_BUTTON("LiteralSearch",        "Literal",   "Literal Search",         NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 1, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("EscapedLiteralSearch", "Escaped",   "Escaped Literal Search", NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("RegExSearch",          "Regex",     "Regex Search",           NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("SemanticSearch",       "Semantic",  "Semantic Search",        NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("LiteralSearch",        NULL, "Literal",   "Literal Search",         NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 1, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("EscapedLiteralSearch", NULL, "Escaped",   "Escaped Literal Search", NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("RegExSearch",          NULL, "Regex",     "Regex Search",           NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("SemanticSearch",       NULL, "Semantic",  "Semantic Search",        NULL, BUTTON_GRID_BUTTON_RADIO,  SEARCH_MODE_RADIO_GROUP, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
 
-    SEARCH_GRID_BUTTON("CaseSensitive",        "Case",      "Case Sensitive",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("DiacriticSensitive",   "Diacritic", "Diacritic Sensitive",    NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("DotIncludesNewline",   "Dot NL",    "Dot Includes Newline",   NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("FuzzyLogicSearch",     "Fuzzy",     "Fuzzy Logic Search",     NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("CaseSensitive",        NULL, "Case",      "Case Sensitive",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("DiacriticSensitive",   NULL, "Diacritic", "Diacritic Sensitive",    NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("DotIncludesNewline",   NULL, "Dot NL",    "Dot Includes Newline",   NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("FuzzyLogicSearch",     NULL, "Fuzzy",     "Fuzzy Logic Search",     NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
 
-    SEARCH_GRID_BUTTON("WrapAround",           "Wrap",      "Wrap Around",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("WholeWord",            "Word",      "Whole Word",             NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("BooleanSearch",        "Boolean",   "Boolean Search",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("Settings",             "Settings",  "Settings",               NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-
-    SEARCH_GRID_BUTTON("Reserved13",           "13",        "Reserved 13",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("Reserved14",           "14",        "Reserved 14",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("Reserved15",           "15",        "Reserved 15",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
-    SEARCH_GRID_BUTTON("Reserved16",           "16",        "Reserved 16",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT)
+    SEARCH_GRID_BUTTON("WrapAround",           NULL, "Wrap",      "Wrap Around",            NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("WholeWord",            NULL, "Word",      "Whole Word",             NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("BooleanSearch",        NULL, "Boolean",   "Boolean Search",         NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT),
+    SEARCH_GRID_BUTTON("Settings",             NULL, "Settings",  "Settings",               NULL, BUTTON_GRID_BUTTON_TOGGLE, 0, 0, 0, 0, BUTTON_GRID_SIZE_USE_DEFAULT)
 };
 
 #define SEARCH_GRID_BUTTON_COUNT (sizeof(SEARCH_GRID_BUTTONS) / sizeof(SEARCH_GRID_BUTTONS[0]))
 
-/*
-    Built-in theme names.
-
-    "Default" means:
-        no theme folder prefix
-        no THEME_themeName_ resource prefix
-
-    Add names here if you embed themes in the exe and want F6/F7
-    to cycle through them even when no matching folder exists.
-*/
 static const char *APP_BUILT_IN_THEMES[] =
 {
     "Default"
@@ -307,6 +296,7 @@ static void PrepareSearchGridItems(HINSTANCE hInstance, const char *themeName)
         onFailed = 0;
 
         g_searchGridItems[i].name = SEARCH_GRID_BUTTONS[i].name;
+        g_searchGridItems[i].action = SEARCH_GRID_BUTTONS[i].action;
         g_searchGridItems[i].text = SEARCH_GRID_BUTTONS[i].text;
         g_searchGridItems[i].tooltip = SEARCH_GRID_BUTTONS[i].tooltip;
 
@@ -362,23 +352,14 @@ static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
     config->verticalSpacing = 10;
 
     config->layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
-
-    /*
-        Size modes:
-
-        BUTTON_GRID_SIZE_FIXED
-            Uses buttonWidth / buttonHeight.
-
-        BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE
-            Uses actual image width / height.
-
-        BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL
-            Width stays at buttonWidth, height follows image aspect ratio.
-
-        BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL
-            Height stays at buttonHeight, width follows image aspect ratio.
-    */
     config->sizeMode = BUTTON_GRID_SIZE_FIXED;
+
+    config->showBorder = 1;
+    config->borderTitle = "Search Options";
+    config->borderPadding = 10;
+    config->borderTitleHeight = 22;
+    config->borderColor = RGB(0, 0, 0);
+    config->borderTitleColor = RGB(0, 0, 0);
 
     config->backColor = RGB(192, 192, 192);
     config->foreColor = RGB(0, 0, 0);
@@ -436,31 +417,17 @@ static void LayoutMainWindow(HWND hwnd)
     ButtonGrid_SetRect(g_buttonGrid, x, y, w, h);
 }
 
-static int CreateSearchGrid(HWND hwnd)
+static void OnSquareClicked(const char *actionName)
 {
-    ButtonGridConfig gridConfig;
+    int isOn;
 
-    ConfigureButtonGrid(&gridConfig, g_hInstance);
+    isOn = ButtonGrid_GetButtonStateByAction(g_buttonGrid, actionName);
 
-    g_squareSize = gridConfig.buttonWidth;
-
-    g_buttonGrid = ButtonGrid_CreateEx(
-        hwnd,
-        g_hInstance,
-        GRID_MARGIN,
-        GRID_MARGIN,
-        400,
-        300,
-        &gridConfig,
-        NULL
+    printf(
+        "Clicked: %s is now %s\n",
+        actionName,
+        isOn ? "ON" : "OFF"
     );
-
-    if (!g_buttonGrid)
-        return 0;
-
-    ButtonGrid_SetClickCallback(g_buttonGrid, NULL);
-
-    return 1;
 }
 
 static void DestroySearchGrid(void)
@@ -470,30 +437,6 @@ static void DestroySearchGrid(void)
         DestroyWindow(g_buttonGrid);
         g_buttonGrid = NULL;
     }
-}
-
-static void OnSquareClicked(const char *controlName)
-{
-    char msg[160];
-    int isOn;
-
-    isOn = ButtonGrid_GetButtonStateByName(g_buttonGrid, controlName);
-
-    if (isOn >= 0)
-    {
-        wsprintf(
-            msg,
-            "Clicked: %s is now %s",
-            controlName,
-            isOn ? "ON" : "OFF"
-        );
-    }
-    else
-    {
-        wsprintf(msg, "Clicked: %s", controlName);
-    }
-
-    AppNotify("Static Click", msg);
 }
 
 static int RecreateSearchGrid(HWND hwnd)
