@@ -4,6 +4,7 @@
 #include "console.h"
 #include "button_grid.h"
 #include "image_loader.h"
+#include "theme_manager.h"
 
 #ifndef VK_OEM_PLUS
 #define VK_OEM_PLUS 0xBB
@@ -27,9 +28,6 @@
 #define GRID_MARGIN 12
 #define SEARCH_MODE_RADIO_GROUP 1
 
-#define MAX_THEMES 64
-#define THEME_NAME_SIZE 64
-
 typedef struct SearchGridButtonDefinition
 {
     const char *name;
@@ -47,65 +45,8 @@ typedef struct SearchGridButtonDefinition
     int sizeModeOverride;
 } SearchGridButtonDefinition;
 
-typedef struct ThemeList
-{
-    char names[MAX_THEMES][THEME_NAME_SIZE];
-    int count;
-    int currentIndex;
-} ThemeList;
-
 #define SEARCH_GRID_BUTTON(name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride) \
     { name, action, text, tooltip, iconBaseName, behavior, radioGroup, defaultState, widthOverride, heightOverride, sizeModeOverride }
-
-/*
-    Search grid definition.
-
-    name:
-        Internal button name.
-        Also used as the default icon base name.
-
-    action:
-        Identifier passed to the click callback.
-        NULL means use name.
-
-    text:
-        Text drawn on the button.
-        "" means icon-only / no text.
-
-    tooltip:
-        Hover tooltip.
-
-    iconBaseName:
-        NULL means use name.
-        Loader searches:
-            themes\<ThemeName>\<iconBaseName>_OFF.bmp/png/jpg
-            themes\<ThemeName>\<iconBaseName>_ON.bmp/png/jpg
-            embedded theme resources
-            default files beside exe
-            default embedded resources
-
-    behavior:
-        BUTTON_GRID_BUTTON_RADIO
-        BUTTON_GRID_BUTTON_TOGGLE
-        BUTTON_GRID_BUTTON_DISABLED
-
-    radioGroup:
-        Radio buttons with the same non-zero group exclude each other.
-
-    defaultState:
-        0 = OFF
-        1 = ON
-
-    widthOverride / heightOverride:
-        0 means use grid default.
-
-    sizeModeOverride:
-        BUTTON_GRID_SIZE_USE_DEFAULT
-        BUTTON_GRID_SIZE_FIXED
-        BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE
-        BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL
-        BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL
-*/
 
 static const SearchGridButtonDefinition SEARCH_GRID_BUTTONS[] =
 {
@@ -139,141 +80,8 @@ static HWND g_buttonGrid = NULL;
 
 static int g_squareSize = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
 
-static ThemeList g_themes;
+static ThemeManager g_themes;
 static ButtonGridItemConfig g_searchGridItems[SEARCH_GRID_BUTTON_COUNT];
-
-static void GetExeDirectory(char *buffer, int bufferSize)
-{
-    int len;
-    int i;
-
-    if (!buffer || bufferSize <= 0)
-        return;
-
-    buffer[0] = '\0';
-
-    GetModuleFileName(NULL, buffer, bufferSize);
-
-    len = lstrlen(buffer);
-
-    for (i = len - 1; i >= 0; i--)
-    {
-        if (buffer[i] == '\\' || buffer[i] == '/')
-        {
-            buffer[i] = '\0';
-            return;
-        }
-    }
-
-    lstrcpy(buffer, ".");
-}
-
-static int SameText(const char *a, const char *b)
-{
-    if (!a || !b)
-        return 0;
-
-    return lstrcmpi(a, b) == 0;
-}
-
-static void ThemeList_Add(ThemeList *list, const char *name)
-{
-    int i;
-
-    if (!list || !name || !name[0])
-        return;
-
-    for (i = 0; i < list->count; i++)
-    {
-        if (SameText(list->names[i], name))
-            return;
-    }
-
-    if (list->count >= MAX_THEMES)
-        return;
-
-    lstrcpyn(list->names[list->count], name, THEME_NAME_SIZE);
-    list->names[list->count][THEME_NAME_SIZE - 1] = '\0';
-    list->count++;
-}
-
-static void ThemeList_Rebuild(ThemeList *list)
-{
-    char exeDir[MAX_PATH];
-    char searchPath[MAX_PATH];
-    WIN32_FIND_DATA findData;
-    HANDLE findHandle;
-    int i;
-
-    if (!list)
-        return;
-
-    ZeroMemory(list, sizeof(ThemeList));
-
-    for (i = 0; i < (int)APP_BUILT_IN_THEME_COUNT; i++)
-        ThemeList_Add(list, APP_BUILT_IN_THEMES[i]);
-
-    GetExeDirectory(exeDir, MAX_PATH);
-
-    wsprintf(searchPath, "%s\\themes\\*", exeDir);
-
-    findHandle = FindFirstFile(searchPath, &findData);
-
-    if (findHandle != INVALID_HANDLE_VALUE)
-    {
-        do
-        {
-            if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-                lstrcmp(findData.cFileName, ".") != 0 &&
-                lstrcmp(findData.cFileName, "..") != 0)
-            {
-                ThemeList_Add(list, findData.cFileName);
-            }
-        }
-        while (FindNextFile(findHandle, &findData));
-
-        FindClose(findHandle);
-    }
-
-    if (list->count < 1)
-        ThemeList_Add(list, "Default");
-
-    list->currentIndex = 0;
-}
-
-static const char *ThemeList_GetCurrentDisplayName(ThemeList *list)
-{
-    if (!list || list->count < 1)
-        return "Default";
-
-    return list->names[list->currentIndex];
-}
-
-static const char *ThemeList_GetCurrentThemeName(ThemeList *list)
-{
-    const char *name;
-
-    name = ThemeList_GetCurrentDisplayName(list);
-
-    if (SameText(name, "Default"))
-        return NULL;
-
-    return name;
-}
-
-static void ThemeList_Cycle(ThemeList *list, int direction)
-{
-    if (!list || list->count < 1)
-        return;
-
-    list->currentIndex += direction;
-
-    while (list->currentIndex < 0)
-        list->currentIndex += list->count;
-
-    while (list->currentIndex >= list->count)
-        list->currentIndex -= list->count;
-}
 
 static void PrepareSearchGridItems(HINSTANCE hInstance, const char *themeName)
 {
@@ -338,7 +146,7 @@ static void ConfigureButtonGrid(ButtonGridConfig *config, HINSTANCE hInstance)
 
     ButtonGrid_GetDefaultConfig(config);
 
-    themeName = ThemeList_GetCurrentThemeName(&g_themes);
+    themeName = ThemeManager_GetCurrentLoadName(&g_themes);
 
     PrepareSearchGridItems(hInstance, themeName);
 
@@ -384,7 +192,7 @@ static void SetMainWindowTitle(HWND hwnd)
         MAIN_WINDOW_TITLE,
         g_squareSize,
         g_squareSize,
-        ThemeList_GetCurrentDisplayName(&g_themes)
+        ThemeManager_GetCurrentDisplayName(&g_themes)
     );
 
     SetWindowText(hwnd, title);
@@ -471,9 +279,9 @@ static int RecreateSearchGrid(HWND hwnd)
 
 static void CycleTheme(HWND hwnd, int direction)
 {
-    ThemeList_Cycle(&g_themes, direction);
+    ThemeManager_Cycle(&g_themes, direction);
 
-    printf("Theme changed to: %s\n", ThemeList_GetCurrentDisplayName(&g_themes));
+    printf("Theme changed to: %s\n", ThemeManager_GetCurrentDisplayName(&g_themes));
 
     if (!RecreateSearchGrid(hwnd))
         AppNotify("Error", "Could not recreate button grid for theme.");
@@ -508,7 +316,11 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
             cs = (CREATESTRUCT *)lParam;
             g_hInstance = cs->hInstance;
 
-            ThemeList_Rebuild(&g_themes);
+            ThemeManager_Rebuild(
+                &g_themes,
+                APP_BUILT_IN_THEMES,
+                (int)APP_BUILT_IN_THEME_COUNT
+            );
 
             if (!RecreateSearchGrid(hwnd))
             {
