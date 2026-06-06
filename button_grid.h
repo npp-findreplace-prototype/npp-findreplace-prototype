@@ -47,6 +47,9 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_DEFAULT_THEME_NAME "darkmetalred"
 #define BUTTON_GRID_DEFAULT_ALLOW_THEME_SELECTION 1
 
+#define BUTTON_GRID_DEFAULT_DPI_SCALE_ENABLED 1
+#define BUTTON_GRID_DEFAULT_DPI_BASE 96
+
 #define BUTTON_GRID_DEFAULT_NAME_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_ACTION_PREFIX "mybutton_"
 #define BUTTON_GRID_DEFAULT_TEXT_FORMAT "%d"
@@ -144,6 +147,8 @@ typedef struct ButtonGridConfig
     int hidePartialButtons;
     int resizeInLayoutSteps;
     int settingsWheelScrub;
+
+    int dpiScaleEnabled;
 
     const char *themeName;
     int allowThemeSelection;

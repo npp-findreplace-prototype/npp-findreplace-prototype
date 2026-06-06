@@ -22,6 +22,8 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->resizeInLayoutSteps = BUTTON_GRID_DEFAULT_RESIZE_IN_LAYOUT_STEPS;
     config->settingsWheelScrub = BUTTON_GRID_DEFAULT_SETTINGS_WHEEL_SCRUB;
 
+    config->dpiScaleEnabled = BUTTON_GRID_DEFAULT_DPI_SCALE_ENABLED;
+
     config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
     config->allowThemeSelection = BUTTON_GRID_DEFAULT_ALLOW_THEME_SELECTION;
 
@@ -69,6 +71,9 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
 
 void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
 {
+    if (!config)
+        return;
+
     if (config->buttonCount < 1)
         config->buttonCount = 1;
 
@@ -96,6 +101,8 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     config->hidePartialButtons = config->hidePartialButtons ? 1 : 0;
     config->resizeInLayoutSteps = config->resizeInLayoutSteps ? 1 : 0;
     config->settingsWheelScrub = config->settingsWheelScrub ? 1 : 0;
+
+    config->dpiScaleEnabled = config->dpiScaleEnabled ? 1 : 0;
 
     if (!config->themeName)
         config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
@@ -164,6 +171,9 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
 
 void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
 {
+    if (!grid || !config)
+        return;
+
     grid->buttonCount = config->buttonCount;
 
     grid->configuredItems = config->items;
@@ -182,6 +192,9 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
     grid->hidePartialButtons = config->hidePartialButtons;
     grid->resizeInLayoutSteps = config->resizeInLayoutSteps;
     grid->settingsWheelScrub = config->settingsWheelScrub;
+
+    grid->dpiScaleEnabled = config->dpiScaleEnabled;
+    ButtonGrid_UpdateDpi(grid);
 
     ButtonGrid_CopyText(
         grid->themeName,

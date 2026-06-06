@@ -65,6 +65,16 @@ static const ButtonGridSettingDefinition g_settings[] =
     },
 
     {
+        "dpiScaleEnabled",
+        "DPI scale grid",
+        BG_SETTING_BOOL,
+        offsetof(ButtonGrid, dpiScaleEnabled),
+        0,
+        1,
+        g_boolOptions
+    },
+
+    {
         "buttonWidth",
         "Button width",
         BG_SETTING_INT,

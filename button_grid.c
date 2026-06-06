@@ -1,6 +1,10 @@
 #include "button_grid_internal.h"
 #include "button_grid_settings.h"
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 ButtonGrid *ButtonGrid_Get(HWND hwnd)
@@ -64,6 +68,8 @@ static LRESULT ButtonGrid_HandleCreate(HWND hwnd, LPARAM lParam)
         ButtonGrid_Free(grid);
         return -1;
     }
+
+    ButtonGrid_UpdateDpi(grid);
 
     if (!ButtonGrid_CreateButtons(grid))
     {
@@ -213,7 +219,10 @@ void ButtonGrid_SetRect(
     grid = ButtonGrid_Get(gridHwnd);
 
     if (grid)
+    {
+        ButtonGrid_UpdateDpi(grid);
         ButtonGrid_AdjustRectToLayoutSteps(grid, &width, &height);
+    }
 
     SetWindowPos(
         gridHwnd,
@@ -224,6 +233,12 @@ void ButtonGrid_SetRect(
         height,
         SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS
     );
+
+    if (grid)
+    {
+        ButtonGrid_Layout(grid);
+        ButtonGrid_LayoutSettingsPage(grid);
+    }
 
     InvalidateRect(gridHwnd, NULL, TRUE);
 }
@@ -250,6 +265,7 @@ void ButtonGrid_SetButtonSize(
     grid->buttonWidth = buttonWidth;
     grid->buttonHeight = buttonHeight;
 
+    ButtonGrid_UpdateDpi(grid);
     ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_Layout(grid);
 }
@@ -268,6 +284,7 @@ void ButtonGrid_SetSizeMode(
 
     grid->sizeMode = ButtonGrid_NormalizeSizeMode(sizeMode);
 
+    ButtonGrid_UpdateDpi(grid);
     ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_Layout(grid);
 }
@@ -294,6 +311,7 @@ void ButtonGrid_SetSpacing(
     grid->horizontalSpacing = horizontalSpacing;
     grid->verticalSpacing = verticalSpacing;
 
+    ButtonGrid_UpdateDpi(grid);
     ButtonGrid_Layout(grid);
 }
 
@@ -314,13 +332,39 @@ void ButtonGrid_SetLayout(HWND gridHwnd, int layout)
 
     grid->layout = layout;
 
+    ButtonGrid_UpdateDpi(grid);
     ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_Layout(grid);
 }
 
 void ButtonGrid_Relayout(HWND gridHwnd)
 {
-    ButtonGrid_Layout(ButtonGrid_Get(gridHwnd));
+    ButtonGrid *grid;
+
+    grid = ButtonGrid_Get(gridHwnd);
+
+    if (!grid)
+        return;
+
+    ButtonGrid_UpdateDpi(grid);
+    ButtonGrid_UpdateAllButtonSizes(grid);
+    ButtonGrid_Layout(grid);
+    ButtonGrid_LayoutSettingsPage(grid);
+    InvalidateRect(gridHwnd, NULL, TRUE);
+}
+
+static void ButtonGrid_HandleDpiChanged(ButtonGrid *grid)
+{
+    if (!grid)
+        return;
+
+    ButtonGrid_UpdateDpi(grid);
+    ButtonGrid_UpdateAllButtonSizes(grid);
+    ButtonGrid_Layout(grid);
+    ButtonGrid_LayoutSettingsPage(grid);
+    ButtonGrid_RedrawAllButtons(grid);
+
+    InvalidateRect(grid->hwnd, NULL, TRUE);
 }
 
 static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -338,8 +382,19 @@ static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, L
 
         case WM_SIZE:
         {
-            ButtonGrid_Layout(grid);
-            ButtonGrid_LayoutSettingsPage(grid);
+            if (grid)
+            {
+                ButtonGrid_UpdateDpi(grid);
+                ButtonGrid_Layout(grid);
+                ButtonGrid_LayoutSettingsPage(grid);
+            }
+
+            return 0;
+        }
+
+        case WM_DPICHANGED:
+        {
+            ButtonGrid_HandleDpiChanged(grid);
             return 0;
         }
 

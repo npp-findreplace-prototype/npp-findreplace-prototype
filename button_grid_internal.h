@@ -74,6 +74,12 @@ typedef struct ButtonItem
 
     int showTextOverride;
 
+    /*
+        Resolved display size.
+
+        These are stored as actual current pixel sizes after DPI scaling,
+        image-size resolution, and per-button overrides have been applied.
+    */
     int width;
     int height;
 
@@ -114,6 +120,12 @@ typedef struct ButtonGrid
     const ButtonGridItemConfig *configuredItems;
     int configuredItemCount;
 
+    /*
+        Logical 96-DPI design values.
+
+        These should remain unscaled. Layout/drawing code should use
+        ButtonGrid_DpiScale(...) when it needs actual pixels.
+    */
     int buttonWidth;
     int buttonHeight;
 
@@ -127,6 +139,9 @@ typedef struct ButtonGrid
     int hidePartialButtons;
     int resizeInLayoutSteps;
     int settingsWheelScrub;
+
+    int dpiScaleEnabled;
+    int currentDpi;
 
     char themeName[BUTTON_GRID_THEME_NAME_SIZE];
     int allowThemeSelection;
@@ -193,6 +208,13 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config);
 void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config);
 
 int ButtonGrid_NormalizeSizeMode(int sizeMode);
+
+/* DPI helpers */
+int ButtonGrid_GetWindowDpi(HWND hwnd);
+void ButtonGrid_UpdateDpi(ButtonGrid *grid);
+
+int ButtonGrid_DpiScale(ButtonGrid *grid, int value);
+int ButtonGrid_DpiScaleMin(ButtonGrid *grid, int value, int minValue);
 
 void ButtonGrid_RedrawContainer(HWND hwnd);
 void ButtonGrid_AdjustRectToLayoutSteps(ButtonGrid *grid, int *width, int *height);

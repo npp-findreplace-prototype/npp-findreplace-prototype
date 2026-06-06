@@ -238,6 +238,8 @@ static void ButtonGrid_SettingsNormalizeLiveGrid(ButtonGrid *grid)
     grid->resizeInLayoutSteps = grid->resizeInLayoutSteps ? 1 : 0;
     grid->settingsWheelScrub = grid->settingsWheelScrub ? 1 : 0;
 
+    grid->dpiScaleEnabled = grid->dpiScaleEnabled ? 1 : 0;
+
     if (!grid->themeName[0])
     {
         ButtonGrid_CopyText(
@@ -292,6 +294,7 @@ void ButtonGrid_SettingsApplyGridChange(ButtonGrid *grid)
 
     ButtonGrid_SettingsNormalizeLiveGrid(grid);
 
+    ButtonGrid_UpdateDpi(grid);
     ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_Layout(grid);
     ButtonGrid_RedrawAllButtons(grid);

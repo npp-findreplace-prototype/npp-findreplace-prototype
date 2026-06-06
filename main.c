@@ -13,6 +13,10 @@
 #define VK_OEM_MINUS 0xBD
 #endif
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 #define MAIN_WINDOW_CLASS_NAME "SimpleWindowClass"
 #define MAIN_WINDOW_TITLE "Simple TCC Window"
 
@@ -67,6 +71,50 @@ static HWND g_buttonGrid = NULL;
 static int g_squareSize = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
 
 static ButtonGridItemConfig g_searchGridItems[SEARCH_GRID_BUTTON_COUNT];
+
+static void App_EnableDpiAwareness(void)
+{
+    HMODULE user32;
+    BOOL (WINAPI *setProcessDpiAware)(void);
+    BOOL (WINAPI *setProcessDpiAwarenessContext)(HANDLE);
+
+    user32 = LoadLibrary("user32.dll");
+
+    if (!user32)
+        return;
+
+    setProcessDpiAwarenessContext =
+        (BOOL (WINAPI *)(HANDLE))GetProcAddress(
+            user32,
+            "SetProcessDpiAwarenessContext"
+        );
+
+    if (setProcessDpiAwarenessContext)
+    {
+        /*
+            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = ((HANDLE)-4)
+
+            This avoids requiring newer SDK headers while still enabling
+            per-monitor DPI behavior on systems that support it.
+        */
+        if (setProcessDpiAwarenessContext((HANDLE)-4))
+        {
+            FreeLibrary(user32);
+            return;
+        }
+    }
+
+    setProcessDpiAware =
+        (BOOL (WINAPI *)(void))GetProcAddress(
+            user32,
+            "SetProcessDPIAware"
+        );
+
+    if (setProcessDpiAware)
+        setProcessDpiAware();
+
+    FreeLibrary(user32);
+}
 
 static void PrepareSearchGridItems(void)
 {
@@ -131,6 +179,8 @@ static void ConfigureButtonGrid(ButtonGridConfig *config)
     config->hidePartialButtons = 1;
     config->resizeInLayoutSteps = 0;
     config->settingsWheelScrub = 0;
+
+    config->dpiScaleEnabled = 1;
 
     config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
     config->allowThemeSelection = 1;
@@ -268,6 +318,31 @@ static void SetSquareSize(HWND hwnd, int newSize)
     printf("Square size changed to %d x %d\n", g_squareSize, g_squareSize);
 }
 
+static void HandleDpiChanged(HWND hwnd, LPARAM lParam)
+{
+    RECT *suggested;
+
+    suggested = (RECT *)lParam;
+
+    if (suggested)
+    {
+        SetWindowPos(
+            hwnd,
+            NULL,
+            suggested->left,
+            suggested->top,
+            suggested->right - suggested->left,
+            suggested->bottom - suggested->top,
+            SWP_NOZORDER | SWP_NOACTIVATE
+        );
+    }
+
+    LayoutMainWindow(hwnd);
+
+    if (g_buttonGrid)
+        ButtonGrid_Relayout(g_buttonGrid);
+}
+
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg)
@@ -293,6 +368,12 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
         case WM_SIZE:
         {
             LayoutMainWindow(hwnd);
+            return 0;
+        }
+
+        case WM_DPICHANGED:
+        {
+            HandleDpiChanged(hwnd, lParam);
             return 0;
         }
 
@@ -337,6 +418,8 @@ int WINAPI WinMain(
 
     (void)hPrevInstance;
     (void)lpCmdLine;
+
+    App_EnableDpiAwareness();
 
     Console_Setup();
 
@@ -388,6 +471,7 @@ int WINAPI WinMain(
     printf("Click a square to toggle or select it.\n");
     printf("Click the gear icon to open live grid settings.\n");
     printf("Use the Theme setting to choose folder or embedded themes.\n");
+    printf("Use the DPI scale grid setting to toggle DPI-scaled grid metrics.\n");
 
     while (GetMessage(&msg, NULL, 0, 0))
     {

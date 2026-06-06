@@ -15,6 +15,29 @@ static int ButtonGrid_HasVisibleBorder(ButtonGrid *grid)
     return 1;
 }
 
+static int ButtonGrid_ScaledBorderThickness(ButtonGrid *grid)
+{
+    return ButtonGrid_DpiScaleMin(grid, grid->borderThickness, 1);
+}
+
+static int ButtonGrid_ScaledBorderRadius(ButtonGrid *grid)
+{
+    return ButtonGrid_DpiScale(grid, grid->borderCornerRadius);
+}
+
+static int ButtonGrid_ScaledBorderTitleHeight(ButtonGrid *grid)
+{
+    if (!grid || !grid->borderTitle[0])
+        return 0;
+
+    return ButtonGrid_DpiScale(grid, grid->borderTitleHeight);
+}
+
+static int ButtonGrid_ScaledSmallMargin(ButtonGrid *grid, int value)
+{
+    return ButtonGrid_DpiScaleMin(grid, value, 1);
+}
+
 static void ButtonGrid_DrawLine(
     HDC hdc,
     int x1,
@@ -43,7 +66,12 @@ static void ButtonGrid_DrawSimpleBorder(ButtonGrid *grid, HDC hdc, RECT *rc)
     HGDIOBJ oldPen;
     HGDIOBJ oldBrush;
 
-    pen = CreatePen(PS_SOLID, grid->borderThickness, grid->borderColor);
+    pen = CreatePen(
+        PS_SOLID,
+        ButtonGrid_ScaledBorderThickness(grid),
+        grid->borderColor
+    );
+
     oldPen = SelectObject(hdc, pen);
     oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
 
@@ -56,16 +84,20 @@ static void ButtonGrid_DrawSimpleBorder(ButtonGrid *grid, HDC hdc, RECT *rc)
 
 static void ButtonGrid_DrawEtchedBorder(ButtonGrid *grid, HDC hdc, RECT *rc)
 {
+    int inset;
+
+    inset = ButtonGrid_DpiScaleMin(grid, 1, 1);
+
     ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->right, rc->top, grid->borderLightColor);
     ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->left, rc->bottom, grid->borderLightColor);
 
     ButtonGrid_DrawLine(hdc, rc->left, rc->bottom, rc->right, rc->bottom, grid->borderShadowColor);
     ButtonGrid_DrawLine(hdc, rc->right, rc->top, rc->right, rc->bottom, grid->borderShadowColor);
 
-    rc->left += 1;
-    rc->top += 1;
-    rc->right -= 1;
-    rc->bottom -= 1;
+    rc->left += inset;
+    rc->top += inset;
+    rc->right -= inset;
+    rc->bottom -= inset;
 
     ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->right, rc->top, grid->borderColor);
     ButtonGrid_DrawLine(hdc, rc->left, rc->top, rc->left, rc->bottom, grid->borderColor);
@@ -80,12 +112,17 @@ static void ButtonGrid_DrawRoundedBorder(ButtonGrid *grid, HDC hdc, RECT *rc)
     HGDIOBJ oldBrush;
     int radius;
 
-    radius = grid->borderCornerRadius;
+    radius = ButtonGrid_ScaledBorderRadius(grid);
 
     if (radius < 1)
         radius = 1;
 
-    pen = CreatePen(PS_SOLID, grid->borderThickness, grid->borderColor);
+    pen = CreatePen(
+        PS_SOLID,
+        ButtonGrid_ScaledBorderThickness(grid),
+        grid->borderColor
+    );
+
     oldPen = SelectObject(hdc, pen);
     oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
 
@@ -108,14 +145,22 @@ static void ButtonGrid_DrawBorderTitle(ButtonGrid *grid, HDC hdc, RECT *borderRc
 {
     RECT titleRc;
     HBRUSH brush;
+    int titleHeight;
+    int titleInset;
 
     if (!grid->borderTitle[0])
         return;
 
-    titleRc.left = borderRc->left + 12;
+    titleHeight = ButtonGrid_ScaledBorderTitleHeight(grid);
+    titleInset = ButtonGrid_DpiScale(grid, 12);
+
+    if (titleHeight < 1)
+        titleHeight = 1;
+
+    titleRc.left = borderRc->left + titleInset;
     titleRc.top = 0;
-    titleRc.right = borderRc->right - 12;
-    titleRc.bottom = grid->borderTitleHeight;
+    titleRc.right = borderRc->right - titleInset;
+    titleRc.bottom = titleHeight;
 
     brush = CreateSolidBrush(grid->borderTitleBackColor);
     FillRect(hdc, &titleRc, brush);
@@ -133,6 +178,30 @@ static void ButtonGrid_DrawBorderTitle(ButtonGrid *grid, HDC hdc, RECT *borderRc
     );
 }
 
+static void ButtonGrid_GetBorderDrawRect(ButtonGrid *grid, RECT *rc)
+{
+    int sideMargin;
+    int topMargin;
+    int bottomMargin;
+
+    GetClientRect(grid->hwnd, rc);
+
+    sideMargin = ButtonGrid_ScaledSmallMargin(grid, 2);
+    topMargin = ButtonGrid_ScaledSmallMargin(grid, 8);
+    bottomMargin = ButtonGrid_ScaledSmallMargin(grid, 2);
+
+    rc->left += sideMargin;
+    rc->top += topMargin;
+    rc->right -= sideMargin;
+    rc->bottom -= bottomMargin;
+
+    if (rc->right < rc->left)
+        rc->right = rc->left;
+
+    if (rc->bottom < rc->top)
+        rc->bottom = rc->top;
+}
+
 static void ButtonGrid_DrawBorder(ButtonGrid *grid, HDC hdc)
 {
     RECT rc;
@@ -140,15 +209,10 @@ static void ButtonGrid_DrawBorder(ButtonGrid *grid, HDC hdc)
     if (!ButtonGrid_HasVisibleBorder(grid))
         return;
 
-    GetClientRect(grid->hwnd, &rc);
+    ButtonGrid_GetBorderDrawRect(grid, &rc);
 
     if (rc.right <= rc.left || rc.bottom <= rc.top)
         return;
-
-    rc.left += 2;
-    rc.top += 8;
-    rc.right -= 2;
-    rc.bottom -= 2;
 
     if (grid->borderStyle == BUTTON_GRID_BORDER_STYLE_SIMPLE)
         ButtonGrid_DrawSimpleBorder(grid, hdc, &rc);
@@ -170,8 +234,12 @@ LRESULT ButtonGrid_HandlePaint(HWND hwnd)
 
     hdc = BeginPaint(hwnd, &ps);
 
-    ButtonGrid_DrawBorder(grid, hdc);
-    ButtonGrid_DrawGearIcon(grid, hdc);
+    if (grid)
+    {
+        ButtonGrid_UpdateDpi(grid);
+        ButtonGrid_DrawBorder(grid, hdc);
+        ButtonGrid_DrawGearIcon(grid, hdc);
+    }
 
     EndPaint(hwnd, &ps);
 
@@ -179,6 +247,7 @@ LRESULT ButtonGrid_HandlePaint(HWND hwnd)
 }
 
 static void ButtonGrid_DrawGeneratedFallback(
+    ButtonGrid *grid,
     HDC hdc,
     const RECT *rc,
     COLORREF color,
@@ -191,6 +260,7 @@ static void ButtonGrid_DrawGeneratedFallback(
     COLORREF markColor;
     int width;
     int height;
+    int penWidth;
 
     brush = CreateSolidBrush(color);
     FillRect(hdc, rc, brush);
@@ -207,7 +277,9 @@ static void ButtonGrid_DrawGeneratedFallback(
     else
         markColor = RGB(160, 0, 0);
 
-    pen = CreatePen(PS_SOLID, 5, markColor);
+    penWidth = ButtonGrid_DpiScaleMin(grid, 5, 1);
+
+    pen = CreatePen(PS_SOLID, penWidth, markColor);
     oldPen = SelectObject(hdc, pen);
 
     if (pictureType == BUTTON_GRID_PICTURE_TYPE_ON)
@@ -244,6 +316,7 @@ static int ButtonGrid_ButtonShouldShowText(ButtonGrid *grid, ButtonItem *button)
 }
 
 static void ButtonGrid_DrawCenteredText(
+    ButtonGrid *grid,
     HDC hdc,
     const char *text,
     RECT *rc,
@@ -254,15 +327,21 @@ static void ButtonGrid_DrawCenteredText(
     RECT drawRect;
     int textHeight;
     int rectHeight;
+    int padding;
 
     if (!text || !text[0])
         return;
+
+    padding = ButtonGrid_DpiScale(grid, 4);
+
+    if (padding < 1)
+        padding = 1;
 
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, color);
 
     calcRect = *rc;
-    InflateRect(&calcRect, -4, -4);
+    InflateRect(&calcRect, -padding, -padding);
 
     DrawText(
         hdc,
@@ -276,7 +355,7 @@ static void ButtonGrid_DrawCenteredText(
     rectHeight = rc->bottom - rc->top;
 
     drawRect = *rc;
-    InflateRect(&drawRect, -4, -4);
+    InflateRect(&drawRect, -padding, -padding);
 
     if (textHeight < rectHeight)
     {
@@ -291,6 +370,36 @@ static void ButtonGrid_DrawCenteredText(
         &drawRect,
         DT_CENTER | DT_WORDBREAK
     );
+}
+
+static void ButtonGrid_DrawButtonFrame(ButtonGrid *grid, HDC hdc, RECT *rc)
+{
+    HPEN pen;
+    HGDIOBJ oldPen;
+    HGDIOBJ oldBrush;
+    int thickness;
+    int i;
+
+    thickness = ButtonGrid_DpiScaleMin(grid, 1, 1);
+
+    pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+    oldPen = SelectObject(hdc, pen);
+    oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
+
+    for (i = 0; i < thickness; i++)
+    {
+        Rectangle(
+            hdc,
+            rc->left + i,
+            rc->top + i,
+            rc->right - i,
+            rc->bottom - i
+        );
+    }
+
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
 }
 
 static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
@@ -351,6 +460,7 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
         else
         {
             ButtonGrid_DrawGeneratedFallback(
+                grid,
                 hdc,
                 &rc,
                 fallbackColor,
@@ -360,9 +470,17 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
     }
 
     if (ButtonGrid_ButtonShouldShowText(grid, button))
-        ButtonGrid_DrawCenteredText(hdc, button->text, &rc, grid->foreColor);
+    {
+        ButtonGrid_DrawCenteredText(
+            grid,
+            hdc,
+            button->text,
+            &rc,
+            grid->foreColor
+        );
+    }
 
-    FrameRect(hdc, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
+    ButtonGrid_DrawButtonFrame(grid, hdc, &rc);
 
     if (draw->itemState & ODS_FOCUS)
         DrawFocusRect(hdc, &rc);
@@ -377,6 +495,7 @@ LRESULT ButtonGrid_HandleDrawItem(ButtonGrid *grid, LPARAM lParam)
     if (!grid || !draw)
         return 0;
 
+    ButtonGrid_UpdateDpi(grid);
     ButtonGrid_DrawButton(grid, draw);
 
     return TRUE;
