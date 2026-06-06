@@ -125,6 +125,7 @@ typedef struct ButtonGrid
     int showText;
     int hidePartialButtons;
     int resizeInLayoutSteps;
+    int settingsWheelScrub;
 
     int showBorder;
     char borderTitle[BUTTON_GRID_TITLE_SIZE];

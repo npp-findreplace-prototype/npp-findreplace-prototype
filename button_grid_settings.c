@@ -35,12 +35,30 @@
 #define TBS_TOOLTIPS 0x0100
 #endif
 
+#ifndef GWLP_WNDPROC
+#define GWLP_WNDPROC GWL_WNDPROC
+#endif
+
+#ifndef LONG_PTR
+#define LONG_PTR LONG
+#endif
+
+#ifndef SetWindowLongPtr
+#define SetWindowLongPtr SetWindowLong
+#endif
+
+#ifndef GetWindowLongPtr
+#define GetWindowLongPtr GetWindowLong
+#endif
+
 #define BUTTON_GRID_SETTINGS_CLASS_NAME "ButtonGridSettingsWindowClass"
 #define BUTTON_GRID_SETTINGS_PROP_NAME "ButtonGridSettingsGrid"
+#define BUTTON_GRID_SETTINGS_OLDPROC_PROP "ButtonGridSettingsOldProc"
 
 #define BG_SETTINGS_ID_CLOSE 5001
 #define BG_SETTINGS_ID_FILTER_LABEL 5002
 #define BG_SETTINGS_ID_FILTER 5003
+#define BG_SETTINGS_ID_FILTER_CLEAR 5004
 
 #define BG_SETTINGS_ID_BASE 6000
 #define BG_SETTINGS_ID_STEP 10
@@ -57,8 +75,11 @@
 #define BG_SETTINGS_LEFT 12
 #define BG_SETTINGS_ROW_HEIGHT 34
 #define BG_SETTINGS_LABEL_WIDTH 170
+#define BG_SETTINGS_MIN_LABEL_WIDTH 95
 #define BG_SETTINGS_PRIMARY_WIDTH 180
-#define BG_SETTINGS_RAW_WIDTH 130
+#define BG_SETTINGS_MIN_PRIMARY_WIDTH 70
+#define BG_SETTINGS_RAW_WIDTH 180
+#define BG_SETTINGS_MIN_RAW_WIDTH 105
 #define BG_SETTINGS_GAP 8
 #define BG_SETTINGS_BOTTOM_PADDING 16
 
@@ -86,6 +107,7 @@ typedef struct ButtonGridSettingDefinition
 } ButtonGridSettingDefinition;
 
 static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK ButtonGrid_SettingsControlSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd);
 
 static int g_settingsUpdatingControls = 0;
@@ -145,6 +167,7 @@ static const ButtonGridSettingDefinition g_settings[] =
     { "showText",                  "Show button text",           BG_SETTING_BOOL,  offsetof(ButtonGrid, showText),                   0,   1, g_boolOptions },
     { "hidePartialButtons",        "Hide partial buttons",       BG_SETTING_BOOL,  offsetof(ButtonGrid, hidePartialButtons),         0,   1, g_boolOptions },
     { "resizeInLayoutSteps",       "Resize in layout steps",     BG_SETTING_BOOL,  offsetof(ButtonGrid, resizeInLayoutSteps),        0,   1, g_boolOptions },
+    { "settingsWheelScrub",        "Wheel scrub values",         BG_SETTING_BOOL,  offsetof(ButtonGrid, settingsWheelScrub),         0,   1, g_boolOptions },
 
     { "showBorder",                "Show border",                BG_SETTING_BOOL,  offsetof(ButtonGrid, showBorder),                 0,   1, g_boolOptions },
     { "borderTitle",               "Border title",               BG_SETTING_TEXT,  offsetof(ButtonGrid, borderTitle),                0,   0, NULL },
@@ -370,7 +393,12 @@ static int HexDigitValue(char c)
 
 static int ParseHexColor(const char *text, COLORREF *color)
 {
-    int r1, r2, g1, g2, b1, b2;
+    int r1;
+    int r2;
+    int g1;
+    int g2;
+    int b1;
+    int b2;
 
     if (!text || text[0] != '#')
         return 0;
@@ -391,7 +419,9 @@ static int ParseHexColor(const char *text, COLORREF *color)
 
 static int ParseRgbColor(const char *text, COLORREF *color)
 {
-    int r, g, b;
+    int r;
+    int g;
+    int b;
 
     if (!text)
         return 0;
@@ -479,6 +509,8 @@ static void ButtonGrid_SettingsApplyGridChange(ButtonGrid *grid)
 
     if (grid->gearMargin < 0)
         grid->gearMargin = 0;
+
+    grid->settingsWheelScrub = grid->settingsWheelScrub ? 1 : 0;
 
     ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_Layout(grid);
@@ -680,9 +712,29 @@ static void ButtonGrid_SettingsApplyPrimary(HWND pageHwnd, int index)
     ButtonGrid_SettingsApplyValue(pageHwnd, index, NULL, value, 1);
 }
 
+static void ButtonGrid_SettingsSubclassWheelControl(HWND hwnd)
+{
+    WNDPROC oldProc;
+
+    if (!hwnd)
+        return;
+
+    if (GetProp(hwnd, BUTTON_GRID_SETTINGS_OLDPROC_PROP))
+        return;
+
+    oldProc = (WNDPROC)GetWindowLongPtr(hwnd, GWLP_WNDPROC);
+
+    if (!oldProc)
+        return;
+
+    SetProp(hwnd, BUTTON_GRID_SETTINGS_OLDPROC_PROP, (HANDLE)oldProc);
+    SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)ButtonGrid_SettingsControlSubclassProc);
+}
+
 static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
 {
     int i;
+    HWND control;
 
     InitCommonControls();
 
@@ -746,6 +798,21 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
         NULL
     );
 
+    CreateWindowEx(
+        0,
+        "BUTTON",
+        "X",
+        WS_CHILD | BS_PUSHBUTTON,
+        0,
+        0,
+        24,
+        24,
+        pageHwnd,
+        (HMENU)BG_SETTINGS_ID_FILTER_CLEAR,
+        grid->hInstance,
+        NULL
+    );
+
     for (i = 0; i < BG_SETTINGS_COUNT; i++)
     {
         const ButtonGridSettingDefinition *def;
@@ -769,7 +836,7 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
 
         if (def->type == BG_SETTING_BOOL)
         {
-            CreateWindowEx(
+            control = CreateWindowEx(
                 0,
                 "BUTTON",
                 "On",
@@ -786,7 +853,7 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
         }
         else if (def->type == BG_SETTING_INT)
         {
-            CreateWindowEx(
+            control = CreateWindowEx(
                 0,
                 TRACKBAR_CLASSA,
                 "",
@@ -800,10 +867,12 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
                 grid->hInstance,
                 NULL
             );
+
+            ButtonGrid_SettingsSubclassWheelControl(control);
         }
         else if (def->type == BG_SETTING_ENUM)
         {
-            CreateWindowEx(
+            control = CreateWindowEx(
                 0,
                 "COMBOBOX",
                 "",
@@ -817,9 +886,11 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
                 grid->hInstance,
                 NULL
             );
+
+            ButtonGrid_SettingsSubclassWheelControl(control);
         }
 
-        CreateWindowEx(
+        control = CreateWindowEx(
             WS_EX_CLIENTEDGE,
             "EDIT",
             "",
@@ -833,6 +904,8 @@ static void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid)
             grid->hInstance,
             NULL
         );
+
+        ButtonGrid_SettingsSubclassWheelControl(control);
     }
 
     ButtonGrid_SettingsRefreshAll(pageHwnd);
@@ -866,6 +939,63 @@ static void ButtonGrid_SettingsShowSettingControls(HWND pageHwnd, int index, int
         ShowWindow(raw, show ? SW_SHOW : SW_HIDE);
 }
 
+static void ButtonGrid_SettingsGetAdaptiveColumns(
+    int clientW,
+    int *labelX,
+    int *labelW,
+    int *primaryX,
+    int *primaryW,
+    int *rawX,
+    int *rawW
+)
+{
+    int rightMargin;
+    int availableW;
+
+    rightMargin = BG_SETTINGS_LEFT;
+
+    *labelX = BG_SETTINGS_LEFT;
+    *rawW = BG_SETTINGS_RAW_WIDTH;
+
+    availableW = clientW - BG_SETTINGS_LEFT - rightMargin;
+
+    if (availableW < 620)
+        *rawW = 150;
+
+    if (availableW < 500)
+        *rawW = BG_SETTINGS_MIN_RAW_WIDTH;
+
+    if (availableW < 390)
+        *rawW = 90;
+
+    if (*rawW < BG_SETTINGS_MIN_RAW_WIDTH)
+        *rawW = BG_SETTINGS_MIN_RAW_WIDTH;
+
+    *rawX = clientW - rightMargin - *rawW;
+
+    if (*rawX < BG_SETTINGS_LEFT + BG_SETTINGS_MIN_LABEL_WIDTH + BG_SETTINGS_GAP + BG_SETTINGS_MIN_PRIMARY_WIDTH + BG_SETTINGS_GAP)
+        *rawX = BG_SETTINGS_LEFT + BG_SETTINGS_MIN_LABEL_WIDTH + BG_SETTINGS_GAP + BG_SETTINGS_MIN_PRIMARY_WIDTH + BG_SETTINGS_GAP;
+
+    *labelW = BG_SETTINGS_LABEL_WIDTH;
+
+    *primaryX = *labelX + *labelW + BG_SETTINGS_GAP;
+
+    if (*primaryX + BG_SETTINGS_MIN_PRIMARY_WIDTH + BG_SETTINGS_GAP > *rawX)
+    {
+        *labelW = *rawX - *labelX - BG_SETTINGS_GAP - BG_SETTINGS_MIN_PRIMARY_WIDTH - BG_SETTINGS_GAP;
+
+        if (*labelW < BG_SETTINGS_MIN_LABEL_WIDTH)
+            *labelW = BG_SETTINGS_MIN_LABEL_WIDTH;
+
+        *primaryX = *labelX + *labelW + BG_SETTINGS_GAP;
+    }
+
+    *primaryW = *rawX - BG_SETTINGS_GAP - *primaryX;
+
+    if (*primaryW < BG_SETTINGS_MIN_PRIMARY_WIDTH)
+        *primaryW = BG_SETTINGS_MIN_PRIMARY_WIDTH;
+}
+
 static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
 {
     RECT rc;
@@ -880,9 +1010,15 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
     int visibleIndex;
     int visibleCount;
     int labelX;
+    int labelW;
     int primaryX;
+    int primaryW;
     int rawX;
+    int rawW;
     int rowY;
+    int filterX;
+    int filterClearX;
+    int filterW;
     ButtonGrid *grid;
 
     grid = ButtonGrid_SettingsGetGrid(pageHwnd);
@@ -943,6 +1079,13 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
         TRUE
     );
 
+    filterX = BG_SETTINGS_LEFT + 54;
+    filterClearX = clientW - BG_SETTINGS_LEFT - 24;
+    filterW = filterClearX - BG_SETTINGS_GAP - filterX;
+
+    if (filterW < 80)
+        filterW = 80;
+
     MoveWindow(
         GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER_LABEL),
         BG_SETTINGS_LEFT,
@@ -954,16 +1097,36 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
 
     MoveWindow(
         GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER),
-        BG_SETTINGS_LEFT + 54,
+        filterX,
         38,
-        clientW - BG_SETTINGS_LEFT - 54 - 20,
+        filterW,
         24,
         TRUE
     );
 
-    labelX = BG_SETTINGS_LEFT;
-    primaryX = labelX + BG_SETTINGS_LABEL_WIDTH + BG_SETTINGS_GAP;
-    rawX = primaryX + BG_SETTINGS_PRIMARY_WIDTH + BG_SETTINGS_GAP;
+    MoveWindow(
+        GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER_CLEAR),
+        filterClearX,
+        38,
+        24,
+        24,
+        TRUE
+    );
+
+    ShowWindow(
+        GetDlgItem(pageHwnd, BG_SETTINGS_ID_FILTER_CLEAR),
+        filterText[0] ? SW_SHOW : SW_HIDE
+    );
+
+    ButtonGrid_SettingsGetAdaptiveColumns(
+        clientW,
+        &labelX,
+        &labelW,
+        &primaryX,
+        &primaryW,
+        &rawX,
+        &rawW
+    );
 
     visibleIndex = 0;
 
@@ -989,7 +1152,7 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
             GetDlgItem(pageHwnd, BgIdLabel(i)),
             labelX,
             rowY + 5,
-            BG_SETTINGS_LABEL_WIDTH,
+            labelW,
             22,
             TRUE
         );
@@ -1000,34 +1163,20 @@ static void ButtonGrid_SettingsLayoutControls(HWND pageHwnd)
                 primary,
                 primaryX,
                 rowY,
-                BG_SETTINGS_PRIMARY_WIDTH,
+                primaryW,
                 def->type == BG_SETTING_ENUM ? 220 : 26,
                 TRUE
             );
         }
 
-        if (def->type == BG_SETTING_COLOR || def->type == BG_SETTING_TEXT)
-        {
-            MoveWindow(
-                GetDlgItem(pageHwnd, BgIdRaw(i)),
-                primaryX,
-                rowY,
-                BG_SETTINGS_PRIMARY_WIDTH + BG_SETTINGS_GAP + BG_SETTINGS_RAW_WIDTH,
-                24,
-                TRUE
-            );
-        }
-        else
-        {
-            MoveWindow(
-                GetDlgItem(pageHwnd, BgIdRaw(i)),
-                rawX,
-                rowY,
-                BG_SETTINGS_RAW_WIDTH,
-                24,
-                TRUE
-            );
-        }
+        MoveWindow(
+            GetDlgItem(pageHwnd, BgIdRaw(i)),
+            rawX,
+            rowY,
+            rawW,
+            24,
+            TRUE
+        );
 
         visibleIndex++;
     }
@@ -1447,6 +1596,42 @@ int ButtonGrid_HandleGearClick(ButtonGrid *grid, int x, int y)
     return 1;
 }
 
+static LRESULT CALLBACK ButtonGrid_SettingsControlSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    WNDPROC oldProc;
+    HWND pageHwnd;
+    ButtonGrid *grid;
+
+    oldProc = (WNDPROC)GetProp(hwnd, BUTTON_GRID_SETTINGS_OLDPROC_PROP);
+
+    if (msg == WM_MOUSEWHEEL)
+    {
+        pageHwnd = GetParent(hwnd);
+        grid = ButtonGrid_SettingsGetGrid(pageHwnd);
+
+        if (grid && !grid->settingsWheelScrub)
+        {
+            SendMessage(pageHwnd, WM_MOUSEWHEEL, wParam, lParam);
+            return 0;
+        }
+    }
+
+    if (msg == WM_NCDESTROY)
+    {
+        if (oldProc)
+        {
+            SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)oldProc);
+            RemoveProp(hwnd, BUTTON_GRID_SETTINGS_OLDPROC_PROP);
+            return CallWindowProc(oldProc, hwnd, msg, wParam, lParam);
+        }
+    }
+
+    if (oldProc)
+        return CallWindowProc(oldProc, hwnd, msg, wParam, lParam);
+
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
 static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     ButtonGrid *grid;
@@ -1510,6 +1695,15 @@ static LRESULT CALLBACK ButtonGrid_SettingsWndProc(HWND hwnd, UINT msg, WPARAM w
             if (id == BG_SETTINGS_ID_CLOSE)
             {
                 ButtonGrid_ShowSettingsPage(grid, 0);
+                return 0;
+            }
+
+            if (id == BG_SETTINGS_ID_FILTER_CLEAR)
+            {
+                SetWindowText(GetDlgItem(hwnd, BG_SETTINGS_ID_FILTER), "");
+                ButtonGrid_SettingsSetScrollPos(hwnd, 0);
+                ButtonGrid_SettingsLayoutControls(hwnd);
+                SetFocus(GetDlgItem(hwnd, BG_SETTINGS_ID_FILTER));
                 return 0;
             }
 

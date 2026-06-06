@@ -64,6 +64,7 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_DEFAULT_SHOW_TEXT 1
 #define BUTTON_GRID_DEFAULT_HIDE_PARTIAL_BUTTONS 0
 #define BUTTON_GRID_DEFAULT_RESIZE_IN_LAYOUT_STEPS 0
+#define BUTTON_GRID_DEFAULT_SETTINGS_WHEEL_SCRUB 0
 
 #define BUTTON_GRID_DEFAULT_SHOW_BORDER 0
 #define BUTTON_GRID_DEFAULT_BORDER_TITLE ""
@@ -137,6 +138,7 @@ typedef struct ButtonGridConfig
     int showText;
     int hidePartialButtons;
     int resizeInLayoutSteps;
+    int settingsWheelScrub;
 
     int showBorder;
     const char *borderTitle;
