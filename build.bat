@@ -13,6 +13,11 @@ set THEME_GENERATED_C=theme_resources_generated.c
 set THEME_HASH_FILE=.theme_resources.hash
 set THEME_HASH_NEW_FILE=.theme_resources.hash.new
 
+set EMBEDDED_RESOURCE_GENERATOR=generate_embedded_resources.ps1
+set EMBEDDED_GENERATED_C=embedded_resources_generated.c
+set EMBEDDED_HASH_FILE=.embedded_resources.hash
+set EMBEDDED_HASH_NEW_FILE=.embedded_resources.hash.new
+
 set TEMP_ROOT=temp
 set THEME_FILTERED_ROOT=%TEMP_ROOT%\theme_resource_input
 
@@ -55,6 +60,26 @@ if "%REBUILD_THEME_RESOURCES%"=="1" if exist "%THEME_FILTERED_ROOT%" rmdir /S /Q
 
 if not "%REBUILD_THEME_RESOURCES%"=="1" echo Embedded theme resource source is up to date.
 if not "%REBUILD_THEME_RESOURCES%"=="1" if exist "%THEME_HASH_NEW_FILE%" del "%THEME_HASH_NEW_FILE%"
+
+if exist "ini_resources_generated.c" del "ini_resources_generated.c"
+
+echo Checking embedded resource source...
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $r='.'; $g='%EMBEDDED_RESOURCE_GENERATOR%'; $o='%EMBEDDED_HASH_NEW_FILE%'; $a=@(); $skip={ param($rel) $parts=$rel -split '[\\/]' ; foreach($p in $parts){ if($p -like 'build_*' -or $p -like 'source_*' -or $p -ieq 'oldbuilds' -or $p -ieq 'temp'){ return $true } } return $false }; if(Test-Path $g){$a += ('GEN ' + (Get-FileHash $g).Hash)} else {$a += 'GEN_MISSING'}; if(Test-Path $r){$b=(Resolve-Path $r).Path; Get-ChildItem $r -Filter '*.ini' -File -Recurse | Sort-Object FullName | ForEach-Object { $rel=$_.FullName.Substring($b.Length).TrimStart('\','/').Replace('\','/'); if(-not (& $skip $rel)){ $a += ('FILE ' + $rel + ' ' + (Get-FileHash $_.FullName).Hash) } }} else {$a += 'ROOT_MISSING'}; $a | Set-Content -Encoding ASCII $o"
+if errorlevel 1 echo Embedded resource hash check failed. & pause & exit /b 1
+
+set REBUILD_EMBEDDED_RESOURCES=0
+if not exist "%EMBEDDED_GENERATED_C%" set REBUILD_EMBEDDED_RESOURCES=1
+if not exist "%EMBEDDED_HASH_FILE%" set REBUILD_EMBEDDED_RESOURCES=1
+if exist "%EMBEDDED_HASH_FILE%" if exist "%EMBEDDED_HASH_NEW_FILE%" fc /b "%EMBEDDED_HASH_FILE%" "%EMBEDDED_HASH_NEW_FILE%" >nul || set REBUILD_EMBEDDED_RESOURCES=1
+
+if "%REBUILD_EMBEDDED_RESOURCES%"=="1" echo Generating embedded resource source...
+if "%REBUILD_EMBEDDED_RESOURCES%"=="1" powershell -NoProfile -ExecutionPolicy Bypass -File "%EMBEDDED_RESOURCE_GENERATOR%" -Root "." -OutFile "%EMBEDDED_GENERATED_C%" -Group "ini" -Include "*.ini"
+if errorlevel 1 echo Embedded resource generation failed. & pause & exit /b 1
+if "%REBUILD_EMBEDDED_RESOURCES%"=="1" move /Y "%EMBEDDED_HASH_NEW_FILE%" "%EMBEDDED_HASH_FILE%" >nul
+
+if not "%REBUILD_EMBEDDED_RESOURCES%"=="1" echo Embedded resource source is up to date.
+if not "%REBUILD_EMBEDDED_RESOURCES%"=="1" if exist "%EMBEDDED_HASH_NEW_FILE%" del "%EMBEDDED_HASH_NEW_FILE%"
 
 set CFILES=
 for %%F in (*.c) do set CFILES=!CFILES! "%%F"
