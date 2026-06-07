@@ -5,6 +5,7 @@
 #include "image_loader.h"
 
 #include "grid_tester_window.h"
+#include "grid_tester_ini_window.h"
 #include "new_test_layout_window.h"
 #include "find_replace_dialog_window.h"
 #include "npp_mockup_window.h"
@@ -18,24 +19,28 @@
 #define MAIN_WINDOW_TITLE "Window Test Launcher"
 
 #define MAIN_MARGIN 16
-#define MAIN_BUTTON_WIDTH 280
+#define MAIN_BUTTON_WIDTH 300
 #define MAIN_BUTTON_HEIGHT 36
 #define MAIN_BUTTON_SPACING 10
 
 #define ID_SHOW_GRID_TESTER_BUTTON 1001
-#define ID_SHOW_NEW_TEST_LAYOUT_BUTTON 1002
-#define ID_SHOW_FIND_REPLACE_DIALOG_BUTTON 1003
-#define ID_SHOW_NPP_MOCKUP_BUTTON 1004
-#define ID_SHOW_DEBUG_WINDOW_BUTTON 1005
+#define ID_SHOW_GRID_TESTER_INI_BUTTON 1002
+#define ID_SHOW_NEW_TEST_LAYOUT_BUTTON 1003
+#define ID_SHOW_FIND_REPLACE_DIALOG_BUTTON 1004
+#define ID_SHOW_NPP_MOCKUP_BUTTON 1005
+#define ID_SHOW_DEBUG_WINDOW_BUTTON 1006
+#define ID_SHOW_CONSOLE_BUTTON 1007
 
 static HINSTANCE g_hInstance = NULL;
 static HWND g_mainWindow = NULL;
 
 static HWND g_gridTesterButton = NULL;
+static HWND g_gridTesterIniButton = NULL;
 static HWND g_newTestLayoutButton = NULL;
 static HWND g_findReplaceDialogButton = NULL;
 static HWND g_nppMockupButton = NULL;
 static HWND g_debugWindowButton = NULL;
+static HWND g_consoleButton = NULL;
 
 static char g_dpiAwarenessStatus[128] = "DPI awareness: not attempted.";
 static int g_debugVariablesRegistered = 0;
@@ -156,6 +161,58 @@ static void App_EnableDpiAwareness(void)
     }
 }
 
+static HWND MainWindow_GetConsoleWindowHandle(void)
+{
+    HMODULE kernel32;
+    HWND (WINAPI *pGetConsoleWindow)(void);
+
+    kernel32 = GetModuleHandle("kernel32.dll");
+
+    if (!kernel32)
+        kernel32 = LoadLibrary("kernel32.dll");
+
+    if (!kernel32)
+        return NULL;
+
+    pGetConsoleWindow =
+        (HWND (WINAPI *)(void))GetProcAddress(
+            kernel32,
+            "GetConsoleWindow"
+        );
+
+    if (!pGetConsoleWindow)
+        return NULL;
+
+    return pGetConsoleWindow();
+}
+
+static int MainWindow_IsConsoleVisible(void)
+{
+    HWND consoleHwnd;
+
+    consoleHwnd = MainWindow_GetConsoleWindowHandle();
+
+    if (!consoleHwnd)
+        return 0;
+
+    return IsWindowVisible(consoleHwnd) ? 1 : 0;
+}
+
+static void MainWindow_ShowConsole(int show)
+{
+    HWND consoleHwnd;
+
+    consoleHwnd = MainWindow_GetConsoleWindowHandle();
+
+    if (!consoleHwnd)
+        return;
+
+    ShowWindow(consoleHwnd, show ? SW_SHOW : SW_HIDE);
+
+    if (show)
+        SetForegroundWindow(consoleHwnd);
+}
+
 static void Debug_FormatDpiAwareness(char *buffer, int bufferSize, void *userData)
 {
     (void)userData;
@@ -166,6 +223,12 @@ static void Debug_FormatGridTesterOpen(char *buffer, int bufferSize, void *userD
 {
     (void)userData;
     App_CopyText(buffer, bufferSize, GridTesterWindow_IsOpen() ? "true" : "false");
+}
+
+static void Debug_FormatGridTesterIniOpen(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, GridTesterIniWindow_IsOpen() ? "true" : "false");
 }
 
 static void Debug_FormatNewTestLayoutOpen(char *buffer, int bufferSize, void *userData)
@@ -192,6 +255,12 @@ static void Debug_FormatDebugWindowOpen(char *buffer, int bufferSize, void *user
     App_CopyText(buffer, bufferSize, DebugWindow_IsOpen() ? "true" : "false");
 }
 
+static void Debug_FormatConsoleVisible(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, MainWindow_IsConsoleVisible() ? "true" : "false");
+}
+
 static void MainWindow_RegisterDebugVariables(void)
 {
     if (g_debugVariablesRegistered)
@@ -203,16 +272,20 @@ static void MainWindow_RegisterDebugVariables(void)
 
     Debug_RegisterHwndPointer("Main", "main window HWND", &g_mainWindow);
     Debug_RegisterHwndPointer("Main", "grid tester button HWND", &g_gridTesterButton);
+    Debug_RegisterHwndPointer("Main", "grid tester ini button HWND", &g_gridTesterIniButton);
     Debug_RegisterHwndPointer("Main", "new test layout button HWND", &g_newTestLayoutButton);
     Debug_RegisterHwndPointer("Main", "find replace button HWND", &g_findReplaceDialogButton);
     Debug_RegisterHwndPointer("Main", "np++ mockup button HWND", &g_nppMockupButton);
     Debug_RegisterHwndPointer("Main", "debug button HWND", &g_debugWindowButton);
+    Debug_RegisterHwndPointer("Main", "console button HWND", &g_consoleButton);
 
     Debug_RegisterVariable("Windows", "grid tester open", Debug_FormatGridTesterOpen, NULL);
+    Debug_RegisterVariable("Windows", "grid tester ini open", Debug_FormatGridTesterIniOpen, NULL);
     Debug_RegisterVariable("Windows", "new test layout open", Debug_FormatNewTestLayoutOpen, NULL);
     Debug_RegisterVariable("Windows", "find replace dialog open", Debug_FormatFindReplaceOpen, NULL);
     Debug_RegisterVariable("Windows", "np++ mockup open", Debug_FormatNppMockupOpen, NULL);
     Debug_RegisterVariable("Windows", "debug window open", Debug_FormatDebugWindowOpen, NULL);
+    Debug_RegisterVariable("Windows", "console visible", Debug_FormatConsoleVisible, NULL);
 }
 
 static void MainWindow_UpdateButtons(void)
@@ -225,6 +298,14 @@ static void MainWindow_UpdateButtons(void)
         SetWindowText(
             g_gridTesterButton,
             GridTesterWindow_IsOpen() ? "Hide grid tester" : "Show grid tester"
+        );
+    }
+
+    if (g_gridTesterIniButton)
+    {
+        SetWindowText(
+            g_gridTesterIniButton,
+            GridTesterIniWindow_IsOpen() ? "Hide grid tester (ini)" : "Show grid tester (ini)"
         );
     }
 
@@ -257,6 +338,14 @@ static void MainWindow_UpdateButtons(void)
         SetWindowText(
             g_debugWindowButton,
             DebugWindow_IsOpen() ? "Hide debug window" : "Show debug window"
+        );
+    }
+
+    if (g_consoleButton)
+    {
+        SetWindowText(
+            g_consoleButton,
+            MainWindow_IsConsoleVisible() ? "Hide console" : "Show console"
         );
     }
 }
@@ -299,6 +388,14 @@ static void MainWindow_CreateButtons(HWND hwnd)
 
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
+    g_gridTesterIniButton = MainWindow_CreateToggleButton(
+        hwnd,
+        ID_SHOW_GRID_TESTER_INI_BUTTON,
+        y
+    );
+
+    y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
+
     g_newTestLayoutButton = MainWindow_CreateToggleButton(
         hwnd,
         ID_SHOW_NEW_TEST_LAYOUT_BUTTON,
@@ -329,7 +426,31 @@ static void MainWindow_CreateButtons(HWND hwnd)
         y
     );
 
+    y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
+
+    g_consoleButton = MainWindow_CreateToggleButton(
+        hwnd,
+        ID_SHOW_CONSOLE_BUTTON,
+        y
+    );
+
     MainWindow_UpdateButtons();
+}
+
+static void MainWindow_SetButtonRect(HWND button, int x, int y, int width)
+{
+    if (!button)
+        return;
+
+    SetWindowPos(
+        button,
+        NULL,
+        x,
+        y,
+        width,
+        MAIN_BUTTON_HEIGHT,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
 }
 
 static void MainWindow_LayoutButtons(HWND hwnd)
@@ -352,78 +473,31 @@ static void MainWindow_LayoutButtons(HWND hwnd)
     if (w < 80)
         w = 80;
 
-    if (g_gridTesterButton)
-    {
-        SetWindowPos(
-            g_gridTesterButton,
-            NULL,
-            x,
-            y,
-            w,
-            MAIN_BUTTON_HEIGHT,
-            SWP_NOZORDER | SWP_NOACTIVATE
-        );
-    }
+    MainWindow_SetButtonRect(g_gridTesterButton, x, y, w);
 
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    if (g_newTestLayoutButton)
-    {
-        SetWindowPos(
-            g_newTestLayoutButton,
-            NULL,
-            x,
-            y,
-            w,
-            MAIN_BUTTON_HEIGHT,
-            SWP_NOZORDER | SWP_NOACTIVATE
-        );
-    }
+    MainWindow_SetButtonRect(g_gridTesterIniButton, x, y, w);
 
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    if (g_findReplaceDialogButton)
-    {
-        SetWindowPos(
-            g_findReplaceDialogButton,
-            NULL,
-            x,
-            y,
-            w,
-            MAIN_BUTTON_HEIGHT,
-            SWP_NOZORDER | SWP_NOACTIVATE
-        );
-    }
+    MainWindow_SetButtonRect(g_newTestLayoutButton, x, y, w);
 
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    if (g_nppMockupButton)
-    {
-        SetWindowPos(
-            g_nppMockupButton,
-            NULL,
-            x,
-            y,
-            w,
-            MAIN_BUTTON_HEIGHT,
-            SWP_NOZORDER | SWP_NOACTIVATE
-        );
-    }
+    MainWindow_SetButtonRect(g_findReplaceDialogButton, x, y, w);
 
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    if (g_debugWindowButton)
-    {
-        SetWindowPos(
-            g_debugWindowButton,
-            NULL,
-            x,
-            y,
-            w,
-            MAIN_BUTTON_HEIGHT,
-            SWP_NOZORDER | SWP_NOACTIVATE
-        );
-    }
+    MainWindow_SetButtonRect(g_nppMockupButton, x, y, w);
+
+    y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
+
+    MainWindow_SetButtonRect(g_debugWindowButton, x, y, w);
+
+    y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
+
+    MainWindow_SetButtonRect(g_consoleButton, x, y, w);
 }
 
 static void ToggleGridTesterWindow(void)
@@ -437,6 +511,22 @@ static void ToggleGridTesterWindow(void)
     {
         Debug_Log("Main", "ShowGridTester", "Opening grid tester.");
         GridTesterWindow_Show(g_hInstance, OnChildWindowClosed);
+    }
+
+    MainWindow_UpdateButtons();
+}
+
+static void ToggleGridTesterIniWindow(void)
+{
+    if (GridTesterIniWindow_IsOpen())
+    {
+        Debug_Log("Main", "HideGridTesterIni", "Closing grid tester INI.");
+        GridTesterIniWindow_Close();
+    }
+    else
+    {
+        Debug_Log("Main", "ShowGridTesterIni", "Opening grid tester INI.");
+        GridTesterIniWindow_Show(g_hInstance, OnChildWindowClosed);
     }
 
     MainWindow_UpdateButtons();
@@ -506,9 +596,26 @@ static void ToggleDebugWindow(void)
     MainWindow_UpdateButtons();
 }
 
+static void ToggleConsoleWindow(void)
+{
+    if (MainWindow_IsConsoleVisible())
+    {
+        Debug_Log("Main", "HideConsole", "Hiding console window.");
+        MainWindow_ShowConsole(0);
+    }
+    else
+    {
+        MainWindow_ShowConsole(1);
+        Debug_Log("Main", "ShowConsole", "Showing console window.");
+    }
+
+    MainWindow_UpdateButtons();
+}
+
 static void MainWindow_CloseChildWindows(void)
 {
     GridTesterWindow_Close();
+    GridTesterIniWindow_Close();
     NewTestLayoutWindow_Close();
     FindReplaceDialogWindow_Close();
     NppMockupWindow_Close();
@@ -544,6 +651,13 @@ static LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             return 0;
         }
 
+        case WM_ACTIVATE:
+        case WM_SETFOCUS:
+        {
+            MainWindow_UpdateButtons();
+            break;
+        }
+
         case WM_COMMAND:
         {
             int controlId;
@@ -557,6 +671,12 @@ static LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                 if (controlId == ID_SHOW_GRID_TESTER_BUTTON)
                 {
                     ToggleGridTesterWindow();
+                    return 0;
+                }
+
+                if (controlId == ID_SHOW_GRID_TESTER_INI_BUTTON)
+                {
+                    ToggleGridTesterIniWindow();
                     return 0;
                 }
 
@@ -581,6 +701,12 @@ static LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                 if (controlId == ID_SHOW_DEBUG_WINDOW_BUTTON)
                 {
                     ToggleDebugWindow();
+                    return 0;
+                }
+
+                if (controlId == ID_SHOW_CONSOLE_BUTTON)
+                {
+                    ToggleConsoleWindow();
                     return 0;
                 }
             }
@@ -626,6 +752,11 @@ static int App_IsDialogMessageForOpenWindow(MSG *msg)
     HWND hwnd;
 
     hwnd = GridTesterWindow_GetHwnd();
+
+    if (hwnd && IsWindow(hwnd) && IsDialogMessage(hwnd, msg))
+        return 1;
+
+    hwnd = GridTesterIniWindow_GetHwnd();
 
     if (hwnd && IsWindow(hwnd) && IsDialogMessage(hwnd, msg))
         return 1;
@@ -694,8 +825,8 @@ int WINAPI WinMain(
         WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
-        360,
-        320,
+        390,
+        420,
         NULL,
         NULL,
         hInstance,
@@ -718,6 +849,8 @@ int WINAPI WinMain(
 
     printf("Application started.\n");
     printf("Use the launcher buttons to show or hide test windows.\n");
+
+    MainWindow_UpdateButtons();
 
     while (GetMessage(&msg, NULL, 0, 0))
     {
