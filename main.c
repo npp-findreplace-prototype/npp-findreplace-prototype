@@ -17,6 +17,10 @@
 #define WM_DPICHANGED 0x02E0
 #endif
 
+#ifndef LOGPIXELSX
+#define LOGPIXELSX 88
+#endif
+
 #define MAIN_WINDOW_CLASS_NAME "SimpleWindowClass"
 #define MAIN_WINDOW_TITLE "Simple TCC Window"
 
@@ -70,50 +74,190 @@ static HWND g_buttonGrid = NULL;
 
 static int g_squareSize = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
 
+static char g_dpiAwarenessStatus[128] = "DPI awareness: not attempted.";
+
 static ButtonGridItemConfig g_searchGridItems[SEARCH_GRID_BUTTON_COUNT];
+
+static void App_CopyText(char *dest, int destSize, const char *src)
+{
+    if (!dest || destSize <= 0)
+        return;
+
+    if (!src)
+        src = "";
+
+    lstrcpyn(dest, src, destSize);
+    dest[destSize - 1] = '\0';
+}
+
+static void App_SetDpiAwarenessStatus(const char *text)
+{
+    App_CopyText(
+        g_dpiAwarenessStatus,
+        sizeof(g_dpiAwarenessStatus),
+        text
+    );
+}
 
 static void App_EnableDpiAwareness(void)
 {
     HMODULE user32;
-    BOOL (WINAPI *setProcessDpiAware)(void);
+    HMODULE shcore;
+
     BOOL (WINAPI *setProcessDpiAwarenessContext)(HANDLE);
+    HRESULT (WINAPI *setProcessDpiAwareness)(int);
+    BOOL (WINAPI *setProcessDpiAware)(void);
+
+    App_SetDpiAwarenessStatus("DPI awareness: unavailable or already fixed by Windows.");
 
     user32 = LoadLibrary("user32.dll");
 
-    if (!user32)
-        return;
-
-    setProcessDpiAwarenessContext =
-        (BOOL (WINAPI *)(HANDLE))GetProcAddress(
-            user32,
-            "SetProcessDpiAwarenessContext"
-        );
-
-    if (setProcessDpiAwarenessContext)
+    if (user32)
     {
-        /*
-            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = ((HANDLE)-4)
+        setProcessDpiAwarenessContext =
+            (BOOL (WINAPI *)(HANDLE))GetProcAddress(
+                user32,
+                "SetProcessDpiAwarenessContext"
+            );
 
-            This avoids requiring newer SDK headers while still enabling
-            per-monitor DPI behavior on systems that support it.
-        */
-        if (setProcessDpiAwarenessContext((HANDLE)-4))
+        if (setProcessDpiAwarenessContext)
         {
-            FreeLibrary(user32);
-            return;
+            /*
+                DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = (HANDLE)-4
+            */
+            if (setProcessDpiAwarenessContext((HANDLE)-4))
+            {
+                App_SetDpiAwarenessStatus("DPI awareness: Per-monitor V2.");
+                FreeLibrary(user32);
+                return;
+            }
+
+            /*
+                DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE = (HANDLE)-3
+            */
+            if (setProcessDpiAwarenessContext((HANDLE)-3))
+            {
+                App_SetDpiAwarenessStatus("DPI awareness: Per-monitor V1.");
+                FreeLibrary(user32);
+                return;
+            }
+
+            /*
+                DPI_AWARENESS_CONTEXT_SYSTEM_AWARE = (HANDLE)-2
+            */
+            if (setProcessDpiAwarenessContext((HANDLE)-2))
+            {
+                App_SetDpiAwarenessStatus("DPI awareness: System aware.");
+                FreeLibrary(user32);
+                return;
+            }
+        }
+
+        FreeLibrary(user32);
+    }
+
+    shcore = LoadLibrary("shcore.dll");
+
+    if (shcore)
+    {
+        setProcessDpiAwareness =
+            (HRESULT (WINAPI *)(int))GetProcAddress(
+                shcore,
+                "SetProcessDpiAwareness"
+            );
+
+        if (setProcessDpiAwareness)
+        {
+            /*
+                PROCESS_PER_MONITOR_DPI_AWARE = 2
+            */
+            if (setProcessDpiAwareness(2) == 0)
+            {
+                App_SetDpiAwarenessStatus("DPI awareness: shcore per-monitor.");
+                FreeLibrary(shcore);
+                return;
+            }
+
+            /*
+                PROCESS_SYSTEM_DPI_AWARE = 1
+            */
+            if (setProcessDpiAwareness(1) == 0)
+            {
+                App_SetDpiAwarenessStatus("DPI awareness: shcore system aware.");
+                FreeLibrary(shcore);
+                return;
+            }
+        }
+
+        FreeLibrary(shcore);
+    }
+
+    user32 = LoadLibrary("user32.dll");
+
+    if (user32)
+    {
+        setProcessDpiAware =
+            (BOOL (WINAPI *)(void))GetProcAddress(
+                user32,
+                "SetProcessDPIAware"
+            );
+
+        if (setProcessDpiAware && setProcessDpiAware())
+            App_SetDpiAwarenessStatus("DPI awareness: legacy system aware.");
+
+        FreeLibrary(user32);
+    }
+}
+
+static int App_GetWindowDpiForDebug(HWND hwnd)
+{
+    HMODULE user32;
+    UINT (WINAPI *getDpiForWindow)(HWND);
+    HDC hdc;
+    int dpi;
+
+    dpi = 96;
+
+    user32 = GetModuleHandle("user32.dll");
+
+    if (user32)
+    {
+        getDpiForWindow =
+            (UINT (WINAPI *)(HWND))GetProcAddress(
+                user32,
+                "GetDpiForWindow"
+            );
+
+        if (getDpiForWindow && hwnd)
+        {
+            dpi = (int)getDpiForWindow(hwnd);
+
+            if (dpi > 0)
+                return dpi;
         }
     }
 
-    setProcessDpiAware =
-        (BOOL (WINAPI *)(void))GetProcAddress(
-            user32,
-            "SetProcessDPIAware"
-        );
+    hdc = GetDC(hwnd);
 
-    if (setProcessDpiAware)
-        setProcessDpiAware();
+    if (hdc)
+    {
+        dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(hwnd, hdc);
+    }
 
-    FreeLibrary(user32);
+    if (dpi <= 0)
+        dpi = 96;
+
+    return dpi;
+}
+
+static void App_PrintWindowDpi(HWND hwnd, const char *where)
+{
+    printf(
+        "DPI at %s: %d\n",
+        where,
+        App_GetWindowDpiForDebug(hwnd)
+    );
 }
 
 static void PrepareSearchGridItems(void)
@@ -341,6 +485,8 @@ static void HandleDpiChanged(HWND hwnd, LPARAM lParam)
 
     if (g_buttonGrid)
         ButtonGrid_Relayout(g_buttonGrid);
+
+    App_PrintWindowDpi(hwnd, "WM_DPICHANGED");
 }
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -419,9 +565,17 @@ int WINAPI WinMain(
     (void)hPrevInstance;
     (void)lpCmdLine;
 
+    /*
+        Must happen before creating any application windows.
+
+        The status text is stored and printed after Console_Setup(),
+        so it still appears when launched from an attached console.
+    */
     App_EnableDpiAwareness();
 
     Console_Setup();
+
+    printf("%s\n", g_dpiAwarenessStatus);
 
     if (!ImageLoader_Startup())
         printf("GDI+ image loader unavailable. Falling back to generated button art.\n");
@@ -465,6 +619,8 @@ int WINAPI WinMain(
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
+
+    App_PrintWindowDpi(hwnd, "startup");
 
     printf("Application started.\n");
     printf("Press + or - to change default square size.\n");
