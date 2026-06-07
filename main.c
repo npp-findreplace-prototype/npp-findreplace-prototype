@@ -8,10 +8,7 @@
 #include "new_test_layout_window.h"
 #include "find_replace_dialog_window.h"
 #include "npp_mockup_window.h"
-
-#ifndef WM_DPICHANGED
-#define WM_DPICHANGED 0x02E0
-#endif
+#include "debug_window.h"
 
 #ifndef LOGPIXELSX
 #define LOGPIXELSX 88
@@ -21,7 +18,7 @@
 #define MAIN_WINDOW_TITLE "Window Test Launcher"
 
 #define MAIN_MARGIN 16
-#define MAIN_BUTTON_WIDTH 260
+#define MAIN_BUTTON_WIDTH 280
 #define MAIN_BUTTON_HEIGHT 36
 #define MAIN_BUTTON_SPACING 10
 
@@ -29,6 +26,7 @@
 #define ID_SHOW_NEW_TEST_LAYOUT_BUTTON 1002
 #define ID_SHOW_FIND_REPLACE_DIALOG_BUTTON 1003
 #define ID_SHOW_NPP_MOCKUP_BUTTON 1004
+#define ID_SHOW_DEBUG_WINDOW_BUTTON 1005
 
 static HINSTANCE g_hInstance = NULL;
 static HWND g_mainWindow = NULL;
@@ -37,8 +35,10 @@ static HWND g_gridTesterButton = NULL;
 static HWND g_newTestLayoutButton = NULL;
 static HWND g_findReplaceDialogButton = NULL;
 static HWND g_nppMockupButton = NULL;
+static HWND g_debugWindowButton = NULL;
 
 static char g_dpiAwarenessStatus[128] = "DPI awareness: not attempted.";
+static int g_debugVariablesRegistered = 0;
 
 static void App_CopyText(char *dest, int destSize, const char *src)
 {
@@ -156,6 +156,65 @@ static void App_EnableDpiAwareness(void)
     }
 }
 
+static void Debug_FormatDpiAwareness(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, g_dpiAwarenessStatus);
+}
+
+static void Debug_FormatGridTesterOpen(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, GridTesterWindow_IsOpen() ? "true" : "false");
+}
+
+static void Debug_FormatNewTestLayoutOpen(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, NewTestLayoutWindow_IsOpen() ? "true" : "false");
+}
+
+static void Debug_FormatFindReplaceOpen(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, FindReplaceDialogWindow_IsOpen() ? "true" : "false");
+}
+
+static void Debug_FormatNppMockupOpen(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, NppMockupWindow_IsOpen() ? "true" : "false");
+}
+
+static void Debug_FormatDebugWindowOpen(char *buffer, int bufferSize, void *userData)
+{
+    (void)userData;
+    App_CopyText(buffer, bufferSize, DebugWindow_IsOpen() ? "true" : "false");
+}
+
+static void MainWindow_RegisterDebugVariables(void)
+{
+    if (g_debugVariablesRegistered)
+        return;
+
+    g_debugVariablesRegistered = 1;
+
+    Debug_RegisterVariable("App", "DPI awareness", Debug_FormatDpiAwareness, NULL);
+
+    Debug_RegisterHwndPointer("Main", "main window HWND", &g_mainWindow);
+    Debug_RegisterHwndPointer("Main", "grid tester button HWND", &g_gridTesterButton);
+    Debug_RegisterHwndPointer("Main", "new test layout button HWND", &g_newTestLayoutButton);
+    Debug_RegisterHwndPointer("Main", "find replace button HWND", &g_findReplaceDialogButton);
+    Debug_RegisterHwndPointer("Main", "np++ mockup button HWND", &g_nppMockupButton);
+    Debug_RegisterHwndPointer("Main", "debug button HWND", &g_debugWindowButton);
+
+    Debug_RegisterVariable("Windows", "grid tester open", Debug_FormatGridTesterOpen, NULL);
+    Debug_RegisterVariable("Windows", "new test layout open", Debug_FormatNewTestLayoutOpen, NULL);
+    Debug_RegisterVariable("Windows", "find replace dialog open", Debug_FormatFindReplaceOpen, NULL);
+    Debug_RegisterVariable("Windows", "np++ mockup open", Debug_FormatNppMockupOpen, NULL);
+    Debug_RegisterVariable("Windows", "debug window open", Debug_FormatDebugWindowOpen, NULL);
+}
+
 static void MainWindow_UpdateButtons(void)
 {
     if (!g_mainWindow)
@@ -192,10 +251,19 @@ static void MainWindow_UpdateButtons(void)
             NppMockupWindow_IsOpen() ? "Hide NP++ mockup" : "Show NP++ mockup"
         );
     }
+
+    if (g_debugWindowButton)
+    {
+        SetWindowText(
+            g_debugWindowButton,
+            DebugWindow_IsOpen() ? "Hide debug window" : "Show debug window"
+        );
+    }
 }
 
 static void OnChildWindowClosed(void)
 {
+    Debug_Log("Main", "ChildWindowClosed", "A child/test window closed.");
     MainWindow_UpdateButtons();
 }
 
@@ -250,6 +318,14 @@ static void MainWindow_CreateButtons(HWND hwnd)
     g_nppMockupButton = MainWindow_CreateToggleButton(
         hwnd,
         ID_SHOW_NPP_MOCKUP_BUTTON,
+        y
+    );
+
+    y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
+
+    g_debugWindowButton = MainWindow_CreateToggleButton(
+        hwnd,
+        ID_SHOW_DEBUG_WINDOW_BUTTON,
         y
     );
 
@@ -333,14 +409,35 @@ static void MainWindow_LayoutButtons(HWND hwnd)
             SWP_NOZORDER | SWP_NOACTIVATE
         );
     }
+
+    y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
+
+    if (g_debugWindowButton)
+    {
+        SetWindowPos(
+            g_debugWindowButton,
+            NULL,
+            x,
+            y,
+            w,
+            MAIN_BUTTON_HEIGHT,
+            SWP_NOZORDER | SWP_NOACTIVATE
+        );
+    }
 }
 
 static void ToggleGridTesterWindow(void)
 {
     if (GridTesterWindow_IsOpen())
+    {
+        Debug_Log("Main", "HideGridTester", "Closing grid tester.");
         GridTesterWindow_Close();
+    }
     else
+    {
+        Debug_Log("Main", "ShowGridTester", "Opening grid tester.");
         GridTesterWindow_Show(g_hInstance, OnChildWindowClosed);
+    }
 
     MainWindow_UpdateButtons();
 }
@@ -348,9 +445,15 @@ static void ToggleGridTesterWindow(void)
 static void ToggleNewTestLayoutWindow(void)
 {
     if (NewTestLayoutWindow_IsOpen())
+    {
+        Debug_Log("Main", "HideNewTestLayout", "Closing new test layout.");
         NewTestLayoutWindow_Close();
+    }
     else
+    {
+        Debug_Log("Main", "ShowNewTestLayout", "Opening new test layout.");
         NewTestLayoutWindow_Show(g_hInstance, OnChildWindowClosed);
+    }
 
     MainWindow_UpdateButtons();
 }
@@ -358,9 +461,15 @@ static void ToggleNewTestLayoutWindow(void)
 static void ToggleFindReplaceDialogWindow(void)
 {
     if (FindReplaceDialogWindow_IsOpen())
+    {
+        Debug_Log("Main", "HideFindReplace", "Closing find and replace dialog.");
         FindReplaceDialogWindow_Close();
+    }
     else
+    {
+        Debug_Log("Main", "ShowFindReplace", "Opening find and replace dialog.");
         FindReplaceDialogWindow_Show(g_hInstance, OnChildWindowClosed);
+    }
 
     MainWindow_UpdateButtons();
 }
@@ -368,9 +477,31 @@ static void ToggleFindReplaceDialogWindow(void)
 static void ToggleNppMockupWindow(void)
 {
     if (NppMockupWindow_IsOpen())
+    {
+        Debug_Log("Main", "HideNppMockup", "Closing NP++ mockup.");
         NppMockupWindow_Close();
+    }
     else
+    {
+        Debug_Log("Main", "ShowNppMockup", "Opening NP++ mockup.");
         NppMockupWindow_Show(g_hInstance, OnChildWindowClosed);
+    }
+
+    MainWindow_UpdateButtons();
+}
+
+static void ToggleDebugWindow(void)
+{
+    if (DebugWindow_IsOpen())
+    {
+        Debug_Log("Main", "HideDebugWindow", "Closing debug window.");
+        DebugWindow_Close();
+    }
+    else
+    {
+        Debug_Log("Main", "ShowDebugWindow", "Opening debug window.");
+        DebugWindow_Show(g_hInstance, OnChildWindowClosed);
+    }
 
     MainWindow_UpdateButtons();
 }
@@ -381,6 +512,7 @@ static void MainWindow_CloseChildWindows(void)
     NewTestLayoutWindow_Close();
     FindReplaceDialogWindow_Close();
     NppMockupWindow_Close();
+    DebugWindow_Close();
 }
 
 static LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -398,8 +530,10 @@ static LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             MainWindow_CreateButtons(hwnd);
             MainWindow_LayoutButtons(hwnd);
+            MainWindow_RegisterDebugVariables();
 
             printf("Main launcher window created.\n");
+            Debug_Log("Main", "WindowCreate", "Main launcher window created.");
 
             return 0;
         }
@@ -443,6 +577,12 @@ static LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                     ToggleNppMockupWindow();
                     return 0;
                 }
+
+                if (controlId == ID_SHOW_DEBUG_WINDOW_BUTTON)
+                {
+                    ToggleDebugWindow();
+                    return 0;
+                }
             }
 
             break;
@@ -450,6 +590,8 @@ static LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
         case WM_DESTROY:
         {
+            Debug_Log("Main", "WindowDestroy", "Main launcher window destroyed.");
+
             MainWindow_CloseChildWindows();
 
             g_mainWindow = NULL;
@@ -503,6 +645,11 @@ static int App_IsDialogMessageForOpenWindow(MSG *msg)
     if (hwnd && IsWindow(hwnd) && IsDialogMessage(hwnd, msg))
         return 1;
 
+    hwnd = DebugWindow_GetHwnd();
+
+    if (hwnd && IsWindow(hwnd) && IsDialogMessage(hwnd, msg))
+        return 1;
+
     hwnd = g_mainWindow;
 
     if (hwnd && IsWindow(hwnd) && IsDialogMessage(hwnd, msg))
@@ -547,8 +694,8 @@ int WINAPI WinMain(
         WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
-        340,
-        260,
+        360,
+        320,
         NULL,
         NULL,
         hInstance,
@@ -567,6 +714,8 @@ int WINAPI WinMain(
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
+    Debug_Log("App", "Startup", "Application started.");
+
     printf("Application started.\n");
     printf("Use the launcher buttons to show or hide test windows.\n");
 
@@ -578,6 +727,8 @@ int WINAPI WinMain(
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    Debug_Log("App", "Shutdown", "Application exiting.");
 
     printf("Application exiting.\n");
 
