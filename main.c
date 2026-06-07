@@ -161,15 +161,24 @@ static void App_EnableDpiAwareness(void)
     }
 }
 
-static HWND MainWindow_GetConsoleWindowHandle(void)
+static HMODULE MainWindow_GetKernel32(void)
 {
     HMODULE kernel32;
-    HWND (WINAPI *pGetConsoleWindow)(void);
 
     kernel32 = GetModuleHandle("kernel32.dll");
 
     if (!kernel32)
         kernel32 = LoadLibrary("kernel32.dll");
+
+    return kernel32;
+}
+
+static HWND MainWindow_GetConsoleWindowHandle(void)
+{
+    HMODULE kernel32;
+    HWND (WINAPI *pGetConsoleWindow)(void);
+
+    kernel32 = MainWindow_GetKernel32();
 
     if (!kernel32)
         return NULL;
@@ -184,6 +193,54 @@ static HWND MainWindow_GetConsoleWindowHandle(void)
         return NULL;
 
     return pGetConsoleWindow();
+}
+
+static int MainWindow_AllocConsoleDynamic(void)
+{
+    HMODULE kernel32;
+    BOOL (WINAPI *pAllocConsole)(void);
+
+    kernel32 = MainWindow_GetKernel32();
+
+    if (!kernel32)
+        return 0;
+
+    pAllocConsole =
+        (BOOL (WINAPI *)(void))GetProcAddress(
+            kernel32,
+            "AllocConsole"
+        );
+
+    if (!pAllocConsole)
+        return 0;
+
+    return pAllocConsole() ? 1 : 0;
+}
+
+static void MainWindow_ReopenConsoleStreams(void)
+{
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+    freopen("CONIN$", "r", stdin);
+}
+
+static HWND MainWindow_EnsureConsoleWindowHandle(void)
+{
+    HWND consoleHwnd;
+
+    consoleHwnd = MainWindow_GetConsoleWindowHandle();
+
+    if (consoleHwnd)
+        return consoleHwnd;
+
+    if (!MainWindow_AllocConsoleDynamic())
+        return NULL;
+
+    MainWindow_ReopenConsoleStreams();
+
+    printf("Console created.\n");
+
+    return MainWindow_GetConsoleWindowHandle();
 }
 
 static int MainWindow_IsConsoleVisible(void)
@@ -202,7 +259,10 @@ static void MainWindow_ShowConsole(int show)
 {
     HWND consoleHwnd;
 
-    consoleHwnd = MainWindow_GetConsoleWindowHandle();
+    if (show)
+        consoleHwnd = MainWindow_EnsureConsoleWindowHandle();
+    else
+        consoleHwnd = MainWindow_GetConsoleWindowHandle();
 
     if (!consoleHwnd)
         return;
@@ -380,59 +440,25 @@ static void MainWindow_CreateButtons(HWND hwnd)
 
     y = MAIN_MARGIN;
 
-    g_gridTesterButton = MainWindow_CreateToggleButton(
-        hwnd,
-        ID_SHOW_GRID_TESTER_BUTTON,
-        y
-    );
-
+    g_gridTesterButton = MainWindow_CreateToggleButton(hwnd, ID_SHOW_GRID_TESTER_BUTTON, y);
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    g_gridTesterIniButton = MainWindow_CreateToggleButton(
-        hwnd,
-        ID_SHOW_GRID_TESTER_INI_BUTTON,
-        y
-    );
-
+    g_gridTesterIniButton = MainWindow_CreateToggleButton(hwnd, ID_SHOW_GRID_TESTER_INI_BUTTON, y);
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    g_newTestLayoutButton = MainWindow_CreateToggleButton(
-        hwnd,
-        ID_SHOW_NEW_TEST_LAYOUT_BUTTON,
-        y
-    );
-
+    g_newTestLayoutButton = MainWindow_CreateToggleButton(hwnd, ID_SHOW_NEW_TEST_LAYOUT_BUTTON, y);
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    g_findReplaceDialogButton = MainWindow_CreateToggleButton(
-        hwnd,
-        ID_SHOW_FIND_REPLACE_DIALOG_BUTTON,
-        y
-    );
-
+    g_findReplaceDialogButton = MainWindow_CreateToggleButton(hwnd, ID_SHOW_FIND_REPLACE_DIALOG_BUTTON, y);
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    g_nppMockupButton = MainWindow_CreateToggleButton(
-        hwnd,
-        ID_SHOW_NPP_MOCKUP_BUTTON,
-        y
-    );
-
+    g_nppMockupButton = MainWindow_CreateToggleButton(hwnd, ID_SHOW_NPP_MOCKUP_BUTTON, y);
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    g_debugWindowButton = MainWindow_CreateToggleButton(
-        hwnd,
-        ID_SHOW_DEBUG_WINDOW_BUTTON,
-        y
-    );
-
+    g_debugWindowButton = MainWindow_CreateToggleButton(hwnd, ID_SHOW_DEBUG_WINDOW_BUTTON, y);
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
-    g_consoleButton = MainWindow_CreateToggleButton(
-        hwnd,
-        ID_SHOW_CONSOLE_BUTTON,
-        y
-    );
+    g_consoleButton = MainWindow_CreateToggleButton(hwnd, ID_SHOW_CONSOLE_BUTTON, y);
 
     MainWindow_UpdateButtons();
 }
@@ -474,27 +500,21 @@ static void MainWindow_LayoutButtons(HWND hwnd)
         w = 80;
 
     MainWindow_SetButtonRect(g_gridTesterButton, x, y, w);
-
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
     MainWindow_SetButtonRect(g_gridTesterIniButton, x, y, w);
-
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
     MainWindow_SetButtonRect(g_newTestLayoutButton, x, y, w);
-
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
     MainWindow_SetButtonRect(g_findReplaceDialogButton, x, y, w);
-
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
     MainWindow_SetButtonRect(g_nppMockupButton, x, y, w);
-
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
     MainWindow_SetButtonRect(g_debugWindowButton, x, y, w);
-
     y += MAIN_BUTTON_HEIGHT + MAIN_BUTTON_SPACING;
 
     MainWindow_SetButtonRect(g_consoleButton, x, y, w);

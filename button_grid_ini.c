@@ -12,9 +12,8 @@
 
 typedef struct IniSource
 {
-    const char *fileName;
+    const char *displayName;
     const char *memoryText;
-    int isMemory;
 } IniSource;
 
 static const char g_builtinGridTesterIni[] =
@@ -273,7 +272,7 @@ static void Ini_ReadMemoryLine(
     *cursor = p;
 }
 
-static void Ini_ReadStringFromMemory(
+static void Ini_ReadString(
     const IniSource *source,
     const char *section,
     const char *key,
@@ -348,48 +347,6 @@ static void Ini_ReadStringFromMemory(
     }
 }
 
-static void Ini_ReadString(
-    const IniSource *source,
-    const char *section,
-    const char *key,
-    const char *defaultValue,
-    char *buffer,
-    int bufferSize
-)
-{
-    if (!source)
-    {
-        Ini_CopyText(buffer, bufferSize, defaultValue ? defaultValue : "");
-        return;
-    }
-
-    if (source->isMemory)
-    {
-        Ini_ReadStringFromMemory(
-            source,
-            section,
-            key,
-            defaultValue,
-            buffer,
-            bufferSize
-        );
-    }
-    else
-    {
-        GetPrivateProfileString(
-            section,
-            key,
-            defaultValue ? defaultValue : "",
-            buffer,
-            bufferSize,
-            source->fileName
-        );
-
-        buffer[bufferSize - 1] = '\0';
-        Ini_TrimInPlace(buffer);
-    }
-}
-
 static int Ini_ReadInt(
     const IniSource *source,
     const char *section,
@@ -399,14 +356,7 @@ static int Ini_ReadInt(
 {
     char text[128];
 
-    Ini_ReadString(
-        source,
-        section,
-        key,
-        "",
-        text,
-        sizeof(text)
-    );
+    Ini_ReadString(source, section, key, "", text, sizeof(text));
 
     if (!text[0])
         return defaultValue;
@@ -475,14 +425,7 @@ static int Ini_ReadBool(
 {
     char text[128];
 
-    Ini_ReadString(
-        source,
-        section,
-        key,
-        "",
-        text,
-        sizeof(text)
-    );
+    Ini_ReadString(source, section, key, "", text, sizeof(text));
 
     if (!text[0])
         return defaultValue ? 1 : 0;
@@ -587,14 +530,7 @@ static COLORREF Ini_ReadColor(
     char text[128];
     COLORREF color;
 
-    Ini_ReadString(
-        source,
-        section,
-        key,
-        "",
-        text,
-        sizeof(text)
-    );
+    Ini_ReadString(source, section, key, "", text, sizeof(text));
 
     if (!text[0])
         return defaultValue;
@@ -647,9 +583,7 @@ static int Ini_ReadSizeMode(
 
     if (lstrcmpi(text, "default") == 0 ||
         lstrcmpi(text, "useDefault") == 0)
-    {
         return BUTTON_GRID_SIZE_USE_DEFAULT;
-    }
 
     if (lstrcmpi(text, "fixed") == 0)
         return BUTTON_GRID_SIZE_FIXED;
@@ -657,30 +591,22 @@ static int Ini_ReadSizeMode(
     if (lstrcmpi(text, "matchImageSize") == 0 ||
         lstrcmpi(text, "match_image_size") == 0 ||
         lstrcmpi(text, "imageSize") == 0)
-    {
         return BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE;
-    }
 
     if (lstrcmpi(text, "aspectHorizontal") == 0 ||
         lstrcmpi(text, "aspect_horizontal") == 0 ||
         lstrcmpi(text, "horizontalAspect") == 0)
-    {
         return BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL;
-    }
 
     if (lstrcmpi(text, "aspectVertical") == 0 ||
         lstrcmpi(text, "aspect_vertical") == 0 ||
         lstrcmpi(text, "verticalAspect") == 0)
-    {
         return BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL;
-    }
 
     if (lstrcmpi(text, "aspectByLayout") == 0 ||
         lstrcmpi(text, "aspect_by_layout") == 0 ||
         lstrcmpi(text, "byLayout") == 0)
-    {
         return BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT;
-    }
 
     return atoi(text);
 }
@@ -705,9 +631,7 @@ static int Ini_ReadButtonBackMode(
     if (lstrcmpi(text, "transparent") == 0 ||
         lstrcmpi(text, "transparentSimulated") == 0 ||
         lstrcmpi(text, "simulatedTransparent") == 0)
-    {
         return BUTTON_GRID_BUTTON_BACK_TRANSPARENT;
-    }
 
     return atoi(text);
 }
@@ -740,9 +664,7 @@ static int Ini_ReadBorderStyle(
 
     if (lstrcmpi(text, "etchedRounded") == 0 ||
         lstrcmpi(text, "etched_rounded") == 0)
-    {
         return BUTTON_GRID_BORDER_STYLE_ETCHED_ROUNDED;
-    }
 
     if (lstrcmpi(text, "container") == 0)
         return BUTTON_GRID_BORDER_STYLE_CONTAINER;
@@ -775,27 +697,19 @@ static int Ini_ReadGearCorner(
 
     if (lstrcmpi(text, "topLeft") == 0 ||
         lstrcmpi(text, "top_left") == 0)
-    {
         return BUTTON_GRID_GEAR_CORNER_TOP_LEFT;
-    }
 
     if (lstrcmpi(text, "topRight") == 0 ||
         lstrcmpi(text, "top_right") == 0)
-    {
         return BUTTON_GRID_GEAR_CORNER_TOP_RIGHT;
-    }
 
     if (lstrcmpi(text, "bottomLeft") == 0 ||
         lstrcmpi(text, "bottom_left") == 0)
-    {
         return BUTTON_GRID_GEAR_CORNER_BOTTOM_LEFT;
-    }
 
     if (lstrcmpi(text, "bottomRight") == 0 ||
         lstrcmpi(text, "bottom_right") == 0)
-    {
         return BUTTON_GRID_GEAR_CORNER_BOTTOM_RIGHT;
-    }
 
     return atoi(text);
 }
@@ -892,23 +806,17 @@ static int Ini_ReadShowTextOverride(
 
     if (lstrcmpi(text, "default") == 0 ||
         lstrcmpi(text, "useDefault") == 0)
-    {
         return BUTTON_GRID_TEXT_USE_DEFAULT;
-    }
 
     if (lstrcmpi(text, "show") == 0 ||
         lstrcmpi(text, "on") == 0 ||
         lstrcmpi(text, "true") == 0)
-    {
         return BUTTON_GRID_TEXT_SHOW;
-    }
 
     if (lstrcmpi(text, "hide") == 0 ||
         lstrcmpi(text, "off") == 0 ||
         lstrcmpi(text, "false") == 0)
-    {
         return BUTTON_GRID_TEXT_HIDE;
-    }
 
     return atoi(text);
 }
@@ -1055,40 +963,12 @@ static void Ini_ReadButtonSection(
     item->tooltip = text->tooltip[0] ? text->tooltip : NULL;
     item->iconBaseName = text->iconBaseName[0] ? text->iconBaseName : NULL;
 
-    item->behavior = Ini_ReadBehavior(
-        source,
-        section,
-        "behavior",
-        BUTTON_GRID_BUTTON_TOGGLE
-    );
+    item->behavior = Ini_ReadBehavior(source, section, "behavior", BUTTON_GRID_BUTTON_TOGGLE);
+    item->radioGroup = Ini_ReadInt(source, section, "radioGroup", 0);
+    item->defaultState = Ini_ReadBool(source, section, "defaultState", loaded->config.defaultState);
 
-    item->radioGroup = Ini_ReadInt(
-        source,
-        section,
-        "radioGroup",
-        0
-    );
-
-    item->defaultState = Ini_ReadBool(
-        source,
-        section,
-        "defaultState",
-        loaded->config.defaultState
-    );
-
-    item->widthOverride = Ini_ReadInt(
-        source,
-        section,
-        "widthOverride",
-        0
-    );
-
-    item->heightOverride = Ini_ReadInt(
-        source,
-        section,
-        "heightOverride",
-        0
-    );
+    item->widthOverride = Ini_ReadInt(source, section, "widthOverride", 0);
+    item->heightOverride = Ini_ReadInt(source, section, "heightOverride", 0);
 
     item->sizeModeOverride = Ini_ReadSizeMode(
         source,
@@ -1114,18 +994,17 @@ static void Ini_ReadButtonSection(
 
 static int ButtonGridIni_LoadFromSource(
     const IniSource *source,
-    const char *displayName,
     ButtonGridIniConfig *loaded
 )
 {
     int i;
 
-    if (!source || !loaded)
+    if (!source || !loaded || !source->memoryText)
         return 0;
 
     ZeroMemory(loaded, sizeof(*loaded));
 
-    Ini_CopyText(loaded->fileName, sizeof(loaded->fileName), displayName ? displayName : "");
+    Ini_CopyText(loaded->fileName, sizeof(loaded->fileName), source->displayName);
 
     ButtonGrid_GetDefaultConfig(&loaded->config);
 
@@ -1165,15 +1044,8 @@ static int ButtonGridIni_LoadFromSource(
         return 0;
     }
 
-    ZeroMemory(
-        loaded->items,
-        sizeof(ButtonGridItemConfig) * loaded->itemCount
-    );
-
-    ZeroMemory(
-        loaded->itemTexts,
-        sizeof(ButtonGridIniItemText) * loaded->itemCount
-    );
+    ZeroMemory(loaded->items, sizeof(ButtonGridItemConfig) * loaded->itemCount);
+    ZeroMemory(loaded->itemTexts, sizeof(ButtonGridIniItemText) * loaded->itemCount);
 
     for (i = 0; i < loaded->itemCount; i++)
         Ini_ReadButtonSection(source, loaded, i);
@@ -1184,32 +1056,6 @@ static int ButtonGridIni_LoadFromSource(
     ButtonGrid_NormalizeConfig(&loaded->config);
 
     return 1;
-}
-
-int ButtonGridIni_Load(
-    const char *fileName,
-    ButtonGridIniConfig *loaded
-)
-{
-    IniSource source;
-
-    if (!fileName || !loaded)
-        return 0;
-
-    if (GetFileAttributes(fileName) == INVALID_FILE_ATTRIBUTES)
-        return 0;
-
-    ZeroMemory(&source, sizeof(source));
-
-    source.fileName = fileName;
-    source.memoryText = NULL;
-    source.isMemory = 0;
-
-    return ButtonGridIni_LoadFromSource(
-        &source,
-        fileName,
-        loaded
-    );
 }
 
 static int Ini_FileExists(const char *fileName)
@@ -1241,9 +1087,7 @@ static int Ini_PathIsAbsolute(const char *path)
     if (((path[0] >= 'A' && path[0] <= 'Z') ||
          (path[0] >= 'a' && path[0] <= 'z')) &&
         path[1] == ':')
-    {
         return 1;
-    }
 
     return 0;
 }
@@ -1322,6 +1166,274 @@ static int Ini_BuildExeRelativePath(
     Ini_AppendText(buffer, bufferSize, fileName);
 
     return 1;
+}
+
+static char *Ini_TextFromUtf16Le(const BYTE *data, DWORD size, DWORD start)
+{
+    DWORD i;
+    DWORD out;
+    DWORD count;
+    char *text;
+    unsigned int ch;
+
+    count = (size - start) / 2;
+
+    text = (char *)malloc(count + 1);
+
+    if (!text)
+        return NULL;
+
+    out = 0;
+
+    for (i = start; i + 1 < size; i += 2)
+    {
+        ch = (unsigned int)data[i] | ((unsigned int)data[i + 1] << 8);
+
+        if (ch == 0)
+            continue;
+
+        if (ch <= 255)
+            text[out++] = (char)ch;
+        else
+            text[out++] = '?';
+    }
+
+    text[out] = '\0';
+    return text;
+}
+
+static char *Ini_TextFromUtf16Be(const BYTE *data, DWORD size, DWORD start)
+{
+    DWORD i;
+    DWORD out;
+    DWORD count;
+    char *text;
+    unsigned int ch;
+
+    count = (size - start) / 2;
+
+    text = (char *)malloc(count + 1);
+
+    if (!text)
+        return NULL;
+
+    out = 0;
+
+    for (i = start; i + 1 < size; i += 2)
+    {
+        ch = ((unsigned int)data[i] << 8) | (unsigned int)data[i + 1];
+
+        if (ch == 0)
+            continue;
+
+        if (ch <= 255)
+            text[out++] = (char)ch;
+        else
+            text[out++] = '?';
+    }
+
+    text[out] = '\0';
+    return text;
+}
+
+static int Ini_LooksLikeUtf16Le(const BYTE *data, DWORD size)
+{
+    DWORD i;
+    DWORD zeros;
+
+    if (!data || size < 4)
+        return 0;
+
+    zeros = 0;
+
+    for (i = 1; i < size && i < 64; i += 2)
+    {
+        if (data[i] == 0)
+            zeros++;
+    }
+
+    return zeros >= 4;
+}
+
+static int Ini_LooksLikeUtf16Be(const BYTE *data, DWORD size)
+{
+    DWORD i;
+    DWORD zeros;
+
+    if (!data || size < 4)
+        return 0;
+
+    zeros = 0;
+
+    for (i = 0; i < size && i < 64; i += 2)
+    {
+        if (data[i] == 0)
+            zeros++;
+    }
+
+    return zeros >= 4;
+}
+
+static char *Ini_TextFromBytes(const BYTE *data, DWORD size)
+{
+    char *text;
+    DWORD start;
+
+    if (!data || size == 0)
+        return NULL;
+
+    if (size >= 2 && data[0] == 0xFF && data[1] == 0xFE)
+        return Ini_TextFromUtf16Le(data, size, 2);
+
+    if (size >= 2 && data[0] == 0xFE && data[1] == 0xFF)
+        return Ini_TextFromUtf16Be(data, size, 2);
+
+    if (Ini_LooksLikeUtf16Le(data, size))
+        return Ini_TextFromUtf16Le(data, size, 0);
+
+    if (Ini_LooksLikeUtf16Be(data, size))
+        return Ini_TextFromUtf16Be(data, size, 0);
+
+    start = 0;
+
+    if (size >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF)
+        start = 3;
+
+    text = (char *)malloc((size - start) + 1);
+
+    if (!text)
+        return NULL;
+
+    CopyMemory(text, data + start, size - start);
+    text[size - start] = '\0';
+
+    return text;
+}
+
+static int Ini_LoadFromBytes(
+    const char *displayName,
+    const BYTE *data,
+    DWORD size,
+    ButtonGridIniConfig *loaded
+)
+{
+    IniSource source;
+    char *text;
+    int ok;
+
+    if (!data || size == 0 || !loaded)
+        return 0;
+
+    text = Ini_TextFromBytes(data, size);
+
+    if (!text)
+        return 0;
+
+    ZeroMemory(&source, sizeof(source));
+
+    source.displayName = displayName;
+    source.memoryText = text;
+
+    ok = ButtonGridIni_LoadFromSource(&source, loaded);
+
+    free(text);
+
+    return ok;
+}
+
+static int Ini_LoadFileToBytes(
+    const char *fileName,
+    BYTE **data,
+    DWORD *size
+)
+{
+    HANDLE file;
+    DWORD fileSize;
+    DWORD readSize;
+    BYTE *buffer;
+
+    if (data)
+        *data = NULL;
+
+    if (size)
+        *size = 0;
+
+    if (!fileName || !data || !size)
+        return 0;
+
+    file = CreateFile(
+        fileName,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (file == INVALID_HANDLE_VALUE)
+        return 0;
+
+    fileSize = GetFileSize(file, NULL);
+
+    if (fileSize == INVALID_FILE_SIZE || fileSize == 0)
+    {
+        CloseHandle(file);
+        return 0;
+    }
+
+    buffer = (BYTE *)malloc(fileSize);
+
+    if (!buffer)
+    {
+        CloseHandle(file);
+        return 0;
+    }
+
+    readSize = 0;
+
+    if (!ReadFile(file, buffer, fileSize, &readSize, NULL) ||
+        readSize != fileSize)
+    {
+        free(buffer);
+        CloseHandle(file);
+        return 0;
+    }
+
+    CloseHandle(file);
+
+    *data = buffer;
+    *size = fileSize;
+
+    return 1;
+}
+
+int ButtonGridIni_Load(
+    const char *fileName,
+    ButtonGridIniConfig *loaded
+)
+{
+    BYTE *data;
+    DWORD size;
+    int ok;
+
+    if (!fileName || !loaded)
+        return 0;
+
+    if (!Ini_FileExists(fileName))
+        return 0;
+
+    data = NULL;
+    size = 0;
+
+    if (!Ini_LoadFileToBytes(fileName, &data, &size))
+        return 0;
+
+    ok = Ini_LoadFromBytes(fileName, data, size, loaded);
+
+    free(data);
+
+    return ok;
 }
 
 static int Ini_FindWin32ResourceBytesByName(
@@ -1438,45 +1550,6 @@ static int Ini_FindBuiltinResourceBytes(
     }
 
     return 0;
-}
-
-static int Ini_LoadFromBytes(
-    const char *displayName,
-    const BYTE *data,
-    DWORD size,
-    ButtonGridIniConfig *loaded
-)
-{
-    IniSource source;
-    char *text;
-    int ok;
-
-    if (!data || size == 0 || !loaded)
-        return 0;
-
-    text = (char *)malloc(size + 1);
-
-    if (!text)
-        return 0;
-
-    CopyMemory(text, data, size);
-    text[size] = '\0';
-
-    ZeroMemory(&source, sizeof(source));
-
-    source.fileName = displayName;
-    source.memoryText = text;
-    source.isMemory = 1;
-
-    ok = ButtonGridIni_LoadFromSource(
-        &source,
-        displayName,
-        loaded
-    );
-
-    free(text);
-
-    return ok;
 }
 
 int ButtonGridIni_LoadFromFileOrResource(
