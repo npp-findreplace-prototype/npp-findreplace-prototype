@@ -1,5 +1,16 @@
 #include "button_grid_internal.h"
 
+static int ButtonGrid_NormalizeContentAlignment(int alignment)
+{
+    if (alignment < BUTTON_GRID_ALIGN_TOP_LEFT ||
+        alignment > BUTTON_GRID_ALIGN_PERCENT)
+    {
+        return BUTTON_GRID_DEFAULT_CONTENT_ALIGNMENT;
+    }
+
+    return alignment;
+}
+
 void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
 {
     if (!config)
@@ -23,6 +34,12 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->settingsWheelScrub = BUTTON_GRID_DEFAULT_SETTINGS_WHEEL_SCRUB;
 
     config->dpiScaleEnabled = BUTTON_GRID_DEFAULT_DPI_SCALE_ENABLED;
+
+    config->contentAlignment = BUTTON_GRID_DEFAULT_CONTENT_ALIGNMENT;
+    config->contentAlignX = BUTTON_GRID_DEFAULT_CONTENT_ALIGN_X;
+    config->contentAlignY = BUTTON_GRID_DEFAULT_CONTENT_ALIGN_Y;
+    config->contentAlignPercentX = BUTTON_GRID_DEFAULT_CONTENT_ALIGN_PERCENT_X;
+    config->contentAlignPercentY = BUTTON_GRID_DEFAULT_CONTENT_ALIGN_PERCENT_Y;
 
     config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
     config->allowThemeSelection = BUTTON_GRID_DEFAULT_ALLOW_THEME_SELECTION;
@@ -103,6 +120,20 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     config->settingsWheelScrub = config->settingsWheelScrub ? 1 : 0;
 
     config->dpiScaleEnabled = config->dpiScaleEnabled ? 1 : 0;
+
+    config->contentAlignment = ButtonGrid_NormalizeContentAlignment(
+        config->contentAlignment
+    );
+
+    config->contentAlignPercentX =
+        config->contentAlignPercentX < 0 ? 0 :
+        config->contentAlignPercentX > 100 ? 100 :
+        config->contentAlignPercentX;
+
+    config->contentAlignPercentY =
+        config->contentAlignPercentY < 0 ? 0 :
+        config->contentAlignPercentY > 100 ? 100 :
+        config->contentAlignPercentY;
 
     if (!config->themeName)
         config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
@@ -195,6 +226,12 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
 
     grid->dpiScaleEnabled = config->dpiScaleEnabled;
     ButtonGrid_UpdateDpi(grid);
+
+    grid->contentAlignment = config->contentAlignment;
+    grid->contentAlignX = config->contentAlignX;
+    grid->contentAlignY = config->contentAlignY;
+    grid->contentAlignPercentX = config->contentAlignPercentX;
+    grid->contentAlignPercentY = config->contentAlignPercentY;
 
     ButtonGrid_CopyText(
         grid->themeName,

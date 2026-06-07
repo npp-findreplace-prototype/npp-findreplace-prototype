@@ -59,6 +59,17 @@ char *ButtonGrid_SettingsGetTextField(
     return (char *)grid + def->offset;
 }
 
+static int ButtonGrid_SettingsNormalizeContentAlignment(int alignment)
+{
+    if (alignment < BUTTON_GRID_ALIGN_TOP_LEFT ||
+        alignment > BUTTON_GRID_ALIGN_PERCENT)
+    {
+        return BUTTON_GRID_DEFAULT_CONTENT_ALIGNMENT;
+    }
+
+    return alignment;
+}
+
 static void ButtonGrid_SettingsColorToText(
     COLORREF color,
     char *buffer,
@@ -239,6 +250,22 @@ static void ButtonGrid_SettingsNormalizeLiveGrid(ButtonGrid *grid)
     grid->settingsWheelScrub = grid->settingsWheelScrub ? 1 : 0;
 
     grid->dpiScaleEnabled = grid->dpiScaleEnabled ? 1 : 0;
+
+    grid->contentAlignment = ButtonGrid_SettingsNormalizeContentAlignment(
+        grid->contentAlignment
+    );
+
+    grid->contentAlignPercentX = ButtonGrid_SettingsClampInt(
+        grid->contentAlignPercentX,
+        0,
+        100
+    );
+
+    grid->contentAlignPercentY = ButtonGrid_SettingsClampInt(
+        grid->contentAlignPercentY,
+        0,
+        100
+    );
 
     if (!grid->themeName[0])
     {

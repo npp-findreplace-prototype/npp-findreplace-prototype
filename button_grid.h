@@ -43,6 +43,24 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_GEAR_CORNER_BOTTOM_LEFT 2
 #define BUTTON_GRID_GEAR_CORNER_BOTTOM_RIGHT 3
 
+#define BUTTON_GRID_ALIGN_TOP_LEFT 0
+#define BUTTON_GRID_ALIGN_TOP 1
+#define BUTTON_GRID_ALIGN_TOP_RIGHT 2
+#define BUTTON_GRID_ALIGN_LEFT 3
+#define BUTTON_GRID_ALIGN_CENTER 4
+#define BUTTON_GRID_ALIGN_RIGHT 5
+#define BUTTON_GRID_ALIGN_BOTTOM_LEFT 6
+#define BUTTON_GRID_ALIGN_BOTTOM 7
+#define BUTTON_GRID_ALIGN_BOTTOM_RIGHT 8
+#define BUTTON_GRID_ALIGN_XY 9
+#define BUTTON_GRID_ALIGN_PERCENT 10
+
+#define BUTTON_GRID_DEFAULT_CONTENT_ALIGNMENT BUTTON_GRID_ALIGN_TOP_LEFT
+#define BUTTON_GRID_DEFAULT_CONTENT_ALIGN_X 0
+#define BUTTON_GRID_DEFAULT_CONTENT_ALIGN_Y 0
+#define BUTTON_GRID_DEFAULT_CONTENT_ALIGN_PERCENT_X 50
+#define BUTTON_GRID_DEFAULT_CONTENT_ALIGN_PERCENT_Y 50
+
 #define BUTTON_GRID_THEME_NAME_SIZE 128
 #define BUTTON_GRID_DEFAULT_THEME_NAME "darkmetalred"
 #define BUTTON_GRID_DEFAULT_ALLOW_THEME_SELECTION 1
@@ -149,6 +167,12 @@ typedef struct ButtonGridConfig
     int settingsWheelScrub;
 
     int dpiScaleEnabled;
+
+    int contentAlignment;
+    int contentAlignX;
+    int contentAlignY;
+    int contentAlignPercentX;
+    int contentAlignPercentY;
 
     const char *themeName;
     int allowThemeSelection;

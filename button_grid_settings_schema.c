@@ -24,6 +24,22 @@ static const ButtonGridSettingOption g_sizeModeOptions[] =
     { NULL, 0 }
 };
 
+static const ButtonGridSettingOption g_alignmentOptions[] =
+{
+    { "Top left", BUTTON_GRID_ALIGN_TOP_LEFT },
+    { "Top", BUTTON_GRID_ALIGN_TOP },
+    { "Top right", BUTTON_GRID_ALIGN_TOP_RIGHT },
+    { "Left", BUTTON_GRID_ALIGN_LEFT },
+    { "Center", BUTTON_GRID_ALIGN_CENTER },
+    { "Right", BUTTON_GRID_ALIGN_RIGHT },
+    { "Bottom left", BUTTON_GRID_ALIGN_BOTTOM_LEFT },
+    { "Bottom", BUTTON_GRID_ALIGN_BOTTOM },
+    { "Bottom right", BUTTON_GRID_ALIGN_BOTTOM_RIGHT },
+    { "X/Y offset", BUTTON_GRID_ALIGN_XY },
+    { "Percent", BUTTON_GRID_ALIGN_PERCENT },
+    { NULL, 0 }
+};
+
 static const ButtonGridSettingOption g_borderStyleOptions[] =
 {
     { "None", BUTTON_GRID_BORDER_STYLE_NONE },
@@ -72,6 +88,56 @@ static const ButtonGridSettingDefinition g_settings[] =
         0,
         1,
         g_boolOptions
+    },
+
+    {
+        "contentAlignment",
+        "Grid alignment",
+        BG_SETTING_ENUM,
+        offsetof(ButtonGrid, contentAlignment),
+        0,
+        0,
+        g_alignmentOptions
+    },
+
+    {
+        "contentAlignX",
+        "Grid align X",
+        BG_SETTING_INT,
+        offsetof(ButtonGrid, contentAlignX),
+        -2000,
+        2000,
+        NULL
+    },
+
+    {
+        "contentAlignY",
+        "Grid align Y",
+        BG_SETTING_INT,
+        offsetof(ButtonGrid, contentAlignY),
+        -2000,
+        2000,
+        NULL
+    },
+
+    {
+        "contentAlignPercentX",
+        "Grid align percent X",
+        BG_SETTING_INT,
+        offsetof(ButtonGrid, contentAlignPercentX),
+        0,
+        100,
+        NULL
+    },
+
+    {
+        "contentAlignPercentY",
+        "Grid align percent Y",
+        BG_SETTING_INT,
+        offsetof(ButtonGrid, contentAlignPercentY),
+        0,
+        100,
+        NULL
     },
 
     {

@@ -143,6 +143,12 @@ typedef struct ButtonGrid
     int dpiScaleEnabled;
     int currentDpi;
 
+    int contentAlignment;
+    int contentAlignX;
+    int contentAlignY;
+    int contentAlignPercentX;
+    int contentAlignPercentY;
+
     char themeName[BUTTON_GRID_THEME_NAME_SIZE];
     int allowThemeSelection;
 

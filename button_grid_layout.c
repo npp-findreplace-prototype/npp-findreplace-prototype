@@ -297,44 +297,6 @@ void ButtonGrid_UpdateAllButtonSizes(ButtonGrid *grid)
         ButtonGrid_ResolveButtonSize(grid, &grid->buttons[i]);
 }
 
-static int ButtonGrid_GetMaxButtonWidth(ButtonGrid *grid)
-{
-    int i;
-    int maxWidth;
-
-    maxWidth = 1;
-
-    if (!grid || !grid->buttons)
-        return maxWidth;
-
-    for (i = 0; i < grid->buttonCount; i++)
-    {
-        if (grid->buttons[i].width > maxWidth)
-            maxWidth = grid->buttons[i].width;
-    }
-
-    return maxWidth;
-}
-
-static int ButtonGrid_GetMaxButtonHeight(ButtonGrid *grid)
-{
-    int i;
-    int maxHeight;
-
-    maxHeight = 1;
-
-    if (!grid || !grid->buttons)
-        return maxHeight;
-
-    for (i = 0; i < grid->buttonCount; i++)
-    {
-        if (grid->buttons[i].height > maxHeight)
-            maxHeight = grid->buttons[i].height;
-    }
-
-    return maxHeight;
-}
-
 static void ButtonGrid_SetButtonWindowRect(
     ButtonGrid *grid,
     int index,
@@ -394,7 +356,47 @@ static int ButtonGrid_RectIsFullyVisible(const RECT *bounds, int x, int y, int w
     return 1;
 }
 
-static void ButtonGrid_LayoutHorizontal(ButtonGrid *grid, RECT *content)
+static void ButtonGrid_InitLayoutBounds(
+    RECT *used,
+    int x,
+    int y,
+    int width,
+    int height
+)
+{
+    used->left = x;
+    used->top = y;
+    used->right = x + width;
+    used->bottom = y + height;
+}
+
+static void ButtonGrid_ExpandLayoutBounds(
+    RECT *used,
+    int x,
+    int y,
+    int width,
+    int height
+)
+{
+    if (x < used->left)
+        used->left = x;
+
+    if (y < used->top)
+        used->top = y;
+
+    if (x + width > used->right)
+        used->right = x + width;
+
+    if (y + height > used->bottom)
+        used->bottom = y + height;
+}
+
+static void ButtonGrid_CalculateHorizontalPositions(
+    ButtonGrid *grid,
+    RECT *content,
+    GridPosition *positions,
+    RECT *used
+)
 {
     int i;
     int x;
@@ -402,10 +404,7 @@ static void ButtonGrid_LayoutHorizontal(ButtonGrid *grid, RECT *content)
     int rowHeight;
     int spacingX;
     int spacingY;
-    int visible;
-
-    if (!grid || !content)
-        return;
+    int initialized;
 
     spacingX = ButtonGrid_DpiScale(grid, grid->horizontalSpacing);
     spacingY = ButtonGrid_DpiScale(grid, grid->verticalSpacing);
@@ -419,6 +418,7 @@ static void ButtonGrid_LayoutHorizontal(ButtonGrid *grid, RECT *content)
     x = content->left;
     y = content->top;
     rowHeight = 0;
+    initialized = 0;
 
     for (i = 0; i < grid->buttonCount; i++)
     {
@@ -434,12 +434,25 @@ static void ButtonGrid_LayoutHorizontal(ButtonGrid *grid, RECT *content)
             rowHeight = 0;
         }
 
-        visible = 1;
+        positions[i].x = x;
+        positions[i].y = y;
 
-        if (grid->hidePartialButtons)
+        if (!initialized)
         {
-            visible = ButtonGrid_RectIsFullyVisible(
-                content,
+            ButtonGrid_InitLayoutBounds(
+                used,
+                x,
+                y,
+                button->width,
+                button->height
+            );
+
+            initialized = 1;
+        }
+        else
+        {
+            ButtonGrid_ExpandLayoutBounds(
+                used,
                 x,
                 y,
                 button->width,
@@ -447,24 +460,22 @@ static void ButtonGrid_LayoutHorizontal(ButtonGrid *grid, RECT *content)
             );
         }
 
-        ButtonGrid_SetButtonWindowRect(
-            grid,
-            i,
-            x,
-            y,
-            button->width,
-            button->height,
-            visible
-        );
-
         if (button->height > rowHeight)
             rowHeight = button->height;
 
         x += button->width + spacingX;
     }
+
+    if (!initialized)
+        SetRectEmpty(used);
 }
 
-static void ButtonGrid_LayoutVertical(ButtonGrid *grid, RECT *content)
+static void ButtonGrid_CalculateVerticalPositions(
+    ButtonGrid *grid,
+    RECT *content,
+    GridPosition *positions,
+    RECT *used
+)
 {
     int i;
     int x;
@@ -472,10 +483,7 @@ static void ButtonGrid_LayoutVertical(ButtonGrid *grid, RECT *content)
     int columnWidth;
     int spacingX;
     int spacingY;
-    int visible;
-
-    if (!grid || !content)
-        return;
+    int initialized;
 
     spacingX = ButtonGrid_DpiScale(grid, grid->horizontalSpacing);
     spacingY = ButtonGrid_DpiScale(grid, grid->verticalSpacing);
@@ -489,6 +497,7 @@ static void ButtonGrid_LayoutVertical(ButtonGrid *grid, RECT *content)
     x = content->left;
     y = content->top;
     columnWidth = 0;
+    initialized = 0;
 
     for (i = 0; i < grid->buttonCount; i++)
     {
@@ -504,6 +513,162 @@ static void ButtonGrid_LayoutVertical(ButtonGrid *grid, RECT *content)
             columnWidth = 0;
         }
 
+        positions[i].x = x;
+        positions[i].y = y;
+
+        if (!initialized)
+        {
+            ButtonGrid_InitLayoutBounds(
+                used,
+                x,
+                y,
+                button->width,
+                button->height
+            );
+
+            initialized = 1;
+        }
+        else
+        {
+            ButtonGrid_ExpandLayoutBounds(
+                used,
+                x,
+                y,
+                button->width,
+                button->height
+            );
+        }
+
+        if (button->width > columnWidth)
+            columnWidth = button->width;
+
+        y += button->height + spacingY;
+    }
+
+    if (!initialized)
+        SetRectEmpty(used);
+}
+
+static void ButtonGrid_GetAlignmentOffset(
+    ButtonGrid *grid,
+    RECT *content,
+    RECT *used,
+    int *offsetX,
+    int *offsetY
+)
+{
+    int contentW;
+    int contentH;
+    int usedW;
+    int usedH;
+    int freeW;
+    int freeH;
+
+    *offsetX = 0;
+    *offsetY = 0;
+
+    if (!grid || !content || !used)
+        return;
+
+    contentW = content->right - content->left;
+    contentH = content->bottom - content->top;
+    usedW = used->right - used->left;
+    usedH = used->bottom - used->top;
+
+    freeW = contentW - usedW;
+    freeH = contentH - usedH;
+
+    if (grid->contentAlignment == BUTTON_GRID_ALIGN_TOP_LEFT)
+    {
+        *offsetX = 0;
+        *offsetY = 0;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_TOP)
+    {
+        *offsetX = freeW / 2;
+        *offsetY = 0;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_TOP_RIGHT)
+    {
+        *offsetX = freeW;
+        *offsetY = 0;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_LEFT)
+    {
+        *offsetX = 0;
+        *offsetY = freeH / 2;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_CENTER)
+    {
+        *offsetX = freeW / 2;
+        *offsetY = freeH / 2;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_RIGHT)
+    {
+        *offsetX = freeW;
+        *offsetY = freeH / 2;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_BOTTOM_LEFT)
+    {
+        *offsetX = 0;
+        *offsetY = freeH;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_BOTTOM)
+    {
+        *offsetX = freeW / 2;
+        *offsetY = freeH;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_BOTTOM_RIGHT)
+    {
+        *offsetX = freeW;
+        *offsetY = freeH;
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_XY)
+    {
+        *offsetX = ButtonGrid_DpiScale(grid, grid->contentAlignX);
+        *offsetY = ButtonGrid_DpiScale(grid, grid->contentAlignY);
+    }
+    else if (grid->contentAlignment == BUTTON_GRID_ALIGN_PERCENT)
+    {
+        *offsetX = MulDiv(freeW, grid->contentAlignPercentX, 100);
+        *offsetY = MulDiv(freeH, grid->contentAlignPercentY, 100);
+    }
+}
+
+static void ButtonGrid_ApplyPositions(
+    ButtonGrid *grid,
+    RECT *content,
+    GridPosition *positions,
+    RECT *used
+)
+{
+    int i;
+    int offsetX;
+    int offsetY;
+    int visible;
+
+    offsetX = 0;
+    offsetY = 0;
+
+    ButtonGrid_GetAlignmentOffset(
+        grid,
+        content,
+        used,
+        &offsetX,
+        &offsetY
+    );
+
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        ButtonItem *button;
+        int x;
+        int y;
+
+        button = &grid->buttons[i];
+
+        x = positions[i].x + offsetX;
+        y = positions[i].y + offsetY;
+
         visible = 1;
 
         if (grid->hidePartialButtons)
@@ -526,17 +691,14 @@ static void ButtonGrid_LayoutVertical(ButtonGrid *grid, RECT *content)
             button->height,
             visible
         );
-
-        if (button->width > columnWidth)
-            columnWidth = button->width;
-
-        y += button->height + spacingY;
     }
 }
 
 void ButtonGrid_Layout(ButtonGrid *grid)
 {
     RECT content;
+    RECT used;
+    GridPosition *positions;
 
     if (!grid)
         return;
@@ -544,10 +706,43 @@ void ButtonGrid_Layout(ButtonGrid *grid)
     ButtonGrid_UpdateAllButtonSizes(grid);
     ButtonGrid_GetContentRect(grid, &content);
 
+    if (grid->buttonCount < 1 || !grid->buttons)
+        return;
+
+    positions = (GridPosition *)malloc(sizeof(GridPosition) * grid->buttonCount);
+
+    if (!positions)
+        return;
+
+    ZeroMemory(positions, sizeof(GridPosition) * grid->buttonCount);
+
     if (grid->layout == BUTTON_GRID_LAYOUT_VERTICAL)
-        ButtonGrid_LayoutVertical(grid, &content);
+    {
+        ButtonGrid_CalculateVerticalPositions(
+            grid,
+            &content,
+            positions,
+            &used
+        );
+    }
     else
-        ButtonGrid_LayoutHorizontal(grid, &content);
+    {
+        ButtonGrid_CalculateHorizontalPositions(
+            grid,
+            &content,
+            positions,
+            &used
+        );
+    }
+
+    ButtonGrid_ApplyPositions(
+        grid,
+        &content,
+        positions,
+        &used
+    );
+
+    free(positions);
 
     InvalidateRect(grid->hwnd, NULL, TRUE);
 }
