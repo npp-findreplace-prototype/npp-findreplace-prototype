@@ -54,3 +54,4 @@ echo Output: %OUTPUT_EXE%
 echo Link:   %CURRENT_HARDLINK%
 
 endlocal
+pause

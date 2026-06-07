@@ -33,10 +33,19 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_TEXT_HIDE 0
 #define BUTTON_GRID_TEXT_SHOW 1
 
+#define BUTTON_GRID_BUTTON_BACK_OPAQUE 0
+#define BUTTON_GRID_BUTTON_BACK_TRANSPARENT 1
+#define BUTTON_GRID_DEFAULT_BUTTON_BACK_MODE BUTTON_GRID_BUTTON_BACK_TRANSPARENT
+
 #define BUTTON_GRID_BORDER_STYLE_NONE 0
 #define BUTTON_GRID_BORDER_STYLE_SIMPLE 1
 #define BUTTON_GRID_BORDER_STYLE_ETCHED 2
 #define BUTTON_GRID_BORDER_STYLE_ROUNDED 3
+#define BUTTON_GRID_BORDER_STYLE_ETCHED_ROUNDED 4
+#define BUTTON_GRID_BORDER_STYLE_CONTAINER 5
+#define BUTTON_GRID_BORDER_STYLE_SUNKEN 6
+#define BUTTON_GRID_BORDER_STYLE_RAISED 7
+#define BUTTON_GRID_BORDER_STYLE_DOUBLE 8
 
 #define BUTTON_GRID_GEAR_CORNER_TOP_LEFT 0
 #define BUTTON_GRID_GEAR_CORNER_TOP_RIGHT 1
@@ -92,9 +101,14 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_DEFAULT_SETTINGS_WHEEL_SCRUB 0
 
 #define BUTTON_GRID_DEFAULT_SHOW_BORDER 0
+#define BUTTON_GRID_DEFAULT_SHOW_BORDER_TITLE 1
 #define BUTTON_GRID_DEFAULT_BORDER_TITLE ""
 #define BUTTON_GRID_DEFAULT_BORDER_PADDING 8
 #define BUTTON_GRID_DEFAULT_BORDER_TITLE_HEIGHT 20
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE_PADDING 6
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE_FONT_SIZE 0
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE_TRANSPARENT 1
+#define BUTTON_GRID_DEFAULT_BORDER_TITLE_AUTO_BACK_COLOR 1
 #define BUTTON_GRID_DEFAULT_BORDER_STYLE BUTTON_GRID_BORDER_STYLE_ETCHED
 #define BUTTON_GRID_DEFAULT_BORDER_THICKNESS 1
 #define BUTTON_GRID_DEFAULT_BORDER_CORNER_RADIUS 8
@@ -178,9 +192,14 @@ typedef struct ButtonGridConfig
     int allowThemeSelection;
 
     int showBorder;
+    int showBorderTitle;
     const char *borderTitle;
     int borderPadding;
     int borderTitleHeight;
+    int borderTitlePadding;
+    int borderTitleFontSize;
+    int borderTitleTransparent;
+    int borderTitleAutoBackColor;
     int borderStyle;
     int borderThickness;
     int borderCornerRadius;
@@ -206,6 +225,7 @@ typedef struct ButtonGridConfig
     const char *textFormat;
     const char *clickIdentifierFormat;
 
+    int buttonBackMode;
     COLORREF backColor;
     COLORREF foreColor;
 

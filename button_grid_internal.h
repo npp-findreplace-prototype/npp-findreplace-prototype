@@ -74,12 +74,6 @@ typedef struct ButtonItem
 
     int showTextOverride;
 
-    /*
-        Resolved display size.
-
-        These are stored as actual current pixel sizes after DPI scaling,
-        image-size resolution, and per-button overrides have been applied.
-    */
     int width;
     int height;
 
@@ -120,12 +114,6 @@ typedef struct ButtonGrid
     const ButtonGridItemConfig *configuredItems;
     int configuredItemCount;
 
-    /*
-        Logical 96-DPI design values.
-
-        These should remain unscaled. Layout/drawing code should use
-        ButtonGrid_DpiScale(...) when it needs actual pixels.
-    */
     int buttonWidth;
     int buttonHeight;
 
@@ -153,9 +141,14 @@ typedef struct ButtonGrid
     int allowThemeSelection;
 
     int showBorder;
+    int showBorderTitle;
     char borderTitle[BUTTON_GRID_TITLE_SIZE];
     int borderPadding;
     int borderTitleHeight;
+    int borderTitlePadding;
+    int borderTitleFontSize;
+    int borderTitleTransparent;
+    int borderTitleAutoBackColor;
     int borderStyle;
     int borderThickness;
     int borderCornerRadius;
@@ -184,6 +177,7 @@ typedef struct ButtonGrid
     char textFormat[BUTTON_GRID_FORMAT_SIZE];
     char clickIdentifierFormat[BUTTON_GRID_FORMAT_SIZE];
 
+    int buttonBackMode;
     COLORREF backColor;
     COLORREF foreColor;
 
@@ -215,7 +209,6 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config);
 
 int ButtonGrid_NormalizeSizeMode(int sizeMode);
 
-/* DPI helpers */
 int ButtonGrid_GetWindowDpi(HWND hwnd);
 void ButtonGrid_UpdateDpi(ButtonGrid *grid);
 

@@ -19,7 +19,7 @@ void ButtonGrid_RedrawContainer(HWND hwnd)
     if (!hwnd)
         return;
 
-    InvalidateRect(hwnd, NULL, TRUE);
+    InvalidateRect(hwnd, NULL, FALSE);
     UpdateWindow(hwnd);
 }
 
@@ -32,6 +32,20 @@ static int ButtonGrid_HasVisibleBorder(ButtonGrid *grid)
         return 0;
 
     if (grid->borderStyle == BUTTON_GRID_BORDER_STYLE_NONE)
+        return 0;
+
+    return 1;
+}
+
+static int ButtonGrid_ShouldShowBorderTitle(ButtonGrid *grid)
+{
+    if (!ButtonGrid_HasVisibleBorder(grid))
+        return 0;
+
+    if (!grid->showBorderTitle)
+        return 0;
+
+    if (!grid->borderTitle[0])
         return 0;
 
     return 1;
@@ -57,7 +71,7 @@ static void ButtonGrid_GetScaledBorderMetrics(
 
     if (titleHeight)
     {
-        if (grid->borderTitle[0])
+        if (ButtonGrid_ShouldShowBorderTitle(grid))
             *titleHeight = ButtonGrid_DpiScale(grid, grid->borderTitleHeight);
         else
             *titleHeight = 0;
@@ -326,6 +340,47 @@ static void ButtonGrid_SetButtonWindowRect(
         flags |= SWP_HIDEWINDOW;
 
     SetWindowPos(
+        grid->buttons[index].hwnd,
+        NULL,
+        x,
+        y,
+        width,
+        height,
+        flags
+    );
+}
+
+static HDWP ButtonGrid_DeferButtonWindowRect(
+    ButtonGrid *grid,
+    HDWP hdwp,
+    int index,
+    int x,
+    int y,
+    int width,
+    int height,
+    int visible
+)
+{
+    UINT flags;
+
+    if (!grid || !grid->buttons || !hdwp)
+        return NULL;
+
+    if (!grid->buttons[index].hwnd)
+        return hdwp;
+
+    flags =
+        SWP_NOZORDER |
+        SWP_NOACTIVATE |
+        SWP_NOCOPYBITS;
+
+    if (visible)
+        flags |= SWP_SHOWWINDOW;
+    else
+        flags |= SWP_HIDEWINDOW;
+
+    return DeferWindowPos(
+        hdwp,
         grid->buttons[index].hwnd,
         NULL,
         x,
@@ -635,6 +690,128 @@ static void ButtonGrid_GetAlignmentOffset(
     }
 }
 
+static int ButtonGrid_GetTargetVisibility(
+    ButtonGrid *grid,
+    RECT *content,
+    ButtonItem *button,
+    int x,
+    int y
+)
+{
+    if (!grid->hidePartialButtons)
+        return 1;
+
+    return ButtonGrid_RectIsFullyVisible(
+        content,
+        x,
+        y,
+        button->width,
+        button->height
+    );
+}
+
+static int ButtonGrid_ApplyPositionsDeferred(
+    ButtonGrid *grid,
+    RECT *content,
+    GridPosition *positions,
+    int offsetX,
+    int offsetY
+)
+{
+    int i;
+    HDWP hdwp;
+    HDWP nextHdwp;
+
+    hdwp = BeginDeferWindowPos(grid->buttonCount);
+
+    if (!hdwp)
+        return 0;
+
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        ButtonItem *button;
+        int x;
+        int y;
+        int visible;
+
+        button = &grid->buttons[i];
+
+        x = positions[i].x + offsetX;
+        y = positions[i].y + offsetY;
+
+        visible = ButtonGrid_GetTargetVisibility(
+            grid,
+            content,
+            button,
+            x,
+            y
+        );
+
+        nextHdwp = ButtonGrid_DeferButtonWindowRect(
+            grid,
+            hdwp,
+            i,
+            x,
+            y,
+            button->width,
+            button->height,
+            visible
+        );
+
+        if (!nextHdwp)
+        {
+            hdwp = NULL;
+            return 0;
+        }
+
+        hdwp = nextHdwp;
+    }
+
+    return EndDeferWindowPos(hdwp) ? 1 : 0;
+}
+
+static void ButtonGrid_ApplyPositionsImmediate(
+    ButtonGrid *grid,
+    RECT *content,
+    GridPosition *positions,
+    int offsetX,
+    int offsetY
+)
+{
+    int i;
+
+    for (i = 0; i < grid->buttonCount; i++)
+    {
+        ButtonItem *button;
+        int x;
+        int y;
+        int visible;
+
+        button = &grid->buttons[i];
+
+        x = positions[i].x + offsetX;
+        y = positions[i].y + offsetY;
+
+        visible = ButtonGrid_GetTargetVisibility(
+            grid,
+            content,
+            button,
+            x,
+            y
+        );
+
+        ButtonGrid_SetButtonWindowRect(
+            grid,
+            i,
+            x,
+            y,
+            button->width,
+            button->height,
+            visible
+        );
+    }
+}
+
 static void ButtonGrid_ApplyPositions(
     ButtonGrid *grid,
     RECT *content,
@@ -642,10 +819,8 @@ static void ButtonGrid_ApplyPositions(
     RECT *used
 )
 {
-    int i;
     int offsetX;
     int offsetY;
-    int visible;
 
     offsetX = 0;
     offsetY = 0;
@@ -658,40 +833,24 @@ static void ButtonGrid_ApplyPositions(
         &offsetY
     );
 
-    for (i = 0; i < grid->buttonCount; i++)
-    {
-        ButtonItem *button;
-        int x;
-        int y;
-
-        button = &grid->buttons[i];
-
-        x = positions[i].x + offsetX;
-        y = positions[i].y + offsetY;
-
-        visible = 1;
-
-        if (grid->hidePartialButtons)
-        {
-            visible = ButtonGrid_RectIsFullyVisible(
-                content,
-                x,
-                y,
-                button->width,
-                button->height
-            );
-        }
-
-        ButtonGrid_SetButtonWindowRect(
+    if (ButtonGrid_ApplyPositionsDeferred(
             grid,
-            i,
-            x,
-            y,
-            button->width,
-            button->height,
-            visible
-        );
+            content,
+            positions,
+            offsetX,
+            offsetY
+        ))
+    {
+        return;
     }
+
+    ButtonGrid_ApplyPositionsImmediate(
+        grid,
+        content,
+        positions,
+        offsetX,
+        offsetY
+    );
 }
 
 void ButtonGrid_Layout(ButtonGrid *grid)
@@ -744,7 +903,7 @@ void ButtonGrid_Layout(ButtonGrid *grid)
 
     free(positions);
 
-    InvalidateRect(grid->hwnd, NULL, TRUE);
+    InvalidateRect(grid->hwnd, NULL, FALSE);
 }
 
 static int ButtonGrid_CeilDiv(int a, int b)

@@ -11,6 +11,35 @@ static int ButtonGrid_NormalizeContentAlignment(int alignment)
     return alignment;
 }
 
+static int ButtonGrid_NormalizeBorderStyle(int borderStyle)
+{
+    if (borderStyle == BUTTON_GRID_BORDER_STYLE_NONE ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_SIMPLE ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_ETCHED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_ROUNDED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_ETCHED_ROUNDED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_CONTAINER ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_SUNKEN ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_RAISED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_DOUBLE)
+    {
+        return borderStyle;
+    }
+
+    return BUTTON_GRID_DEFAULT_BORDER_STYLE;
+}
+
+static int ButtonGrid_NormalizeButtonBackMode(int mode)
+{
+    if (mode == BUTTON_GRID_BUTTON_BACK_OPAQUE ||
+        mode == BUTTON_GRID_BUTTON_BACK_TRANSPARENT)
+    {
+        return mode;
+    }
+
+    return BUTTON_GRID_DEFAULT_BUTTON_BACK_MODE;
+}
+
 void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
 {
     if (!config)
@@ -45,9 +74,14 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->allowThemeSelection = BUTTON_GRID_DEFAULT_ALLOW_THEME_SELECTION;
 
     config->showBorder = BUTTON_GRID_DEFAULT_SHOW_BORDER;
+    config->showBorderTitle = BUTTON_GRID_DEFAULT_SHOW_BORDER_TITLE;
     config->borderTitle = BUTTON_GRID_DEFAULT_BORDER_TITLE;
     config->borderPadding = BUTTON_GRID_DEFAULT_BORDER_PADDING;
     config->borderTitleHeight = BUTTON_GRID_DEFAULT_BORDER_TITLE_HEIGHT;
+    config->borderTitlePadding = BUTTON_GRID_DEFAULT_BORDER_TITLE_PADDING;
+    config->borderTitleFontSize = BUTTON_GRID_DEFAULT_BORDER_TITLE_FONT_SIZE;
+    config->borderTitleTransparent = BUTTON_GRID_DEFAULT_BORDER_TITLE_TRANSPARENT;
+    config->borderTitleAutoBackColor = BUTTON_GRID_DEFAULT_BORDER_TITLE_AUTO_BACK_COLOR;
     config->borderStyle = BUTTON_GRID_DEFAULT_BORDER_STYLE;
     config->borderThickness = BUTTON_GRID_DEFAULT_BORDER_THICKNESS;
     config->borderCornerRadius = BUTTON_GRID_DEFAULT_BORDER_CORNER_RADIUS;
@@ -73,6 +107,7 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->textFormat = BUTTON_GRID_DEFAULT_TEXT_FORMAT;
     config->clickIdentifierFormat = BUTTON_GRID_DEFAULT_CLICK_IDENTIFIER_FORMAT;
 
+    config->buttonBackMode = BUTTON_GRID_DEFAULT_BUTTON_BACK_MODE;
     config->backColor = BUTTON_GRID_DEFAULT_BACK_COLOR;
     config->foreColor = BUTTON_GRID_DEFAULT_FORE_COLOR;
 
@@ -141,14 +176,11 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     config->allowThemeSelection = config->allowThemeSelection ? 1 : 0;
 
     config->showBorder = config->showBorder ? 1 : 0;
+    config->showBorderTitle = config->showBorderTitle ? 1 : 0;
+    config->borderTitleTransparent = config->borderTitleTransparent ? 1 : 0;
+    config->borderTitleAutoBackColor = config->borderTitleAutoBackColor ? 1 : 0;
 
-    if (config->borderStyle != BUTTON_GRID_BORDER_STYLE_NONE &&
-        config->borderStyle != BUTTON_GRID_BORDER_STYLE_SIMPLE &&
-        config->borderStyle != BUTTON_GRID_BORDER_STYLE_ETCHED &&
-        config->borderStyle != BUTTON_GRID_BORDER_STYLE_ROUNDED)
-    {
-        config->borderStyle = BUTTON_GRID_DEFAULT_BORDER_STYLE;
-    }
+    config->borderStyle = ButtonGrid_NormalizeBorderStyle(config->borderStyle);
 
     if (config->borderPadding < 0)
         config->borderPadding = 0;
@@ -156,11 +188,20 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
     if (config->borderTitleHeight < 0)
         config->borderTitleHeight = 0;
 
+    if (config->borderTitlePadding < 0)
+        config->borderTitlePadding = 0;
+
+    if (config->borderTitleFontSize < 0)
+        config->borderTitleFontSize = 0;
+
+    if (config->borderTitleFontSize > 96)
+        config->borderTitleFontSize = 96;
+
     if (config->borderThickness < 1)
         config->borderThickness = 1;
 
-    if (config->borderThickness > 8)
-        config->borderThickness = 8;
+    if (config->borderThickness > 12)
+        config->borderThickness = 12;
 
     if (config->borderCornerRadius < 0)
         config->borderCornerRadius = 0;
@@ -193,6 +234,10 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
 
     if (!config->clickIdentifierFormat)
         config->clickIdentifierFormat = BUTTON_GRID_DEFAULT_CLICK_IDENTIFIER_FORMAT;
+
+    config->buttonBackMode = ButtonGrid_NormalizeButtonBackMode(
+        config->buttonBackMode
+    );
 
     config->defaultState = config->defaultState ? 1 : 0;
     config->usePictures = config->usePictures ? 1 : 0;
@@ -242,9 +287,16 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
     grid->allowThemeSelection = config->allowThemeSelection;
 
     grid->showBorder = config->showBorder;
+    grid->showBorderTitle = config->showBorderTitle;
+
     ButtonGrid_CopyText(grid->borderTitle, BUTTON_GRID_TITLE_SIZE, config->borderTitle);
+
     grid->borderPadding = config->borderPadding;
     grid->borderTitleHeight = config->borderTitleHeight;
+    grid->borderTitlePadding = config->borderTitlePadding;
+    grid->borderTitleFontSize = config->borderTitleFontSize;
+    grid->borderTitleTransparent = config->borderTitleTransparent;
+    grid->borderTitleAutoBackColor = config->borderTitleAutoBackColor;
     grid->borderStyle = config->borderStyle;
     grid->borderThickness = config->borderThickness;
     grid->borderCornerRadius = config->borderCornerRadius;
@@ -273,6 +325,7 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
     ButtonGrid_CopyText(grid->textFormat, BUTTON_GRID_FORMAT_SIZE, config->textFormat);
     ButtonGrid_CopyText(grid->clickIdentifierFormat, BUTTON_GRID_FORMAT_SIZE, config->clickIdentifierFormat);
 
+    grid->buttonBackMode = config->buttonBackMode;
     grid->backColor = config->backColor;
     grid->foreColor = config->foreColor;
 
