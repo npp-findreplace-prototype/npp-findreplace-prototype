@@ -108,6 +108,9 @@ void ButtonGrid_GetDefaultConfig(ButtonGridConfig *config)
     config->clickIdentifierFormat = BUTTON_GRID_DEFAULT_CLICK_IDENTIFIER_FORMAT;
 
     config->buttonBackMode = BUTTON_GRID_DEFAULT_BUTTON_BACK_MODE;
+    config->showButtonBorder = BUTTON_GRID_DEFAULT_SHOW_BUTTON_BORDER;
+    config->buttonBorderThickness = BUTTON_GRID_DEFAULT_BUTTON_BORDER_THICKNESS;
+    config->buttonBorderColor = BUTTON_GRID_DEFAULT_BUTTON_BORDER_COLOR;
     config->backColor = BUTTON_GRID_DEFAULT_BACK_COLOR;
     config->foreColor = BUTTON_GRID_DEFAULT_FORE_COLOR;
 
@@ -239,6 +242,14 @@ void ButtonGrid_NormalizeConfig(ButtonGridConfig *config)
         config->buttonBackMode
     );
 
+    config->showButtonBorder = config->showButtonBorder ? 1 : 0;
+
+    if (config->buttonBorderThickness < 1)
+        config->buttonBorderThickness = 1;
+
+    if (config->buttonBorderThickness > 12)
+        config->buttonBorderThickness = 12;
+
     config->defaultState = config->defaultState ? 1 : 0;
     config->usePictures = config->usePictures ? 1 : 0;
     config->toggleOnClick = config->toggleOnClick ? 1 : 0;
@@ -326,6 +337,9 @@ void ButtonGrid_ApplyConfig(ButtonGrid *grid, const ButtonGridConfig *config)
     ButtonGrid_CopyText(grid->clickIdentifierFormat, BUTTON_GRID_FORMAT_SIZE, config->clickIdentifierFormat);
 
     grid->buttonBackMode = config->buttonBackMode;
+    grid->showButtonBorder = config->showButtonBorder;
+    grid->buttonBorderThickness = config->buttonBorderThickness;
+    grid->buttonBorderColor = config->buttonBorderColor;
     grid->backColor = config->backColor;
     grid->foreColor = config->foreColor;
 

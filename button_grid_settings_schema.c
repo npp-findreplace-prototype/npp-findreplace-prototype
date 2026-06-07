@@ -96,6 +96,9 @@ static const ButtonGridSettingDefinition g_settings[] =
     { "settingsWheelScrub", "Wheel scrub values", BG_SETTING_BOOL, offsetof(ButtonGrid, settingsWheelScrub), 0, 1, g_boolOptions },
 
     { "buttonBackMode", "Button background mode", BG_SETTING_ENUM, offsetof(ButtonGrid, buttonBackMode), 0, 0, g_buttonBackModeOptions },
+    { "showButtonBorder", "Show button border", BG_SETTING_BOOL, offsetof(ButtonGrid, showButtonBorder), 0, 1, g_boolOptions },
+    { "buttonBorderThickness", "Button border thickness", BG_SETTING_INT, offsetof(ButtonGrid, buttonBorderThickness), 1, 12, NULL },
+    { "buttonBorderColor", "Button border color", BG_SETTING_COLOR, offsetof(ButtonGrid, buttonBorderColor), 0, 0, NULL },
     { "backColor", "Button back color", BG_SETTING_COLOR, offsetof(ButtonGrid, backColor), 0, 0, NULL },
     { "foreColor", "Button text color", BG_SETTING_COLOR, offsetof(ButtonGrid, foreColor), 0, 0, NULL },
 

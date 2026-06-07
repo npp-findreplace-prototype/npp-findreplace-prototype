@@ -37,6 +37,10 @@ typedef struct AppImage AppImage;
 #define BUTTON_GRID_BUTTON_BACK_TRANSPARENT 1
 #define BUTTON_GRID_DEFAULT_BUTTON_BACK_MODE BUTTON_GRID_BUTTON_BACK_TRANSPARENT
 
+#define BUTTON_GRID_DEFAULT_SHOW_BUTTON_BORDER 0
+#define BUTTON_GRID_DEFAULT_BUTTON_BORDER_THICKNESS 1
+#define BUTTON_GRID_DEFAULT_BUTTON_BORDER_COLOR RGB(0, 0, 0)
+
 #define BUTTON_GRID_BORDER_STYLE_NONE 0
 #define BUTTON_GRID_BORDER_STYLE_SIMPLE 1
 #define BUTTON_GRID_BORDER_STYLE_ETCHED 2
@@ -226,6 +230,9 @@ typedef struct ButtonGridConfig
     const char *clickIdentifierFormat;
 
     int buttonBackMode;
+    int showButtonBorder;
+    int buttonBorderThickness;
+    COLORREF buttonBorderColor;
     COLORREF backColor;
     COLORREF foreColor;
 

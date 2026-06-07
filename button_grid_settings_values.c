@@ -70,6 +70,35 @@ static int ButtonGrid_SettingsNormalizeContentAlignment(int alignment)
     return alignment;
 }
 
+static int ButtonGrid_SettingsNormalizeBorderStyle(int borderStyle)
+{
+    if (borderStyle == BUTTON_GRID_BORDER_STYLE_NONE ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_SIMPLE ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_ETCHED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_ROUNDED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_ETCHED_ROUNDED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_CONTAINER ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_SUNKEN ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_RAISED ||
+        borderStyle == BUTTON_GRID_BORDER_STYLE_DOUBLE)
+    {
+        return borderStyle;
+    }
+
+    return BUTTON_GRID_DEFAULT_BORDER_STYLE;
+}
+
+static int ButtonGrid_SettingsNormalizeButtonBackMode(int mode)
+{
+    if (mode == BUTTON_GRID_BUTTON_BACK_OPAQUE ||
+        mode == BUTTON_GRID_BUTTON_BACK_TRANSPARENT)
+    {
+        return mode;
+    }
+
+    return BUTTON_GRID_DEFAULT_BUTTON_BACK_MODE;
+}
+
 static void ButtonGrid_SettingsColorToText(
     COLORREF color,
     char *buffer,
@@ -251,6 +280,18 @@ static void ButtonGrid_SettingsNormalizeLiveGrid(ButtonGrid *grid)
 
     grid->dpiScaleEnabled = grid->dpiScaleEnabled ? 1 : 0;
 
+    grid->buttonBackMode = ButtonGrid_SettingsNormalizeButtonBackMode(
+        grid->buttonBackMode
+    );
+
+    grid->showButtonBorder = grid->showButtonBorder ? 1 : 0;
+
+    if (grid->buttonBorderThickness < 1)
+        grid->buttonBorderThickness = 1;
+
+    if (grid->buttonBorderThickness > 12)
+        grid->buttonBorderThickness = 12;
+
     grid->contentAlignment = ButtonGrid_SettingsNormalizeContentAlignment(
         grid->contentAlignment
     );
@@ -278,13 +319,11 @@ static void ButtonGrid_SettingsNormalizeLiveGrid(ButtonGrid *grid)
 
     grid->allowThemeSelection = grid->allowThemeSelection ? 1 : 0;
 
-    if (grid->borderStyle != BUTTON_GRID_BORDER_STYLE_NONE &&
-        grid->borderStyle != BUTTON_GRID_BORDER_STYLE_SIMPLE &&
-        grid->borderStyle != BUTTON_GRID_BORDER_STYLE_ETCHED &&
-        grid->borderStyle != BUTTON_GRID_BORDER_STYLE_ROUNDED)
-    {
-        grid->borderStyle = BUTTON_GRID_BORDER_STYLE_ETCHED;
-    }
+    grid->showBorder = grid->showBorder ? 1 : 0;
+    grid->showBorderTitle = grid->showBorderTitle ? 1 : 0;
+    grid->borderTitleTransparent = grid->borderTitleTransparent ? 1 : 0;
+    grid->borderTitleAutoBackColor = grid->borderTitleAutoBackColor ? 1 : 0;
+    grid->borderStyle = ButtonGrid_SettingsNormalizeBorderStyle(grid->borderStyle);
 
     if (grid->borderPadding < 0)
         grid->borderPadding = 0;
@@ -292,11 +331,20 @@ static void ButtonGrid_SettingsNormalizeLiveGrid(ButtonGrid *grid)
     if (grid->borderTitleHeight < 0)
         grid->borderTitleHeight = 0;
 
+    if (grid->borderTitlePadding < 0)
+        grid->borderTitlePadding = 0;
+
+    if (grid->borderTitleFontSize < 0)
+        grid->borderTitleFontSize = 0;
+
+    if (grid->borderTitleFontSize > 96)
+        grid->borderTitleFontSize = 96;
+
     if (grid->borderThickness < 1)
         grid->borderThickness = 1;
 
-    if (grid->borderThickness > 8)
-        grid->borderThickness = 8;
+    if (grid->borderThickness > 12)
+        grid->borderThickness = 12;
 
     if (grid->borderCornerRadius < 0)
         grid->borderCornerRadius = 0;
@@ -327,7 +375,7 @@ void ButtonGrid_SettingsApplyGridChange(ButtonGrid *grid)
     ButtonGrid_RedrawAllButtons(grid);
     ButtonGrid_LayoutSettingsPage(grid);
 
-    InvalidateRect(grid->hwnd, NULL, TRUE);
+    InvalidateRect(grid->hwnd, NULL, FALSE);
 }
 
 void ButtonGrid_SettingsApplyValue(

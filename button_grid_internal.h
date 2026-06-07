@@ -178,6 +178,9 @@ typedef struct ButtonGrid
     char clickIdentifierFormat[BUTTON_GRID_FORMAT_SIZE];
 
     int buttonBackMode;
+    int showButtonBorder;
+    int buttonBorderThickness;
+    COLORREF buttonBorderColor;
     COLORREF backColor;
     COLORREF foreColor;
 

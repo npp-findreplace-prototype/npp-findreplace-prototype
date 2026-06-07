@@ -759,9 +759,18 @@ static void ButtonGrid_DrawButtonFrame(ButtonGrid *grid, HDC hdc, RECT *rc)
     int thickness;
     int i;
 
-    thickness = ButtonGrid_DpiScaleMin(grid, 1, 1);
+    if (!grid)
+        return;
 
-    pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+    if (!grid->showButtonBorder)
+        return;
+
+    thickness = ButtonGrid_DpiScaleMin(grid, grid->buttonBorderThickness, 1);
+
+    if (thickness < 1)
+        thickness = 1;
+
+    pen = CreatePen(PS_SOLID, 1, grid->buttonBorderColor);
     oldPen = SelectObject(hdc, pen);
     oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
 
