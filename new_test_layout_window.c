@@ -25,8 +25,10 @@
 
 #define NTL_FAUX_COMBO_HEIGHT 48
 #define NTL_ACTION_GROUP_HEIGHT 84
-#define NTL_UTILITY_BUTTON_WIDTH 132
-#define NTL_UTILITY_BUTTON_HEIGHT 30
+
+#define NTL_UTILITY_BUTTON_SQUARE_MIN 28
+#define NTL_UTILITY_BUTTON_SQUARE_MAX 42
+#define NTL_UTILITY_BUTTON_GAP 4
 
 #define ID_NTL_FIND_COMBO 7001
 #define ID_NTL_REPLACE_COMBO 7002
@@ -586,10 +588,6 @@ static void NewTestLayout_InitModeGridConfig(void)
 
     g_modeGridConfig.themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
     g_modeGridConfig.idBase = ID_NTL_MODE_GRID_BASE;
-
-#ifdef BUTTON_GRID_ALIGN_CENTER
-    g_modeGridConfig.contentAlignment = BUTTON_GRID_ALIGN_CENTER;
-#endif
 }
 
 static void NewTestLayout_CreateModeGrid(HWND hwnd)
@@ -682,7 +680,7 @@ static void NewTestLayout_CreateUtilityButtons(HWND hwnd)
         hwnd,
         g_hInstance,
         ID_NTL_COPY_TO_REPLACE_BUTTON,
-        "Copy -> Replace",
+        "R",
         &g_theme
     );
 
@@ -690,7 +688,7 @@ static void NewTestLayout_CreateUtilityButtons(HWND hwnd)
         hwnd,
         g_hInstance,
         ID_NTL_SWAP_FIND_REPLACE_BUTTON,
-        "Swap",
+        "<>",
         &g_theme
     );
 
@@ -698,7 +696,7 @@ static void NewTestLayout_CreateUtilityButtons(HWND hwnd)
         hwnd,
         g_hInstance,
         ID_NTL_COPY_TO_FIND_BUTTON,
-        "Copy -> Find",
+        "F",
         &g_theme
     );
 
@@ -961,7 +959,7 @@ static void NewTestLayout_ComputeVisibility(
     visibility->showUtilityButtons =
         g_settingsConfig.showUtilityButtons &&
         visibility->showReplaceBox &&
-        (!autoLayout || width >= 620);
+        (!autoLayout || width >= 430);
 
     visibility->showModeGrid =
         g_settingsConfig.showModeGrid &&
@@ -1065,6 +1063,12 @@ static void NewTestLayout_Layout(HWND hwnd)
     int leftPanelWidth;
     int modeGridHeight;
 
+    int showUtilityButtons;
+    int utilityTop;
+    int utilityBottom;
+    int utilitySquare;
+    int utilityGap;
+
     GetClientRect(hwnd, &rc);
 
     width = rc.right - rc.left;
@@ -1078,19 +1082,44 @@ static void NewTestLayout_Layout(HWND hwnd)
     y = NTL_MARGIN;
     right = width - NTL_MARGIN;
 
-    if (visibility.showUtilityButtons)
+    showUtilityButtons = visibility.showUtilityButtons;
+
+    utilityGap = NTL_UTILITY_BUTTON_GAP;
+    utilitySquare = 0;
+
+    if (showUtilityButtons)
     {
-        utilityX = right - NTL_UTILITY_BUTTON_WIDTH;
+        utilityTop = NTL_MARGIN;
+        utilityBottom =
+            NTL_MARGIN +
+            NTL_FAUX_COMBO_HEIGHT +
+            NTL_GAP +
+            NTL_FAUX_COMBO_HEIGHT;
+
+        utilitySquare =
+            (utilityBottom - utilityTop - utilityGap * 2) / 3;
+
+        if (utilitySquare < NTL_UTILITY_BUTTON_SQUARE_MIN)
+            utilitySquare = NTL_UTILITY_BUTTON_SQUARE_MIN;
+
+        if (utilitySquare > NTL_UTILITY_BUTTON_SQUARE_MAX)
+            utilitySquare = NTL_UTILITY_BUTTON_SQUARE_MAX;
+
+        utilityX = right - utilitySquare;
         comboRight = utilityX - NTL_GAP;
+
+        if (comboRight < x + 200)
+        {
+            showUtilityButtons = 0;
+            utilityX = right;
+            comboRight = right;
+        }
     }
     else
     {
         utilityX = right;
         comboRight = right;
     }
-
-    if (comboRight < x + 160)
-        comboRight = right;
 
     NewTestLayout_SetRect(
         &r,
@@ -1123,40 +1152,46 @@ static void NewTestLayout_Layout(HWND hwnd)
         NewTestLayoutFauxCombo_Show(g_replaceCombo, 0);
     }
 
-    if (visibility.showUtilityButtons)
+    if (showUtilityButtons)
     {
+        utilityTop = NTL_MARGIN;
+
         NewTestLayout_SetRect(
             &r,
             utilityX,
-            NTL_MARGIN,
-            utilityX + NTL_UTILITY_BUTTON_WIDTH,
-            NTL_MARGIN + NTL_UTILITY_BUTTON_HEIGHT
+            utilityTop,
+            utilityX + utilitySquare,
+            utilityTop + utilitySquare
         );
 
         NewTestLayoutActionButton_SetRect(g_copyToReplaceButton, &r);
 
+        utilityTop += utilitySquare + utilityGap;
+
         NewTestLayout_SetRect(
             &r,
             utilityX,
-            NTL_MARGIN + NTL_UTILITY_BUTTON_HEIGHT + 5,
-            utilityX + NTL_UTILITY_BUTTON_WIDTH,
-            NTL_MARGIN + NTL_UTILITY_BUTTON_HEIGHT * 2 + 5
+            utilityTop,
+            utilityX + utilitySquare,
+            utilityTop + utilitySquare
         );
 
         NewTestLayoutActionButton_SetRect(g_swapFindReplaceButton, &r);
 
+        utilityTop += utilitySquare + utilityGap;
+
         NewTestLayout_SetRect(
             &r,
             utilityX,
-            NTL_MARGIN + (NTL_UTILITY_BUTTON_HEIGHT + 5) * 2,
-            utilityX + NTL_UTILITY_BUTTON_WIDTH,
-            NTL_MARGIN + NTL_UTILITY_BUTTON_HEIGHT * 3 + 10
+            utilityTop,
+            utilityX + utilitySquare,
+            utilityTop + utilitySquare
         );
 
         NewTestLayoutActionButton_SetRect(g_copyToFindButton, &r);
     }
 
-    NewTestLayout_ShowUtilityButtons(visibility.showUtilityButtons);
+    NewTestLayout_ShowUtilityButtons(showUtilityButtons);
 
     y = NTL_MARGIN + NTL_FAUX_COMBO_HEIGHT;
 

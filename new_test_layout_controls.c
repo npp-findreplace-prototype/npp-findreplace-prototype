@@ -15,6 +15,10 @@
 #define IDC_HAND MAKEINTRESOURCE(32649)
 #endif
 
+#ifndef EM_SETRECT
+#define EM_SETRECT 0x00B3
+#endif
+
 #define NTL_FAUX_COMBO_CLASS_NAME "NewTestLayoutFauxComboClass"
 #define NTL_ACTION_BUTTON_CLASS_NAME "NewTestLayoutActionButtonClass"
 #define NTL_ACTION_GROUP_CLASS_NAME "NewTestLayoutActionGroupClass"
@@ -42,6 +46,8 @@ struct NewTestLayoutFauxCombo
     int recentItemCount;
 
     NewTestLayoutTheme theme;
+
+    HBRUSH editBrush;
 
     int visible;
     int dropdownVisible;
@@ -217,14 +223,8 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->normalFont)
     {
         theme->normalFont = CreateFont(
-            -18,
-            0,
-            0,
-            0,
-            FW_NORMAL,
-            FALSE,
-            FALSE,
-            FALSE,
+            -18, 0, 0, 0, FW_NORMAL,
+            FALSE, FALSE, FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -237,14 +237,8 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->monoFont)
     {
         theme->monoFont = CreateFont(
-            -18,
-            0,
-            0,
-            0,
-            FW_NORMAL,
-            FALSE,
-            FALSE,
-            FALSE,
+            -18, 0, 0, 0, FW_NORMAL,
+            FALSE, FALSE, FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -257,14 +251,8 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->placeholderFont)
     {
         theme->placeholderFont = CreateFont(
-            -28,
-            0,
-            0,
-            0,
-            FW_NORMAL,
-            FALSE,
-            FALSE,
-            FALSE,
+            -28, 0, 0, 0, FW_NORMAL,
+            FALSE, FALSE, FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -277,14 +265,8 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->buttonFont)
     {
         theme->buttonFont = CreateFont(
-            -17,
-            0,
-            0,
-            0,
-            FW_NORMAL,
-            FALSE,
-            FALSE,
-            FALSE,
+            -17, 0, 0, 0, FW_NORMAL,
+            FALSE, FALSE, FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -297,14 +279,8 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->titleFont)
     {
         theme->titleFont = CreateFont(
-            -17,
-            0,
-            0,
-            0,
-            FW_NORMAL,
-            FALSE,
-            FALSE,
-            FALSE,
+            -17, 0, 0, 0, FW_NORMAL,
+            FALSE, FALSE, FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -342,10 +318,98 @@ void NewTestLayoutTheme_DeleteFonts(NewTestLayoutTheme *theme)
     theme->titleFont = NULL;
 }
 
+static void FauxCombo_RecreateEditBrush(NewTestLayoutFauxCombo *combo)
+{
+    if (!combo)
+        return;
+
+    if (combo->editBrush)
+        DeleteObject(combo->editBrush);
+
+    combo->editBrush = CreateSolidBrush(combo->theme.editBackColor);
+}
+
+static void FauxCombo_UpdateEditFormatRect(NewTestLayoutFauxCombo *combo)
+{
+    RECT rc;
+    RECT formatRc;
+    HDC hdc;
+    HFONT oldFont;
+    TEXTMETRIC tm;
+    int textHeight;
+    int top;
+
+    if (!combo || !combo->edit)
+        return;
+
+    GetClientRect(combo->edit, &rc);
+
+    hdc = GetDC(combo->edit);
+
+    if (!hdc)
+        return;
+
+    oldFont = NULL;
+
+    if (combo->theme.monoFont)
+        oldFont = (HFONT)SelectObject(hdc, combo->theme.monoFont);
+
+    ZeroMemory(&tm, sizeof(tm));
+    GetTextMetrics(hdc, &tm);
+
+    if (oldFont)
+        SelectObject(hdc, oldFont);
+
+    ReleaseDC(combo->edit, hdc);
+
+    textHeight = tm.tmHeight + tm.tmExternalLeading;
+    top = ((rc.bottom - rc.top) - textHeight) / 2;
+
+    if (top < 0)
+        top = 0;
+
+    formatRc.left = 2;
+    formatRc.top = top;
+    formatRc.right = rc.right - 2;
+    formatRc.bottom = rc.bottom;
+
+    SendMessage(combo->edit, EM_SETRECT, 0, (LPARAM)&formatRc);
+}
+
+static void FauxCombo_Redraw(NewTestLayoutFauxCombo *combo)
+{
+    if (!combo)
+        return;
+
+    if (combo->hwnd)
+    {
+        RedrawWindow(
+            combo->hwnd,
+            NULL,
+            NULL,
+            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN
+        );
+    }
+
+    if (combo->edit)
+    {
+        RedrawWindow(
+            combo->edit,
+            NULL,
+            NULL,
+            RDW_INVALIDATE | RDW_ERASE
+        );
+    }
+}
+
 static void FauxCombo_PositionChildren(NewTestLayoutFauxCombo *combo)
 {
     RECT rc;
     RECT screenRc;
+    int editX;
+    int editY;
+    int editW;
+    int editH;
     int h;
 
     if (!combo || !combo->hwnd)
@@ -353,14 +417,31 @@ static void FauxCombo_PositionChildren(NewTestLayoutFauxCombo *combo)
 
     GetClientRect(combo->hwnd, &rc);
 
+    editX = NTL_FAUX_COMBO_EDIT_MARGIN;
+    editY = 2;
+    editW =
+        rc.right - rc.left -
+        NTL_FAUX_COMBO_ARROW_WIDTH -
+        NTL_FAUX_COMBO_EDIT_MARGIN -
+        2;
+    editH = rc.bottom - rc.top - 4;
+
+    if (editW < 20)
+        editW = 20;
+
+    if (editH < 20)
+        editH = 20;
+
     MoveWindow(
         combo->edit,
-        NTL_FAUX_COMBO_EDIT_MARGIN,
-        2,
-        rc.right - rc.left - NTL_FAUX_COMBO_ARROW_WIDTH - NTL_FAUX_COMBO_EDIT_MARGIN,
-        rc.bottom - rc.top - 4,
+        editX,
+        editY,
+        editW,
+        editH,
         TRUE
     );
+
+    FauxCombo_UpdateEditFormatRect(combo);
 
     GetWindowRect(combo->hwnd, &screenRc);
     MapWindowPoints(HWND_DESKTOP, combo->parent, (POINT *)&screenRc, 2);
@@ -385,6 +466,8 @@ static void FauxCombo_PositionChildren(NewTestLayoutFauxCombo *combo)
         0,
         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
     );
+
+    FauxCombo_Redraw(combo);
 }
 
 static void FauxCombo_RebuildList(NewTestLayoutFauxCombo *combo)
@@ -452,10 +535,10 @@ static LRESULT CALLBACK FauxCombo_EditSubclassProc(HWND hwnd, UINT msg, WPARAM w
     WNDPROC oldProc;
     LRESULT result;
     RECT rc;
-    char text[2];
     HFONT font;
     HFONT oldFont;
     int oldBkMode;
+    HDC hdc;
 
     combo = (NewTestLayoutFauxCombo *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
@@ -464,31 +547,49 @@ static LRESULT CALLBACK FauxCombo_EditSubclassProc(HWND hwnd, UINT msg, WPARAM w
 
     oldProc = combo->oldEditProc;
 
-    if (msg == WM_SETFOCUS)
-        Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_SET_FOCUS);
-
-    if (msg == WM_KILLFOCUS)
+    switch (msg)
     {
-        HWND newFocus;
+        case WM_ERASEBKGND:
+        {
+            GetClientRect(hwnd, &rc);
+            Ntl_FillRect((HDC)wParam, &rc, combo->theme.editBackColor);
+            return 1;
+        }
 
-        newFocus = (HWND)wParam;
+        case WM_SETFOCUS:
+        {
+            Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_SET_FOCUS);
+            break;
+        }
 
-        if (newFocus != combo->list)
-            NewTestLayoutFauxCombo_ShowDropdown(combo, 0);
+        case WM_KILLFOCUS:
+        {
+            HWND newFocus;
 
-        Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_KILL_FOCUS);
+            newFocus = (HWND)wParam;
+
+            if (newFocus != combo->list)
+                NewTestLayoutFauxCombo_ShowDropdown(combo, 0);
+
+            Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_KILL_FOCUS);
+            break;
+        }
+
+        case WM_KEYDOWN:
+        {
+            if (wParam == VK_RETURN)
+                return 0;
+
+            break;
+        }
     }
 
     result = CallWindowProc(oldProc, hwnd, msg, wParam, lParam);
 
     if (msg == WM_PAINT)
     {
-        GetWindowText(hwnd, text, sizeof(text));
-
-        if (!text[0] && combo->placeholder[0])
+        if (GetWindowTextLength(hwnd) == 0 && combo->placeholder[0])
         {
-            HDC hdc;
-
             hdc = GetDC(hwnd);
 
             if (hdc)
@@ -544,6 +645,18 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             return 0;
         }
 
+        case WM_ERASEBKGND:
+        {
+            if (combo)
+            {
+                GetClientRect(hwnd, &rc);
+                Ntl_FillRect((HDC)wParam, &rc, combo->theme.editBackColor);
+                return 1;
+            }
+
+            break;
+        }
+
         case WM_LBUTTONDOWN:
         {
             if (combo)
@@ -571,7 +684,7 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
             if ((HWND)lParam == combo->edit && notifyCode == EN_CHANGE)
             {
-                InvalidateRect(combo->edit, NULL, FALSE);
+                FauxCombo_Redraw(combo);
                 Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_TEXT_CHANGED);
                 return 0;
             }
@@ -585,7 +698,11 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             {
                 SetBkColor((HDC)wParam, combo->theme.editBackColor);
                 SetTextColor((HDC)wParam, combo->theme.editTextColor);
-                return (LRESULT)GetStockObject(NULL_BRUSH);
+
+                if (!combo->editBrush)
+                    FauxCombo_RecreateEditBrush(combo);
+
+                return (LRESULT)combo->editBrush;
             }
 
             break;
@@ -642,6 +759,8 @@ NewTestLayoutFauxCombo *NewTestLayoutFauxCombo_Create(
     NewTestLayoutTheme_CreateDefaultFonts(&useTheme);
     combo->theme = useTheme;
 
+    FauxCombo_RecreateEditBrush(combo);
+
     combo->hwnd = CreateWindowEx(
         0,
         NTL_FAUX_COMBO_CLASS_NAME,
@@ -659,7 +778,7 @@ NewTestLayoutFauxCombo *NewTestLayoutFauxCombo_Create(
 
     if (!combo->hwnd)
     {
-        free(combo);
+        NewTestLayoutFauxCombo_Destroy(combo);
         return NULL;
     }
 
@@ -669,7 +788,8 @@ NewTestLayoutFauxCombo *NewTestLayoutFauxCombo_Create(
         0,
         "EDIT",
         "",
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP |
+        ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
         0,
         0,
         100,
@@ -706,6 +826,8 @@ NewTestLayoutFauxCombo *NewTestLayoutFauxCombo_Create(
                 GWLP_WNDPROC,
                 (LONG_PTR)FauxCombo_EditSubclassProc
             );
+
+        FauxCombo_UpdateEditFormatRect(combo);
     }
 
     if (combo->list)
@@ -734,6 +856,9 @@ void NewTestLayoutFauxCombo_Destroy(NewTestLayoutFauxCombo *combo)
     if (combo->hwnd)
         DestroyWindow(combo->hwnd);
 
+    if (combo->editBrush)
+        DeleteObject(combo->editBrush);
+
     NewTestLayoutTheme_DeleteFonts(&combo->theme);
 
     free(combo);
@@ -758,14 +883,16 @@ void NewTestLayoutFauxCombo_SetTheme(NewTestLayoutFauxCombo *combo, const NewTes
     Ntl_CopyTheme(&combo->theme, theme);
     NewTestLayoutTheme_CreateDefaultFonts(&combo->theme);
 
+    FauxCombo_RecreateEditBrush(combo);
+
     if (combo->edit)
         SendMessage(combo->edit, WM_SETFONT, (WPARAM)combo->theme.monoFont, TRUE);
 
     if (combo->list)
         SendMessage(combo->list, WM_SETFONT, (WPARAM)combo->theme.monoFont, TRUE);
 
-    InvalidateRect(combo->hwnd, NULL, TRUE);
-    InvalidateRect(combo->edit, NULL, TRUE);
+    FauxCombo_UpdateEditFormatRect(combo);
+    FauxCombo_Redraw(combo);
 }
 
 void NewTestLayoutFauxCombo_SetRect(NewTestLayoutFauxCombo *combo, const RECT *rect)
@@ -783,6 +910,7 @@ void NewTestLayoutFauxCombo_SetRect(NewTestLayoutFauxCombo *combo, const RECT *r
     );
 
     FauxCombo_PositionChildren(combo);
+    FauxCombo_Redraw(combo);
 }
 
 void NewTestLayoutFauxCombo_Show(NewTestLayoutFauxCombo *combo, int show)
@@ -795,6 +923,8 @@ void NewTestLayoutFauxCombo_Show(NewTestLayoutFauxCombo *combo, int show)
 
     if (!combo->visible)
         NewTestLayoutFauxCombo_ShowDropdown(combo, 0);
+
+    FauxCombo_Redraw(combo);
 }
 
 int NewTestLayoutFauxCombo_IsVisible(NewTestLayoutFauxCombo *combo)
@@ -808,7 +938,7 @@ void NewTestLayoutFauxCombo_SetText(NewTestLayoutFauxCombo *combo, const char *t
         return;
 
     SetWindowText(combo->edit, text ? text : "");
-    InvalidateRect(combo->edit, NULL, FALSE);
+    FauxCombo_Redraw(combo);
 }
 
 void NewTestLayoutFauxCombo_GetText(NewTestLayoutFauxCombo *combo, char *buffer, int bufferSize)
@@ -839,7 +969,7 @@ void NewTestLayoutFauxCombo_SetPlaceholder(NewTestLayoutFauxCombo *combo, const 
         return;
 
     Ntl_CopyText(combo->placeholder, sizeof(combo->placeholder), placeholder);
-    InvalidateRect(combo->edit, NULL, FALSE);
+    FauxCombo_Redraw(combo);
 }
 
 void NewTestLayoutFauxCombo_SetPlaceholderLarge(NewTestLayoutFauxCombo *combo, int large)
@@ -848,7 +978,7 @@ void NewTestLayoutFauxCombo_SetPlaceholderLarge(NewTestLayoutFauxCombo *combo, i
         return;
 
     combo->placeholderLarge = large ? 1 : 0;
-    InvalidateRect(combo->edit, NULL, FALSE);
+    FauxCombo_Redraw(combo);
 }
 
 void NewTestLayoutFauxCombo_SetRecentItems(NewTestLayoutFauxCombo *combo, const char **items, int itemCount)
@@ -946,6 +1076,7 @@ void NewTestLayoutFauxCombo_HandleParentCommand(NewTestLayoutFauxCombo *combo, W
             text[sizeof(text) - 1] = '\0';
 
             SetWindowText(combo->edit, text);
+            FauxCombo_Redraw(combo);
 
             Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_RECENT_SELECTED);
 
