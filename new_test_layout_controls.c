@@ -11,6 +11,10 @@
 #define GWLP_WNDPROC (-4)
 #endif
 
+#ifndef IDC_HAND
+#define IDC_HAND MAKEINTRESOURCE(32649)
+#endif
+
 #define NTL_FAUX_COMBO_CLASS_NAME "NewTestLayoutFauxComboClass"
 #define NTL_ACTION_BUTTON_CLASS_NAME "NewTestLayoutActionButtonClass"
 #define NTL_ACTION_GROUP_CLASS_NAME "NewTestLayoutActionGroupClass"
@@ -21,7 +25,7 @@
 #define NTL_FAUX_COMBO_EDIT_MARGIN 8
 #define NTL_FAUX_COMBO_LIST_ID_OFFSET 20000
 
-typedef struct NewTestLayoutFauxCombo
+struct NewTestLayoutFauxCombo
 {
     HWND parent;
     HWND hwnd;
@@ -42,9 +46,9 @@ typedef struct NewTestLayoutFauxCombo
     int visible;
     int dropdownVisible;
     int placeholderLarge;
-} NewTestLayoutFauxCombo;
+};
 
-typedef struct NewTestLayoutActionButton
+struct NewTestLayoutActionButton
 {
     HWND parent;
     HWND hwnd;
@@ -67,9 +71,9 @@ typedef struct NewTestLayoutActionButton
     int pressed;
 
     NewTestLayoutTheme theme;
-} NewTestLayoutActionButton;
+};
 
-typedef struct NewTestLayoutActionGroup
+struct NewTestLayoutActionGroup
 {
     HWND parent;
     HWND hwnd;
@@ -87,9 +91,9 @@ typedef struct NewTestLayoutActionGroup
     int padding;
 
     NewTestLayoutTheme theme;
-} NewTestLayoutActionGroup;
+};
 
-typedef struct NewTestLayoutGearButton
+struct NewTestLayoutGearButton
 {
     HWND parent;
     HWND hwnd;
@@ -102,7 +106,7 @@ typedef struct NewTestLayoutGearButton
     int pressed;
 
     NewTestLayoutTheme theme;
-} NewTestLayoutGearButton;
+};
 
 static void Ntl_CopyText(char *dest, int destSize, const char *src)
 {
@@ -461,9 +465,7 @@ static LRESULT CALLBACK FauxCombo_EditSubclassProc(HWND hwnd, UINT msg, WPARAM w
     oldProc = combo->oldEditProc;
 
     if (msg == WM_SETFOCUS)
-    {
         Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_SET_FOCUS);
-    }
 
     if (msg == WM_KILLFOCUS)
     {
@@ -494,7 +496,6 @@ static LRESULT CALLBACK FauxCombo_EditSubclassProc(HWND hwnd, UINT msg, WPARAM w
                 GetClientRect(hwnd, &rc);
 
                 SetTextColor(hdc, combo->theme.placeholderColor);
-                SetBkMode(hdc, TRANSPARENT);
 
                 font = combo->placeholderLarge ?
                     combo->theme.placeholderFont :
@@ -531,7 +532,6 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     PAINTSTRUCT ps;
     HDC hdc;
     RECT rc;
-    int id;
     int notifyCode;
 
     combo = (NewTestLayoutFauxCombo *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -567,7 +567,6 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             if (!combo)
                 break;
 
-            id = LOWORD(wParam);
             notifyCode = HIWORD(wParam);
 
             if ((HWND)lParam == combo->edit && notifyCode == EN_CHANGE)
@@ -577,7 +576,6 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 return 0;
             }
 
-            (void)id;
             break;
         }
 
@@ -642,7 +640,6 @@ NewTestLayoutFauxCombo *NewTestLayoutFauxCombo_Create(
 
     useTheme = combo->theme;
     NewTestLayoutTheme_CreateDefaultFonts(&useTheme);
-
     combo->theme = useTheme;
 
     combo->hwnd = CreateWindowEx(
@@ -972,7 +969,6 @@ int NewTestLayoutFauxCombo_IsChildWindow(NewTestLayoutFauxCombo *combo, HWND hwn
 static void ActionButton_Draw(NewTestLayoutActionButton *button, HDC hdc)
 {
     RECT rc;
-    RECT textRc;
     char countText[64];
     int showCount;
     SIZE labelSize;
@@ -1070,8 +1066,6 @@ static void ActionButton_Draw(NewTestLayoutActionButton *button, HDC hdc)
     }
 
     SelectObject(hdc, oldFont);
-
-    (void)textRc;
 }
 
 static LRESULT CALLBACK ActionButtonProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -1722,6 +1716,22 @@ void NewTestLayoutActionGroup_LayoutButtons(NewTestLayoutActionGroup *group)
     }
 }
 
+static void GearButton_DrawToothLine(HDC hdc, int cx, int cy, int dx, int dy, int inner, int outer)
+{
+    int x1;
+    int y1;
+    int x2;
+    int y2;
+
+    x1 = cx + (dx * inner) / 100;
+    y1 = cy + (dy * inner) / 100;
+    x2 = cx + (dx * outer) / 100;
+    y2 = cy + (dy * outer) / 100;
+
+    MoveToEx(hdc, x1, y1, NULL);
+    LineTo(hdc, x2, y2);
+}
+
 static void GearButton_Draw(NewTestLayoutGearButton *gear, HDC hdc)
 {
     RECT rc;
@@ -1729,16 +1739,16 @@ static void GearButton_Draw(NewTestLayoutGearButton *gear, HDC hdc)
     int cy;
     int rOuter;
     int rInner;
+    int rToothInner;
+    int rToothOuter;
     int i;
-    double angle;
-    int x1;
-    int y1;
-    int x2;
-    int y2;
     HPEN pen;
     HBRUSH brush;
     HGDIOBJ oldPen;
     HGDIOBJ oldBrush;
+
+    static const int dx[8] = { 100, 71, 0, -71, -100, -71, 0, 71 };
+    static const int dy[8] = { 0, 71, 100, 71, 0, -71, -100, -71 };
 
     if (!gear || !hdc)
         return;
@@ -1756,9 +1766,14 @@ static void GearButton_Draw(NewTestLayoutGearButton *gear, HDC hdc)
     if (rc.bottom - rc.top < rOuter * 3)
         rOuter = (rc.bottom - rc.top) / 3;
 
-    rInner = rOuter / 2;
+    if (rOuter < 5)
+        rOuter = 5;
 
-    pen = CreatePen(PS_SOLID, 3, gear->theme.gearColor);
+    rInner = rOuter / 2;
+    rToothInner = rOuter - 2;
+    rToothOuter = rOuter + 4;
+
+    pen = CreatePen(PS_SOLID, 2, gear->theme.gearColor);
     brush = CreateSolidBrush(gear->theme.gearBackColor);
 
     if (!pen || !brush)
@@ -1777,15 +1792,15 @@ static void GearButton_Draw(NewTestLayoutGearButton *gear, HDC hdc)
 
     for (i = 0; i < 8; i++)
     {
-        angle = 6.28318530718 * (double)i / 8.0;
-
-        x1 = cx + (int)(cos(angle) * (double)(rInner + 2));
-        y1 = cy + (int)(sin(angle) * (double)(rInner + 2));
-        x2 = cx + (int)(cos(angle) * (double)(rOuter + 2));
-        y2 = cy + (int)(sin(angle) * (double)(rOuter + 2));
-
-        MoveToEx(hdc, x1, y1, NULL);
-        LineTo(hdc, x2, y2);
+        GearButton_DrawToothLine(
+            hdc,
+            cx,
+            cy,
+            dx[i],
+            dy[i],
+            rToothInner,
+            rToothOuter
+        );
     }
 
     Ellipse(

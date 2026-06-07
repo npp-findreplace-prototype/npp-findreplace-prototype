@@ -4,13 +4,11 @@
 
 #include "new_test_layout_settings.h"
 
-#define NEW_TEST_LAYOUT_SETTINGS_CLASSLESS_TITLE "Settings"
-
 #define NTL_SETTINGS_ID_CLOSE_BUTTON 6100
 #define NTL_SETTINGS_ID_INT_BASE 6200
 #define NTL_SETTINGS_ID_BOOL_BASE 6300
 
-#define NTL_SETTINGS_INT_COUNT 4
+#define NTL_SETTINGS_INT_COUNT 5
 #define NTL_SETTINGS_BOOL_COUNT 16
 
 typedef struct NewTestLayoutSettingsIntDef
@@ -55,7 +53,8 @@ static const NewTestLayoutSettingsIntDef g_intDefs[NTL_SETTINGS_INT_COUNT] =
     { "Overlay width", offsetof(NewTestLayoutSettingsConfig, overlayWidth) },
     { "Overlay margin", offsetof(NewTestLayoutSettingsConfig, overlayMargin) },
     { "Row height", offsetof(NewTestLayoutSettingsConfig, rowHeight) },
-    { "Gap", offsetof(NewTestLayoutSettingsConfig, gap) }
+    { "Gap", offsetof(NewTestLayoutSettingsConfig, gap) },
+    { "Single row icon grid height", offsetof(NewTestLayoutSettingsConfig, singleRowModeGridHeight) }
 };
 
 static const NewTestLayoutSettingsBoolDef g_boolDefs[NTL_SETTINGS_BOOL_COUNT] =
@@ -71,7 +70,7 @@ static const NewTestLayoutSettingsBoolDef g_boolDefs[NTL_SETTINGS_BOOL_COUNT] =
     { "Show zero counts", offsetof(NewTestLayoutSettingsConfig, showZeroCounts) },
     { "Counts in parentheses", offsetof(NewTestLayoutSettingsConfig, countInParentheses) },
     { "Enable left mode panel", offsetof(NewTestLayoutSettingsConfig, enableLeftModePanel) },
-    { "Enable growing border", offsetof(NewTestLayoutSettingsConfig, enableGrowingBorder) },
+    { "Enable group borders", offsetof(NewTestLayoutSettingsConfig, enableGrowingBorder) },
     { "Recent find dropdown", offsetof(NewTestLayoutSettingsConfig, enableRecentFindDropdown) },
     { "Recent replace dropdown", offsetof(NewTestLayoutSettingsConfig, enableRecentReplaceDropdown) },
     { "Large placeholder text", offsetof(NewTestLayoutSettingsConfig, fauxComboPlaceholderLarge) },
@@ -84,14 +83,6 @@ static int *Settings_IntField(
 )
 {
     return (int *)((BYTE *)config + offset);
-}
-
-static COLORREF *Settings_ColorField(
-    NewTestLayoutSettingsConfig *config,
-    size_t offset
-)
-{
-    return (COLORREF *)((BYTE *)config + offset);
 }
 
 static void Settings_CopyConfig(
@@ -234,6 +225,7 @@ void NewTestLayoutSettings_GetDefaultConfig(
     config->overlayMargin = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_MARGIN;
     config->rowHeight = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_ROW_HEIGHT;
     config->gap = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_GAP;
+    config->singleRowModeGridHeight = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_SINGLE_ROW_GRID_HEIGHT;
 
     config->autoLayoutEnabled = 1;
     config->showReplaceBox = 1;
@@ -669,8 +661,18 @@ static int Settings_HandleIntEditCommand(
     if (index == 0 && newValue < 180)
         newValue = 180;
 
-    if (index != 0 && newValue < 0)
+    if (index == 4)
+    {
+        if (newValue < 44)
+            newValue = 44;
+
+        if (newValue > 140)
+            newValue = 140;
+    }
+    else if (index != 0 && newValue < 0)
+    {
         newValue = 0;
+    }
 
     if (oldValue != newValue)
     {

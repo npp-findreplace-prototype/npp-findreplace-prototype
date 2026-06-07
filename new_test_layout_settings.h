@@ -7,6 +7,7 @@
 #define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_MARGIN 12
 #define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_ROW_HEIGHT 28
 #define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_GAP 8
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_SINGLE_ROW_GRID_HEIGHT 68
 
 typedef struct NewTestLayoutSettingsPanel NewTestLayoutSettingsPanel;
 
@@ -20,6 +21,7 @@ typedef struct NewTestLayoutSettingsConfig
     int overlayMargin;
     int rowHeight;
     int gap;
+    int singleRowModeGridHeight;
 
     int autoLayoutEnabled;
     int showReplaceBox;

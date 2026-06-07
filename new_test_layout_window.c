@@ -24,16 +24,12 @@
 #define NTL_GAP 8
 
 #define NTL_FAUX_COMBO_HEIGHT 48
-#define NTL_MODE_GRID_ROW_HEIGHT 52
 #define NTL_ACTION_GROUP_HEIGHT 84
 #define NTL_UTILITY_BUTTON_WIDTH 132
 #define NTL_UTILITY_BUTTON_HEIGHT 30
-#define NTL_GEAR_SIZE 32
 
 #define ID_NTL_FIND_COMBO 7001
 #define ID_NTL_REPLACE_COMBO 7002
-
-#define ID_NTL_GEAR_BUTTON 7003
 
 #define ID_NTL_COPY_TO_REPLACE_BUTTON 7010
 #define ID_NTL_SWAP_FIND_REPLACE_BUTTON 7011
@@ -102,8 +98,6 @@ static NewTestLayoutSettingsPanel *g_settingsPanel = NULL;
 static NewTestLayoutFauxCombo *g_findCombo = NULL;
 static NewTestLayoutFauxCombo *g_replaceCombo = NULL;
 
-static NewTestLayoutGearButton *g_gearButton = NULL;
-
 static NewTestLayoutActionButton *g_copyToReplaceButton = NULL;
 static NewTestLayoutActionButton *g_swapFindReplaceButton = NULL;
 static NewTestLayoutActionButton *g_copyToFindButton = NULL;
@@ -121,6 +115,8 @@ static NewTestLayoutCounts g_counts;
 
 static HBRUSH g_backBrush = NULL;
 
+static void NewTestLayout_Layout(HWND hwnd);
+
 static void NewTestLayout_CopyText(char *dest, int destSize, const char *src)
 {
     if (!dest || destSize <= 0)
@@ -136,11 +132,6 @@ static void NewTestLayout_CopyText(char *dest, int destSize, const char *src)
 static int NewTestLayout_MinInt(int a, int b)
 {
     return a < b ? a : b;
-}
-
-static int NewTestLayout_MaxInt(int a, int b)
-{
-    return a > b ? a : b;
 }
 
 static int NewTestLayout_ClampInt(int value, int minValue, int maxValue)
@@ -169,6 +160,21 @@ static void NewTestLayout_SetRect(
     rc->top = top;
     rc->right = right;
     rc->bottom = bottom;
+}
+
+static int NewTestLayout_GetSingleRowModeGridHeight(void)
+{
+    int h;
+
+    h = g_settingsConfig.singleRowModeGridHeight;
+
+    if (h < 44)
+        h = 44;
+
+    if (h > 140)
+        h = 140;
+
+    return h;
 }
 
 static int NewTestLayout_TextStartsWith(
@@ -254,6 +260,18 @@ static void NewTestLayout_UpdateWindowTitle(void)
 
     if (g_window)
         SetWindowText(g_window, title);
+}
+
+static void NewTestLayout_ToggleSettings(void)
+{
+    if (!g_settingsPanel)
+        return;
+
+    NewTestLayoutSettings_Toggle(g_settingsPanel);
+    NewTestLayout_UpdateWindowTitle();
+
+    if (g_window)
+        NewTestLayout_Layout(g_window);
 }
 
 static void NewTestLayout_GetFindText(char *buffer, int bufferSize)
@@ -418,81 +436,24 @@ static void NewTestLayout_ApplyCounts(void)
 
     if (g_findGroup)
     {
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_findGroup,
-            0,
-            counts.findPrevious,
-            counts.hasCounts
-        );
-
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_findGroup,
-            1,
-            counts.findAll,
-            counts.hasCounts
-        );
-
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_findGroup,
-            2,
-            0,
-            0
-        );
-
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_findGroup,
-            3,
-            counts.findNext,
-            counts.hasCounts
-        );
+        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 0, counts.findPrevious, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 1, counts.findAll, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 2, 0, 0);
+        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 3, counts.findNext, counts.hasCounts);
     }
 
     if (g_replaceGroup)
     {
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_replaceGroup,
-            0,
-            counts.replacePrevious,
-            counts.hasCounts
-        );
-
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_replaceGroup,
-            1,
-            counts.replaceAll,
-            counts.hasCounts
-        );
-
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_replaceGroup,
-            2,
-            counts.replaceNext,
-            counts.hasCounts
-        );
+        NewTestLayoutActionGroup_SetButtonCount(g_replaceGroup, 0, counts.replacePrevious, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_replaceGroup, 1, counts.replaceAll, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_replaceGroup, 2, counts.replaceNext, counts.hasCounts);
     }
 
     if (g_selectionGroup)
     {
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_selectionGroup,
-            0,
-            counts.selectionReplacePrevious,
-            counts.hasSelectionCounts
-        );
-
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_selectionGroup,
-            1,
-            counts.selectionReplaceAll,
-            counts.hasSelectionCounts
-        );
-
-        NewTestLayoutActionGroup_SetButtonCount(
-            g_selectionGroup,
-            2,
-            counts.selectionReplaceNext,
-            counts.hasSelectionCounts
-        );
+        NewTestLayoutActionGroup_SetButtonCount(g_selectionGroup, 0, counts.selectionReplacePrevious, counts.hasSelectionCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_selectionGroup, 1, counts.selectionReplaceAll, counts.hasSelectionCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_selectionGroup, 2, counts.selectionReplaceNext, counts.hasSelectionCounts);
     }
 
     NewTestLayout_GetFindText(currentFind, sizeof(currentFind));
@@ -512,6 +473,12 @@ static void NewTestLayout_ApplyCounts(void)
 
 static void NewTestLayout_ModeGridClicked(const char *actionName)
 {
+    if (actionName && lstrcmpi(actionName, "Settings") == 0)
+    {
+        NewTestLayout_ToggleSettings();
+        return;
+    }
+
     Debug_Log(
         "NewLayout",
         "ModeGridClick",
@@ -590,8 +557,8 @@ static void NewTestLayout_InitModeGridConfig(void)
     g_modeGridConfig.buttonCount = 12;
     g_modeGridConfig.items = g_modeGridItems;
 
-    g_modeGridConfig.buttonWidth = 38;
-    g_modeGridConfig.buttonHeight = 38;
+    g_modeGridConfig.buttonWidth = 46;
+    g_modeGridConfig.buttonHeight = 46;
     g_modeGridConfig.horizontalSpacing = 8;
     g_modeGridConfig.verticalSpacing = 8;
 
@@ -614,8 +581,15 @@ static void NewTestLayout_InitModeGridConfig(void)
     g_modeGridConfig.buttonBackMode = BUTTON_GRID_BUTTON_BACK_TRANSPARENT;
     g_modeGridConfig.showButtonBorder = 0;
 
+    g_modeGridConfig.backColor = RGB(8, 8, 8);
+    g_modeGridConfig.foreColor = RGB(230, 230, 230);
+
     g_modeGridConfig.themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
     g_modeGridConfig.idBase = ID_NTL_MODE_GRID_BASE;
+
+#ifdef BUTTON_GRID_ALIGN_CENTER
+    g_modeGridConfig.contentAlignment = BUTTON_GRID_ALIGN_CENTER;
+#endif
 }
 
 static void NewTestLayout_CreateModeGrid(HWND hwnd)
@@ -628,7 +602,7 @@ static void NewTestLayout_CreateModeGrid(HWND hwnd)
         0,
         0,
         100,
-        40,
+        60,
         &g_modeGridConfig,
         NewTestLayout_ModeGridClicked
     );
@@ -839,16 +813,20 @@ static void NewTestLayout_SettingsChanged(void *userData)
     NewTestLayoutSettings_GetConfig(g_settingsPanel, &g_settingsConfig);
 
     if (g_findCombo)
+    {
         NewTestLayoutFauxCombo_SetPlaceholderLarge(
             g_findCombo,
             g_settingsConfig.fauxComboPlaceholderLarge
         );
+    }
 
     if (g_replaceCombo)
+    {
         NewTestLayoutFauxCombo_SetPlaceholderLarge(
             g_replaceCombo,
             g_settingsConfig.fauxComboPlaceholderLarge
         );
+    }
 
     NewTestLayout_ApplyCountOptions();
     NewTestLayout_ApplyCounts();
@@ -857,7 +835,7 @@ static void NewTestLayout_SettingsChanged(void *userData)
     NewTestLayoutSettings_Layout(g_settingsPanel, &rc);
 
     InvalidateRect(g_window, NULL, TRUE);
-    SendMessage(g_window, WM_SIZE, 0, 0);
+    NewTestLayout_Layout(g_window);
 }
 
 static void NewTestLayout_CreateControls(HWND hwnd)
@@ -876,13 +854,6 @@ static void NewTestLayout_CreateControls(HWND hwnd)
     NewTestLayout_CreateUtilityButtons(hwnd);
     NewTestLayout_CreateActionGroups(hwnd);
     NewTestLayout_CreateModeGrid(hwnd);
-
-    g_gearButton = NewTestLayoutGearButton_Create(
-        hwnd,
-        g_hInstance,
-        ID_NTL_GEAR_BUTTON,
-        &g_theme
-    );
 
     g_settingsPanel = NewTestLayoutSettings_Create(
         hwnd,
@@ -949,12 +920,6 @@ static void NewTestLayout_DestroyControls(void)
         g_selectionGroup = NULL;
     }
 
-    if (g_gearButton)
-    {
-        NewTestLayoutGearButton_Destroy(g_gearButton);
-        g_gearButton = NULL;
-    }
-
     g_modeGrid = NULL;
 
     NewTestLayoutTheme_DeleteFonts(&g_theme);
@@ -976,9 +941,10 @@ static void NewTestLayout_ComputeVisibility(
     int allGroupsVisible;
     int availableWidth;
     int groupStackHeight;
+    int leftPanelWidth;
     int minimumGroupWidth;
-    int extraHeight;
     int fullHeightNeeded;
+    int modeGridHeight;
 
     if (!visibility)
         return;
@@ -986,6 +952,7 @@ static void NewTestLayout_ComputeVisibility(
     ZeroMemory(visibility, sizeof(*visibility));
 
     autoLayout = g_settingsConfig.autoLayoutEnabled;
+    modeGridHeight = NewTestLayout_GetSingleRowModeGridHeight();
 
     visibility->showReplaceBox =
         g_settingsConfig.showReplaceBox &&
@@ -1002,15 +969,15 @@ static void NewTestLayout_ComputeVisibility(
 
     visibility->showFindGroup =
         g_settingsConfig.showFindDocumentGrid &&
-        (!autoLayout || height >= 268);
+        (!autoLayout || height >= 268 + (modeGridHeight - 52));
 
     visibility->showReplaceGroup =
         g_settingsConfig.showReplaceDocumentGrid &&
-        (!autoLayout || height >= 360);
+        (!autoLayout || height >= 360 + (modeGridHeight - 52));
 
     visibility->showSelectionGroup =
         g_settingsConfig.showReplaceSelectionGrid &&
-        (!autoLayout || height >= 452);
+        (!autoLayout || height >= 452 + (modeGridHeight - 52));
 
     allGroupsVisible =
         visibility->showFindGroup &&
@@ -1021,14 +988,15 @@ static void NewTestLayout_ComputeVisibility(
         NTL_ACTION_GROUP_HEIGHT * 3 +
         NTL_GAP * 2;
 
-    availableWidth = width - NTL_MARGIN * 2;
+    leftPanelWidth = (groupStackHeight * 3) / 2;
     minimumGroupWidth = 420;
+    availableWidth = width - NTL_MARGIN * 2;
 
     visibility->useLeftModePanel =
         allGroupsVisible &&
         visibility->showModeGrid &&
         g_settingsConfig.enableLeftModePanel &&
-        availableWidth >= groupStackHeight + NTL_GAP + minimumGroupWidth;
+        availableWidth >= leftPanelWidth + NTL_GAP + minimumGroupWidth;
 
     fullHeightNeeded =
         NTL_MARGIN +
@@ -1036,26 +1004,17 @@ static void NewTestLayout_ComputeVisibility(
         NTL_GAP +
         NTL_FAUX_COMBO_HEIGHT +
         NTL_GAP +
-        NTL_MODE_GRID_ROW_HEIGHT +
+        modeGridHeight +
         NTL_GAP +
         groupStackHeight +
         NTL_MARGIN;
 
-    extraHeight = height - fullHeightNeeded;
-
     visibility->showGroupBorder =
         allGroupsVisible &&
         g_settingsConfig.enableGrowingBorder &&
-        extraHeight > 20;
+        height > fullHeightNeeded + 20;
 
-    if (visibility->showGroupBorder)
-    {
-        visibility->groupPadding = 8 + NewTestLayout_MinInt(extraHeight / 14, 18);
-    }
-    else
-    {
-        visibility->groupPadding = 4;
-    }
+    visibility->groupPadding = visibility->showGroupBorder ? 8 : 4;
 }
 
 static void NewTestLayout_ShowUtilityButtons(int show)
@@ -1097,18 +1056,21 @@ static void NewTestLayout_Layout(HWND hwnd)
     int right;
     int comboRight;
     int utilityX;
-    int gearX;
 
     int groupX;
     int groupY;
     int groupWidth;
     int groupStackHeight;
-    int leftPanelSize;
+    int leftPanelHeight;
+    int leftPanelWidth;
+    int modeGridHeight;
 
     GetClientRect(hwnd, &rc);
 
     width = rc.right - rc.left;
     height = rc.bottom - rc.top;
+
+    modeGridHeight = NewTestLayout_GetSingleRowModeGridHeight();
 
     NewTestLayout_ComputeVisibility(width, height, &visibility);
 
@@ -1116,27 +1078,15 @@ static void NewTestLayout_Layout(HWND hwnd)
     y = NTL_MARGIN;
     right = width - NTL_MARGIN;
 
-    gearX = right - NTL_GEAR_SIZE;
-
-    NewTestLayout_SetRect(
-        &r,
-        gearX,
-        y,
-        gearX + NTL_GEAR_SIZE,
-        y + NTL_GEAR_SIZE
-    );
-
-    NewTestLayoutGearButton_SetRect(g_gearButton, &r);
-
     if (visibility.showUtilityButtons)
     {
-        utilityX = gearX - NTL_GAP - NTL_UTILITY_BUTTON_WIDTH;
+        utilityX = right - NTL_UTILITY_BUTTON_WIDTH;
         comboRight = utilityX - NTL_GAP;
     }
     else
     {
         utilityX = right;
-        comboRight = gearX - NTL_GAP;
+        comboRight = right;
     }
 
     if (comboRight < x + 160)
@@ -1217,19 +1167,20 @@ static void NewTestLayout_Layout(HWND hwnd)
 
     if (visibility.showModeGrid && !visibility.useLeftModePanel)
     {
-        groupY += NTL_GAP + NTL_MODE_GRID_ROW_HEIGHT;
-
         NewTestLayout_SetRect(
             &r,
             NTL_MARGIN,
             y + NTL_GAP,
             width - NTL_MARGIN,
-            y + NTL_GAP + NTL_MODE_GRID_ROW_HEIGHT
+            y + NTL_GAP + modeGridHeight
         );
+
+        groupY += NTL_GAP + modeGridHeight;
 
         if (g_modeGrid)
         {
             ShowWindow(g_modeGrid, SW_SHOW);
+
             ButtonGrid_SetRect(
                 g_modeGrid,
                 r.left,
@@ -1237,6 +1188,8 @@ static void NewTestLayout_Layout(HWND hwnd)
                 r.right - r.left,
                 r.bottom - r.top
             );
+
+            InvalidateRect(g_modeGrid, NULL, FALSE);
         }
     }
     else if (visibility.showModeGrid && visibility.useLeftModePanel)
@@ -1259,20 +1212,21 @@ static void NewTestLayout_Layout(HWND hwnd)
 
     if (visibility.useLeftModePanel)
     {
-        leftPanelSize = groupStackHeight;
+        leftPanelHeight = groupStackHeight;
+        leftPanelWidth = (leftPanelHeight * 3) / 2;
 
-        if (leftPanelSize > height - groupY - NTL_MARGIN)
-            leftPanelSize = height - groupY - NTL_MARGIN;
+        if (leftPanelWidth > width / 2)
+            leftPanelWidth = width / 2;
 
-        if (leftPanelSize < 120)
-            leftPanelSize = 120;
+        if (leftPanelWidth < 220)
+            leftPanelWidth = 220;
 
         NewTestLayout_SetRect(
             &r,
             NTL_MARGIN,
             groupY,
-            NTL_MARGIN + leftPanelSize,
-            groupY + leftPanelSize
+            NTL_MARGIN + leftPanelWidth,
+            groupY + leftPanelHeight
         );
 
         if (g_modeGrid)
@@ -1284,6 +1238,8 @@ static void NewTestLayout_Layout(HWND hwnd)
                 r.right - r.left,
                 r.bottom - r.top
             );
+
+            InvalidateRect(g_modeGrid, NULL, FALSE);
         }
 
         groupX = r.right + NTL_GAP;
@@ -1484,21 +1440,7 @@ static int NewTestLayout_HandleCommand(WPARAM wParam, LPARAM lParam)
     }
 
     if ((HWND)lParam == NewTestLayoutFauxCombo_GetHwnd(g_replaceCombo))
-    {
         return 1;
-    }
-
-    if (id == ID_NTL_GEAR_BUTTON && notifyCode == BN_CLICKED)
-    {
-        if (g_settingsPanel)
-        {
-            NewTestLayoutSettings_Toggle(g_settingsPanel);
-            NewTestLayout_UpdateWindowTitle();
-            NewTestLayout_Layout(g_window);
-        }
-
-        return 1;
-    }
 
     if (notifyCode == NTL_ACTION_BN_CLICKED)
     {
