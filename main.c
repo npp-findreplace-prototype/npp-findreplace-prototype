@@ -70,6 +70,7 @@ static const SearchGridButtonDefinition SEARCH_GRID_BUTTONS[] =
 #define SEARCH_GRID_BUTTON_COUNT (sizeof(SEARCH_GRID_BUTTONS) / sizeof(SEARCH_GRID_BUTTONS[0]))
 
 static HINSTANCE g_hInstance = NULL;
+static HWND g_mainWindow = NULL;
 static HWND g_buttonGrid = NULL;
 
 static int g_squareSize = BUTTON_GRID_DEFAULT_BUTTON_WIDTH;
@@ -122,9 +123,6 @@ static void App_EnableDpiAwareness(void)
 
         if (setProcessDpiAwarenessContext)
         {
-            /*
-                DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = (HANDLE)-4
-            */
             if (setProcessDpiAwarenessContext((HANDLE)-4))
             {
                 App_SetDpiAwarenessStatus("DPI awareness: Per-monitor V2.");
@@ -132,9 +130,6 @@ static void App_EnableDpiAwareness(void)
                 return;
             }
 
-            /*
-                DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE = (HANDLE)-3
-            */
             if (setProcessDpiAwarenessContext((HANDLE)-3))
             {
                 App_SetDpiAwarenessStatus("DPI awareness: Per-monitor V1.");
@@ -142,9 +137,6 @@ static void App_EnableDpiAwareness(void)
                 return;
             }
 
-            /*
-                DPI_AWARENESS_CONTEXT_SYSTEM_AWARE = (HANDLE)-2
-            */
             if (setProcessDpiAwarenessContext((HANDLE)-2))
             {
                 App_SetDpiAwarenessStatus("DPI awareness: System aware.");
@@ -168,9 +160,6 @@ static void App_EnableDpiAwareness(void)
 
         if (setProcessDpiAwareness)
         {
-            /*
-                PROCESS_PER_MONITOR_DPI_AWARE = 2
-            */
             if (setProcessDpiAwareness(2) == 0)
             {
                 App_SetDpiAwarenessStatus("DPI awareness: shcore per-monitor.");
@@ -178,9 +167,6 @@ static void App_EnableDpiAwareness(void)
                 return;
             }
 
-            /*
-                PROCESS_SYSTEM_DPI_AWARE = 1
-            */
             if (setProcessDpiAwareness(1) == 0)
             {
                 App_SetDpiAwarenessStatus("DPI awareness: shcore system aware.");
@@ -326,13 +312,24 @@ static void ConfigureButtonGrid(ButtonGridConfig *config)
 
     config->dpiScaleEnabled = 1;
 
+    config->contentAlignment = BUTTON_GRID_ALIGN_TOP_LEFT;
+    config->contentAlignX = 0;
+    config->contentAlignY = 0;
+    config->contentAlignPercentX = 50;
+    config->contentAlignPercentY = 50;
+
     config->themeName = BUTTON_GRID_DEFAULT_THEME_NAME;
     config->allowThemeSelection = 1;
 
     config->showBorder = 1;
+    config->showBorderTitle = 1;
     config->borderTitle = "Search Options";
     config->borderPadding = 12;
     config->borderTitleHeight = 22;
+    config->borderTitlePadding = 6;
+    config->borderTitleFontSize = 0;
+    config->borderTitleTransparent = 1;
+    config->borderTitleAutoBackColor = 1;
     config->borderStyle = BUTTON_GRID_BORDER_STYLE_ROUNDED;
     config->borderThickness = 1;
     config->borderCornerRadius = 10;
@@ -349,6 +346,11 @@ static void ConfigureButtonGrid(ButtonGridConfig *config)
     config->gearColor = RGB(60, 60, 60);
     config->gearBackColor = RGB(245, 245, 245);
     config->gearBorderColor = RGB(120, 120, 120);
+
+    config->buttonBackMode = BUTTON_GRID_BUTTON_BACK_TRANSPARENT;
+    config->showButtonBorder = 0;
+    config->buttonBorderThickness = 1;
+    config->buttonBorderColor = RGB(0, 0, 0);
 
     config->backColor = RGB(192, 192, 192);
     config->foreColor = RGB(0, 0, 0);
@@ -454,6 +456,9 @@ static void SetSquareSize(HWND hwnd, int newSize)
     if (newSize > 300)
         newSize = 300;
 
+    if (g_squareSize == newSize)
+        return;
+
     g_squareSize = newSize;
 
     ButtonGrid_SetButtonSize(g_buttonGrid, g_squareSize, g_squareSize);
@@ -501,6 +506,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
 
             cs = (CREATESTRUCT *)lParam;
             g_hInstance = cs->hInstance;
+            g_mainWindow = hwnd;
 
             if (!CreateSearchGrid(hwnd))
             {
@@ -565,12 +571,6 @@ int WINAPI WinMain(
     (void)hPrevInstance;
     (void)lpCmdLine;
 
-    /*
-        Must happen before creating any application windows.
-
-        The status text is stored and printed after Console_Setup(),
-        so it still appears when launched from an attached console.
-    */
     App_EnableDpiAwareness();
 
     Console_Setup();
@@ -617,6 +617,8 @@ int WINAPI WinMain(
         return 0;
     }
 
+    g_mainWindow = hwnd;
+
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
@@ -625,12 +627,17 @@ int WINAPI WinMain(
     printf("Application started.\n");
     printf("Press + or - to change default square size.\n");
     printf("Click a square to toggle or select it.\n");
+    printf("Use Tab / Shift+Tab to move keyboard focus through buttons.\n");
+    printf("Use Space or Enter to activate the focused button.\n");
     printf("Click the gear icon to open live grid settings.\n");
     printf("Use the Theme setting to choose folder or embedded themes.\n");
     printf("Use the DPI scale grid setting to toggle DPI-scaled grid metrics.\n");
 
     while (GetMessage(&msg, NULL, 0, 0))
     {
+        if (g_mainWindow && IsWindow(g_mainWindow) && IsDialogMessage(g_mainWindow, &msg))
+            continue;
+
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }

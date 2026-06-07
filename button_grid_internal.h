@@ -239,9 +239,14 @@ void ButtonGrid_ReloadThemeImages(ButtonGrid *grid);
 
 int ButtonGrid_FindButtonIndexByName(ButtonGrid *grid, const char *name);
 int ButtonGrid_FindButtonIndexByAction(ButtonGrid *grid, const char *action);
+int ButtonGrid_FindButtonIndexByHwnd(ButtonGrid *grid, HWND hwnd);
 
 void ButtonGrid_RedrawButton(ButtonGrid *grid, int index);
 void ButtonGrid_RedrawAllButtons(ButtonGrid *grid);
+
+void ButtonGrid_FocusButtonByIndex(ButtonGrid *grid, int index);
+void ButtonGrid_FocusNextButton(ButtonGrid *grid, int currentIndex, int direction);
+void ButtonGrid_ActivateButtonByIndex(ButtonGrid *grid, int index);
 
 void ButtonGrid_HandleStaticClick(ButtonGrid *grid, int controlId);
 

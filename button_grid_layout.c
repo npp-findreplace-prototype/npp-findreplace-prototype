@@ -311,6 +311,61 @@ void ButtonGrid_UpdateAllButtonSizes(ButtonGrid *grid)
         ButtonGrid_ResolveButtonSize(grid, &grid->buttons[i]);
 }
 
+static int ButtonGrid_ButtonWindowAlreadyMatches(
+    ButtonGrid *grid,
+    int index,
+    int x,
+    int y,
+    int width,
+    int height,
+    int visible
+)
+{
+    HWND hwnd;
+    RECT rc;
+    LONG style;
+    int currentlyVisible;
+
+    if (!grid || !grid->buttons)
+        return 1;
+
+    hwnd = grid->buttons[index].hwnd;
+
+    if (!hwnd)
+        return 1;
+
+    style = GetWindowLong(hwnd, GWL_STYLE);
+    currentlyVisible = (style & WS_VISIBLE) ? 1 : 0;
+
+    if (currentlyVisible != visible)
+        return 0;
+
+    /*
+        If a button is already hidden and should remain hidden,
+        do not keep moving/repainting it during noisy resize streams.
+        It will get a fresh position if it becomes visible again.
+    */
+    if (!visible)
+        return 1;
+
+    GetWindowRect(hwnd, &rc);
+    MapWindowPoints(NULL, grid->hwnd, (LPPOINT)&rc, 2);
+
+    if (rc.left != x)
+        return 0;
+
+    if (rc.top != y)
+        return 0;
+
+    if ((rc.right - rc.left) != width)
+        return 0;
+
+    if ((rc.bottom - rc.top) != height)
+        return 0;
+
+    return 1;
+}
+
 static void ButtonGrid_SetButtonWindowRect(
     ButtonGrid *grid,
     int index,
@@ -328,6 +383,19 @@ static void ButtonGrid_SetButtonWindowRect(
 
     if (!grid->buttons[index].hwnd)
         return;
+
+    if (ButtonGrid_ButtonWindowAlreadyMatches(
+            grid,
+            index,
+            x,
+            y,
+            width,
+            height,
+            visible
+        ))
+    {
+        return;
+    }
 
     flags =
         SWP_NOZORDER |
@@ -368,6 +436,19 @@ static HDWP ButtonGrid_DeferButtonWindowRect(
 
     if (!grid->buttons[index].hwnd)
         return hdwp;
+
+    if (ButtonGrid_ButtonWindowAlreadyMatches(
+            grid,
+            index,
+            x,
+            y,
+            width,
+            height,
+            visible
+        ))
+    {
+        return hdwp;
+    }
 
     flags =
         SWP_NOZORDER |
@@ -760,7 +841,6 @@ static int ButtonGrid_ApplyPositionsDeferred(
 
         if (!nextHdwp)
         {
-            hdwp = NULL;
             return 0;
         }
 
@@ -902,8 +982,6 @@ void ButtonGrid_Layout(ButtonGrid *grid)
     );
 
     free(positions);
-
-    InvalidateRect(grid->hwnd, NULL, FALSE);
 }
 
 static int ButtonGrid_CeilDiv(int a, int b)

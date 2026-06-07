@@ -790,6 +790,27 @@ static void ButtonGrid_DrawButtonFrame(ButtonGrid *grid, HDC hdc, RECT *rc)
     DeleteObject(pen);
 }
 
+static void ButtonGrid_DrawKeyboardFocus(ButtonGrid *grid, HDC hdc, RECT *rc, ButtonItem *button)
+{
+    RECT focusRc;
+
+    if (!grid || !button)
+        return;
+
+    if (GetFocus() != button->hwnd)
+        return;
+
+    focusRc = *rc;
+
+    InflateRect(
+        &focusRc,
+        -ButtonGrid_DpiScaleMin(grid, 4, 2),
+        -ButtonGrid_DpiScaleMin(grid, 4, 2)
+    );
+
+    DrawFocusRect(hdc, &focusRc);
+}
+
 static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
 {
     int index;
@@ -866,9 +887,7 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
     }
 
     ButtonGrid_DrawButtonFrame(grid, hdc, &rc);
-
-    if (draw->itemState & ODS_FOCUS)
-        DrawFocusRect(hdc, &rc);
+    ButtonGrid_DrawKeyboardFocus(grid, hdc, &rc, button);
 }
 
 LRESULT ButtonGrid_HandleDrawItem(ButtonGrid *grid, LPARAM lParam)
