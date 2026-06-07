@@ -22,7 +22,20 @@ int Debug_RegisterVariable(
     void *userData
 );
 
+int Debug_RegisterAvailableVariable(
+    const char *aspect,
+    const char *name,
+    DebugVariableValueCallback callback,
+    void *userData
+);
+
 int Debug_RegisterIntPointer(
+    const char *aspect,
+    const char *name,
+    int *value
+);
+
+int Debug_RegisterAvailableIntPointer(
     const char *aspect,
     const char *name,
     int *value
@@ -33,6 +46,20 @@ int Debug_RegisterHwndPointer(
     const char *name,
     HWND *value
 );
+
+int Debug_RegisterAvailableHwndPointer(
+    const char *aspect,
+    const char *name,
+    HWND *value
+);
+
+int Debug_SetVariableActive(
+    const char *aspect,
+    const char *name,
+    int active
+);
+
+void Debug_SetAllVariablesActive(int active);
 
 void Debug_Log(
     const char *aspect,

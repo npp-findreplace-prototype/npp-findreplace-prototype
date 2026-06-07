@@ -14,6 +14,14 @@
 #define EM_SETBKGNDCOLOR (WM_USER + 67)
 #endif
 
+#ifndef EM_GETFIRSTVISIBLELINE
+#define EM_GETFIRSTVISIBLELINE 0x00CE
+#endif
+
+#ifndef EM_LINESCROLL
+#define EM_LINESCROLL 0x00B6
+#endif
+
 #define DEBUG_WINDOW_CLASS_NAME "DebugWindowClass"
 #define DEBUG_WINDOW_TITLE "Debug Window"
 
@@ -33,6 +41,11 @@
 #define ID_DEBUG_CLEAR_LOG_BUTTON 2003
 #define ID_DEBUG_DUMP_FILTER_EDIT 2004
 #define ID_DEBUG_LOG_FILTER_EDIT 2005
+#define ID_DEBUG_AVAILABLE_LIST 2006
+#define ID_DEBUG_ADD_VARIABLE_BUTTON 2007
+#define ID_DEBUG_REMOVE_VARIABLE_BUTTON 2008
+#define ID_DEBUG_SHOW_ALL_VARIABLES_BUTTON 2009
+#define ID_DEBUG_HIDE_ALL_VARIABLES_BUTTON 2010
 
 typedef struct DebugVariable
 {
@@ -40,6 +53,7 @@ typedef struct DebugVariable
     char name[DEBUG_NAME_SIZE];
     DebugVariableValueCallback callback;
     void *userData;
+    int active;
 } DebugVariable;
 
 typedef struct DebugLogEntry
@@ -56,7 +70,13 @@ static HWND g_loggingButton = NULL;
 static HWND g_clearLogButton = NULL;
 static HWND g_dumpFilterEdit = NULL;
 static HWND g_dumpEdit = NULL;
-static HWND g_rightPane = NULL;
+
+static HWND g_availableList = NULL;
+static HWND g_addVariableButton = NULL;
+static HWND g_removeVariableButton = NULL;
+static HWND g_showAllVariablesButton = NULL;
+static HWND g_hideAllVariablesButton = NULL;
+
 static HWND g_logFilterEdit = NULL;
 static HWND g_logEdit = NULL;
 
@@ -208,6 +228,88 @@ static void Debug_GetWindowTextSafe(HWND hwnd, char *buffer, int bufferSize)
     buffer[bufferSize - 1] = '\0';
 }
 
+static int Debug_GetWindowTextMatches(HWND hwnd, const char *newText)
+{
+    int oldLen;
+    char *oldText;
+    int same;
+
+    if (!hwnd || !newText)
+        return 0;
+
+    oldLen = GetWindowTextLength(hwnd);
+
+    if (oldLen != lstrlen(newText))
+        return 0;
+
+    oldText = (char *)malloc(oldLen + 1);
+
+    if (!oldText)
+        return 0;
+
+    GetWindowText(hwnd, oldText, oldLen + 1);
+    oldText[oldLen] = '\0';
+
+    same = lstrcmp(oldText, newText) == 0;
+
+    free(oldText);
+
+    return same;
+}
+
+static void Debug_SetEditTextPreserveSelection(HWND hwnd, const char *text)
+{
+    DWORD selStart;
+    DWORD selEnd;
+    int firstVisibleLine;
+    int newFirstVisibleLine;
+    int newLen;
+
+    if (!hwnd || !text)
+        return;
+
+    if (Debug_GetWindowTextMatches(hwnd, text))
+        return;
+
+    selStart = 0;
+    selEnd = 0;
+
+    SendMessage(hwnd, EM_GETSEL, (WPARAM)&selStart, (LPARAM)&selEnd);
+    firstVisibleLine = (int)SendMessage(hwnd, EM_GETFIRSTVISIBLELINE, 0, 0);
+
+    g_controlsUpdating = 1;
+
+    SendMessage(hwnd, WM_SETREDRAW, FALSE, 0);
+    SetWindowText(hwnd, text);
+
+    newLen = GetWindowTextLength(hwnd);
+
+    if ((int)selStart > newLen)
+        selStart = (DWORD)newLen;
+
+    if ((int)selEnd > newLen)
+        selEnd = (DWORD)newLen;
+
+    SendMessage(hwnd, EM_SETSEL, (WPARAM)selStart, (LPARAM)selEnd);
+
+    newFirstVisibleLine = (int)SendMessage(hwnd, EM_GETFIRSTVISIBLELINE, 0, 0);
+
+    if (firstVisibleLine != newFirstVisibleLine)
+    {
+        SendMessage(
+            hwnd,
+            EM_LINESCROLL,
+            0,
+            firstVisibleLine - newFirstVisibleLine
+        );
+    }
+
+    SendMessage(hwnd, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(hwnd, NULL, FALSE);
+
+    g_controlsUpdating = 0;
+}
+
 static void Debug_FormatIntValue(char *buffer, int bufferSize, void *userData)
 {
     int *value;
@@ -235,20 +337,96 @@ static void Debug_FormatHwndValue(char *buffer, int bufferSize, void *userData)
         return;
     }
 
-    wsprintf(buffer, "0x%08lX%s", (DWORD)(ULONG_PTR)(*value), IsWindow(*value) ? " valid" : " invalid");
+    wsprintf(
+        buffer,
+        "0x%08lX%s",
+        (DWORD)(ULONG_PTR)(*value),
+        IsWindow(*value) ? " valid" : " invalid"
+    );
 }
 
-int Debug_RegisterVariable(
+static int Debug_FindVariableIndex(const char *aspect, const char *name)
+{
+    int i;
+
+    for (i = 0; i < g_variableCount; i++)
+    {
+        if (lstrcmpi(g_variables[i].aspect, aspect ? aspect : "General") == 0 &&
+            lstrcmpi(g_variables[i].name, name ? name : "(unnamed)") == 0)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static void Debug_UpdateAvailableList(void)
+{
+    int i;
+    int selected;
+    char line[256];
+
+    if (!g_availableList)
+        return;
+
+    selected = (int)SendMessage(g_availableList, LB_GETCURSEL, 0, 0);
+
+    g_controlsUpdating = 1;
+
+    SendMessage(g_availableList, WM_SETREDRAW, FALSE, 0);
+    SendMessage(g_availableList, LB_RESETCONTENT, 0, 0);
+
+    for (i = 0; i < g_variableCount; i++)
+    {
+        wsprintf(
+            line,
+            "%s  %-14s  %s",
+            g_variables[i].active ? "[x]" : "[ ]",
+            g_variables[i].aspect,
+            g_variables[i].name
+        );
+
+        SendMessage(g_availableList, LB_ADDSTRING, 0, (LPARAM)line);
+    }
+
+    if (selected >= g_variableCount)
+        selected = g_variableCount - 1;
+
+    if (selected >= 0)
+        SendMessage(g_availableList, LB_SETCURSEL, selected, 0);
+
+    SendMessage(g_availableList, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(g_availableList, NULL, FALSE);
+
+    g_controlsUpdating = 0;
+}
+
+static int Debug_RegisterVariableInternal(
     const char *aspect,
     const char *name,
     DebugVariableValueCallback callback,
-    void *userData
+    void *userData,
+    int active
 )
 {
     DebugVariable *variable;
+    int existingIndex;
 
     if (!callback)
         return 0;
+
+    existingIndex = Debug_FindVariableIndex(aspect, name);
+
+    if (existingIndex >= 0)
+    {
+        g_variables[existingIndex].callback = callback;
+        g_variables[existingIndex].userData = userData;
+        g_variables[existingIndex].active = active ? 1 : g_variables[existingIndex].active;
+
+        Debug_UpdateAvailableList();
+        return 1;
+    }
 
     if (g_variableCount >= DEBUG_MAX_VARIABLES)
         return 0;
@@ -259,18 +437,53 @@ int Debug_RegisterVariable(
     Debug_CopyText(variable->name, DEBUG_NAME_SIZE, name ? name : "(unnamed)");
     variable->callback = callback;
     variable->userData = userData;
+    variable->active = active ? 1 : 0;
 
     g_variableCount++;
 
+    Debug_UpdateAvailableList();
+
     Debug_Log(
         "Debug",
-        "RegisterVariable",
+        active ? "RegisterVariable" : "RegisterAvailableVariable",
         "%s.%s",
         variable->aspect,
         variable->name
     );
 
     return 1;
+}
+
+int Debug_RegisterVariable(
+    const char *aspect,
+    const char *name,
+    DebugVariableValueCallback callback,
+    void *userData
+)
+{
+    return Debug_RegisterVariableInternal(
+        aspect,
+        name,
+        callback,
+        userData,
+        1
+    );
+}
+
+int Debug_RegisterAvailableVariable(
+    const char *aspect,
+    const char *name,
+    DebugVariableValueCallback callback,
+    void *userData
+)
+{
+    return Debug_RegisterVariableInternal(
+        aspect,
+        name,
+        callback,
+        userData,
+        0
+    );
 }
 
 int Debug_RegisterIntPointer(
@@ -280,6 +493,20 @@ int Debug_RegisterIntPointer(
 )
 {
     return Debug_RegisterVariable(
+        aspect,
+        name,
+        Debug_FormatIntValue,
+        value
+    );
+}
+
+int Debug_RegisterAvailableIntPointer(
+    const char *aspect,
+    const char *name,
+    int *value
+)
+{
+    return Debug_RegisterAvailableVariable(
         aspect,
         name,
         Debug_FormatIntValue,
@@ -299,6 +526,53 @@ int Debug_RegisterHwndPointer(
         Debug_FormatHwndValue,
         value
     );
+}
+
+int Debug_RegisterAvailableHwndPointer(
+    const char *aspect,
+    const char *name,
+    HWND *value
+)
+{
+    return Debug_RegisterAvailableVariable(
+        aspect,
+        name,
+        Debug_FormatHwndValue,
+        value
+    );
+}
+
+int Debug_SetVariableActive(
+    const char *aspect,
+    const char *name,
+    int active
+)
+{
+    int index;
+
+    index = Debug_FindVariableIndex(aspect, name);
+
+    if (index < 0)
+        return 0;
+
+    g_variables[index].active = active ? 1 : 0;
+
+    Debug_UpdateAvailableList();
+
+    if (g_dumpEdit)
+        Debug_SetEditTextPreserveSelection(g_dumpEdit, "");
+
+    return 1;
+}
+
+void Debug_SetAllVariablesActive(int active)
+{
+    int i;
+
+    for (i = 0; i < g_variableCount; i++)
+        g_variables[i].active = active ? 1 : 0;
+
+    Debug_UpdateAvailableList();
 }
 
 static void Debug_AppendRichText(HWND hwnd, const char *text, COLORREF color)
@@ -363,6 +637,8 @@ static void Debug_RebuildLogView(void)
     Debug_GetWindowTextSafe(g_logFilterEdit, filter, sizeof(filter));
 
     g_controlsUpdating = 1;
+
+    SendMessage(g_logEdit, WM_SETREDRAW, FALSE, 0);
     SetWindowText(g_logEdit, "");
 
     for (i = 0; i < g_logCount; i++)
@@ -377,6 +653,9 @@ static void Debug_RebuildLogView(void)
     }
 
     SendMessage(g_logEdit, EM_SETSEL, (WPARAM)-1, (LPARAM)-1);
+    SendMessage(g_logEdit, WM_SETREDRAW, TRUE, 0);
+    InvalidateRect(g_logEdit, NULL, FALSE);
+
     g_controlsUpdating = 0;
 }
 
@@ -543,6 +822,9 @@ static void Debug_UpdateDumpView(void)
 
     for (i = 0; i < g_variableCount; i++)
     {
+        if (!g_variables[i].active)
+            continue;
+
         value[0] = '\0';
 
         if (g_variables[i].callback)
@@ -564,7 +846,7 @@ static void Debug_UpdateDumpView(void)
         Debug_AppendText(dump, sizeof(dump), line);
     }
 
-    SetWindowText(g_dumpEdit, dump);
+    Debug_SetEditTextPreserveSelection(g_dumpEdit, dump);
 }
 
 static void Debug_UpdateButtons(void)
@@ -667,11 +949,9 @@ static HWND Debug_CreateReadonlyEdit(HWND parent)
     );
 }
 
-static HWND Debug_CreateFilterEdit(HWND parent, int id, const char *placeholder)
+static HWND Debug_CreateFilterEdit(HWND parent, int id)
 {
-    HWND hwnd;
-
-    hwnd = CreateWindowEx(
+    return CreateWindowEx(
         WS_EX_CLIENTEDGE,
         "EDIT",
         "",
@@ -685,10 +965,6 @@ static HWND Debug_CreateFilterEdit(HWND parent, int id, const char *placeholder)
         g_hInstance,
         NULL
     );
-
-    (void)placeholder;
-
-    return hwnd;
 }
 
 static HWND Debug_CreateButton(HWND parent, int id, const char *text)
@@ -709,34 +985,45 @@ static HWND Debug_CreateButton(HWND parent, int id, const char *text)
     );
 }
 
+static HWND Debug_CreateAvailableList(HWND parent)
+{
+    return CreateWindowEx(
+        WS_EX_CLIENTEDGE,
+        "LISTBOX",
+        "",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL |
+        LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+        0,
+        0,
+        100,
+        100,
+        parent,
+        (HMENU)ID_DEBUG_AVAILABLE_LIST,
+        g_hInstance,
+        NULL
+    );
+}
+
 static void Debug_CreateControls(HWND hwnd)
 {
     g_updateButton = Debug_CreateButton(hwnd, ID_DEBUG_UPDATE_BUTTON, "Pause updates");
     g_loggingButton = Debug_CreateButton(hwnd, ID_DEBUG_LOGGING_BUTTON, "Disable logging");
     g_clearLogButton = Debug_CreateButton(hwnd, ID_DEBUG_CLEAR_LOG_BUTTON, "Clear log");
 
-    g_dumpFilterEdit = Debug_CreateFilterEdit(hwnd, ID_DEBUG_DUMP_FILTER_EDIT, "Dump filter");
+    g_dumpFilterEdit = Debug_CreateFilterEdit(hwnd, ID_DEBUG_DUMP_FILTER_EDIT);
     g_dumpEdit = Debug_CreateReadonlyEdit(hwnd);
 
-    g_rightPane = CreateWindowEx(
-        WS_EX_CLIENTEDGE,
-        "STATIC",
-        "",
-        WS_CHILD | WS_VISIBLE | SS_LEFT,
-        0,
-        0,
-        100,
-        100,
-        hwnd,
-        NULL,
-        g_hInstance,
-        NULL
-    );
+    g_availableList = Debug_CreateAvailableList(hwnd);
+    g_addVariableButton = Debug_CreateButton(hwnd, ID_DEBUG_ADD_VARIABLE_BUTTON, "Add selected");
+    g_removeVariableButton = Debug_CreateButton(hwnd, ID_DEBUG_REMOVE_VARIABLE_BUTTON, "Remove selected");
+    g_showAllVariablesButton = Debug_CreateButton(hwnd, ID_DEBUG_SHOW_ALL_VARIABLES_BUTTON, "Show all");
+    g_hideAllVariablesButton = Debug_CreateButton(hwnd, ID_DEBUG_HIDE_ALL_VARIABLES_BUTTON, "Hide all");
 
-    g_logFilterEdit = Debug_CreateFilterEdit(hwnd, ID_DEBUG_LOG_FILTER_EDIT, "Log filter");
+    g_logFilterEdit = Debug_CreateFilterEdit(hwnd, ID_DEBUG_LOG_FILTER_EDIT);
     g_logEdit = Debug_CreateLogEdit(hwnd);
 
     Debug_UpdateButtons();
+    Debug_UpdateAvailableList();
 }
 
 static void Debug_LayoutControls(HWND hwnd)
@@ -754,9 +1041,15 @@ static void Debug_LayoutControls(HWND hwnd)
     int rightW;
     int y;
     int x;
-    int buttonW;
     int dumpTop;
     int logTop;
+    int updateW;
+    int loggingW;
+    int clearW;
+    int rightButtonH;
+    int rightButtonW;
+    int rightButtonY;
+    int rightListTop;
 
     if (!hwnd)
         return;
@@ -768,6 +1061,10 @@ static void Debug_LayoutControls(HWND hwnd)
     buttonH = 28;
     filterH = 24;
 
+    updateW = 130;
+    loggingW = 145;
+    clearW = 100;
+
     topH = ((rc.bottom - rc.top) * 52) / 100;
     bottomY = topH + gap;
     bottomH = rc.bottom - bottomY - margin;
@@ -776,23 +1073,22 @@ static void Debug_LayoutControls(HWND hwnd)
     rightX = margin + leftW + margin;
     rightW = rc.right - rightX - margin;
 
-    if (leftW < 120)
-        leftW = 120;
+    if (leftW < 260)
+        leftW = 260;
 
-    if (rightW < 120)
-        rightW = 120;
+    if (rightW < 180)
+        rightW = 180;
 
     x = margin;
     y = margin;
-    buttonW = 112;
 
-    SetWindowPos(g_updateButton, NULL, x, y, buttonW, buttonH, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(g_updateButton, NULL, x, y, updateW, buttonH, SWP_NOZORDER | SWP_NOACTIVATE);
 
-    x += buttonW + gap;
-    SetWindowPos(g_loggingButton, NULL, x, y, buttonW, buttonH, SWP_NOZORDER | SWP_NOACTIVATE);
+    x += updateW + gap;
+    SetWindowPos(g_loggingButton, NULL, x, y, loggingW, buttonH, SWP_NOZORDER | SWP_NOACTIVATE);
 
-    x += buttonW + gap;
-    SetWindowPos(g_clearLogButton, NULL, x, y, 90, buttonH, SWP_NOZORDER | SWP_NOACTIVATE);
+    x += loggingW + gap;
+    SetWindowPos(g_clearLogButton, NULL, x, y, clearW, buttonH, SWP_NOZORDER | SWP_NOACTIVATE);
 
     y += buttonH + gap;
 
@@ -818,13 +1114,61 @@ static void Debug_LayoutControls(HWND hwnd)
         SWP_NOZORDER | SWP_NOACTIVATE
     );
 
+    rightButtonH = 28;
+    rightButtonW = (rightW - gap) / 2;
+    rightButtonY = margin;
+
     SetWindowPos(
-        g_rightPane,
+        g_addVariableButton,
         NULL,
         rightX,
-        margin,
+        rightButtonY,
+        rightButtonW,
+        rightButtonH,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    SetWindowPos(
+        g_removeVariableButton,
+        NULL,
+        rightX + rightButtonW + gap,
+        rightButtonY,
+        rightButtonW,
+        rightButtonH,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    rightButtonY += rightButtonH + gap;
+
+    SetWindowPos(
+        g_showAllVariablesButton,
+        NULL,
+        rightX,
+        rightButtonY,
+        rightButtonW,
+        rightButtonH,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    SetWindowPos(
+        g_hideAllVariablesButton,
+        NULL,
+        rightX + rightButtonW + gap,
+        rightButtonY,
+        rightButtonW,
+        rightButtonH,
+        SWP_NOZORDER | SWP_NOACTIVATE
+    );
+
+    rightListTop = rightButtonY + rightButtonH + gap;
+
+    SetWindowPos(
+        g_availableList,
+        NULL,
+        rightX,
+        rightListTop,
         rightW,
-        topH - margin * 2,
+        topH - rightListTop - margin,
         SWP_NOZORDER | SWP_NOACTIVATE
     );
 
@@ -849,6 +1193,58 @@ static void Debug_LayoutControls(HWND hwnd)
         bottomH - filterH - gap,
         SWP_NOZORDER | SWP_NOACTIVATE
     );
+}
+
+static void Debug_AddSelectedAvailableVariable(void)
+{
+    int index;
+
+    if (!g_availableList)
+        return;
+
+    index = (int)SendMessage(g_availableList, LB_GETCURSEL, 0, 0);
+
+    if (index < 0 || index >= g_variableCount)
+        return;
+
+    g_variables[index].active = 1;
+
+    Debug_Log(
+        "Debug",
+        "VariableAdded",
+        "%s.%s",
+        g_variables[index].aspect,
+        g_variables[index].name
+    );
+
+    Debug_UpdateAvailableList();
+    Debug_UpdateDumpView();
+}
+
+static void Debug_RemoveSelectedAvailableVariable(void)
+{
+    int index;
+
+    if (!g_availableList)
+        return;
+
+    index = (int)SendMessage(g_availableList, LB_GETCURSEL, 0, 0);
+
+    if (index < 0 || index >= g_variableCount)
+        return;
+
+    g_variables[index].active = 0;
+
+    Debug_Log(
+        "Debug",
+        "VariableRemoved",
+        "%s.%s",
+        g_variables[index].aspect,
+        g_variables[index].name
+    );
+
+    Debug_UpdateAvailableList();
+    Debug_UpdateDumpView();
 }
 
 static LRESULT CALLBACK DebugWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -928,6 +1324,40 @@ static LRESULT CALLBACK DebugWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 return 0;
             }
 
+            if (controlId == ID_DEBUG_ADD_VARIABLE_BUTTON && notifyCode == BN_CLICKED)
+            {
+                Debug_AddSelectedAvailableVariable();
+                return 0;
+            }
+
+            if (controlId == ID_DEBUG_REMOVE_VARIABLE_BUTTON && notifyCode == BN_CLICKED)
+            {
+                Debug_RemoveSelectedAvailableVariable();
+                return 0;
+            }
+
+            if (controlId == ID_DEBUG_SHOW_ALL_VARIABLES_BUTTON && notifyCode == BN_CLICKED)
+            {
+                Debug_SetAllVariablesActive(1);
+                Debug_Log("Debug", "ShowAllVariables", "All variables activated.");
+                Debug_UpdateDumpView();
+                return 0;
+            }
+
+            if (controlId == ID_DEBUG_HIDE_ALL_VARIABLES_BUTTON && notifyCode == BN_CLICKED)
+            {
+                Debug_SetAllVariablesActive(0);
+                Debug_Log("Debug", "HideAllVariables", "All variables hidden.");
+                Debug_UpdateDumpView();
+                return 0;
+            }
+
+            if (controlId == ID_DEBUG_AVAILABLE_LIST && notifyCode == LBN_DBLCLK)
+            {
+                Debug_AddSelectedAvailableVariable();
+                return 0;
+            }
+
             if (controlId == ID_DEBUG_DUMP_FILTER_EDIT && notifyCode == EN_CHANGE)
             {
                 if (!g_controlsUpdating)
@@ -951,6 +1381,7 @@ static LRESULT CALLBACK DebugWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {
             if (wParam)
             {
+                Debug_UpdateAvailableList();
                 Debug_UpdateDumpView();
                 Debug_RebuildLogView();
             }
@@ -978,7 +1409,13 @@ static LRESULT CALLBACK DebugWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             g_clearLogButton = NULL;
             g_dumpFilterEdit = NULL;
             g_dumpEdit = NULL;
-            g_rightPane = NULL;
+
+            g_availableList = NULL;
+            g_addVariableButton = NULL;
+            g_removeVariableButton = NULL;
+            g_showAllVariablesButton = NULL;
+            g_hideAllVariablesButton = NULL;
+
             g_logFilterEdit = NULL;
             g_logEdit = NULL;
 
@@ -1030,6 +1467,7 @@ HWND DebugWindow_Show(
     {
         ShowWindow(g_window, SW_SHOW);
         SetForegroundWindow(g_window);
+        Debug_UpdateAvailableList();
         Debug_UpdateDumpView();
         Debug_RebuildLogView();
         return g_window;
