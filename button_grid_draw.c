@@ -811,31 +811,19 @@ static void ButtonGrid_DrawKeyboardFocus(ButtonGrid *grid, HDC hdc, RECT *rc, Bu
     DrawFocusRect(hdc, &focusRc);
 }
 
-static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
+static void ButtonGrid_DrawButtonContents(
+    ButtonGrid *grid,
+    HDC hdc,
+    RECT *rc,
+    ButtonItem *button
+)
 {
-    int index;
-    RECT rc;
-    HDC hdc;
-    ButtonItem *button;
     AppImage *picture;
     int failed;
     int pictureType;
     COLORREF fallbackColor;
 
-    if (!grid || !draw)
-        return;
-
-    index = (int)draw->CtlID - grid->idBase;
-
-    if (index < 0 || index >= grid->buttonCount)
-        return;
-
-    button = &grid->buttons[index];
-
-    hdc = draw->hDC;
-    rc = draw->rcItem;
-
-    ButtonGrid_FillButtonBackground(grid, hdc, &rc);
+    ButtonGrid_FillButtonBackground(grid, hdc, rc);
 
     if (grid->usePictures)
     {
@@ -859,7 +847,7 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
             ImageLoader_Draw(
                 hdc,
                 picture,
-                &rc,
+                rc,
                 grid->stretchPictures
             );
         }
@@ -868,7 +856,7 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
             ButtonGrid_DrawGeneratedFallback(
                 grid,
                 hdc,
-                &rc,
+                rc,
                 fallbackColor,
                 pictureType
             );
@@ -881,13 +869,120 @@ static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
             grid,
             hdc,
             button->text,
-            &rc,
+            rc,
             grid->foreColor
         );
     }
 
-    ButtonGrid_DrawButtonFrame(grid, hdc, &rc);
-    ButtonGrid_DrawKeyboardFocus(grid, hdc, &rc, button);
+    ButtonGrid_DrawButtonFrame(grid, hdc, rc);
+    ButtonGrid_DrawKeyboardFocus(grid, hdc, rc, button);
+}
+
+static void ButtonGrid_DrawButtonDirect(
+    ButtonGrid *grid,
+    DRAWITEMSTRUCT *draw,
+    ButtonItem *button
+)
+{
+    RECT rc;
+
+    rc = draw->rcItem;
+
+    ButtonGrid_DrawButtonContents(
+        grid,
+        draw->hDC,
+        &rc,
+        button
+    );
+}
+
+static void ButtonGrid_DrawButtonBuffered(
+    ButtonGrid *grid,
+    DRAWITEMSTRUCT *draw,
+    ButtonItem *button
+)
+{
+    HDC screenDc;
+    HDC memoryDc;
+    HBITMAP bitmap;
+    HGDIOBJ oldBitmap;
+    RECT sourceRc;
+    int width;
+    int height;
+
+    screenDc = draw->hDC;
+
+    width = draw->rcItem.right - draw->rcItem.left;
+    height = draw->rcItem.bottom - draw->rcItem.top;
+
+    if (width < 1 || height < 1)
+        return;
+
+    memoryDc = CreateCompatibleDC(screenDc);
+
+    if (!memoryDc)
+    {
+        ButtonGrid_DrawButtonDirect(grid, draw, button);
+        return;
+    }
+
+    bitmap = CreateCompatibleBitmap(screenDc, width, height);
+
+    if (!bitmap)
+    {
+        DeleteDC(memoryDc);
+        ButtonGrid_DrawButtonDirect(grid, draw, button);
+        return;
+    }
+
+    oldBitmap = SelectObject(memoryDc, bitmap);
+
+    SetRect(&sourceRc, 0, 0, width, height);
+
+    ButtonGrid_DrawButtonContents(
+        grid,
+        memoryDc,
+        &sourceRc,
+        button
+    );
+
+    BitBlt(
+        screenDc,
+        draw->rcItem.left,
+        draw->rcItem.top,
+        width,
+        height,
+        memoryDc,
+        0,
+        0,
+        SRCCOPY
+    );
+
+    SelectObject(memoryDc, oldBitmap);
+    DeleteObject(bitmap);
+    DeleteDC(memoryDc);
+}
+
+static void ButtonGrid_DrawButton(ButtonGrid *grid, DRAWITEMSTRUCT *draw)
+{
+    int index;
+    ButtonItem *button;
+
+    if (!grid || !draw)
+        return;
+
+    index = (int)draw->CtlID - grid->idBase;
+
+    if (index < 0 || index >= grid->buttonCount)
+        return;
+
+    button = &grid->buttons[index];
+
+    ButtonGrid_DrawButtonBuffered(
+        grid,
+        draw,
+        button
+    );
 }
 
 LRESULT ButtonGrid_HandleDrawItem(ButtonGrid *grid, LPARAM lParam)
