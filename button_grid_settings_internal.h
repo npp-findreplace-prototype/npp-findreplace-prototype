@@ -96,9 +96,14 @@ typedef struct ButtonGridSettingDefinition
 const ButtonGridSettingDefinition *ButtonGrid_SettingsGetDefinition(int index);
 int ButtonGrid_SettingsGetCount(void);
 
-/* window */
+/* settings window state */
 ButtonGrid *ButtonGrid_SettingsGetGrid(HWND hwnd);
 void ButtonGrid_SettingsSetGrid(HWND hwnd, ButtonGrid *grid);
+
+/* control update guard */
+int ButtonGrid_SettingsControlsAreUpdating(void);
+void ButtonGrid_SettingsBeginControlUpdate(void);
+void ButtonGrid_SettingsEndControlUpdate(void);
 
 /* control ids / lookup */
 int ButtonGrid_SettingsGetLabelId(int index);
@@ -111,21 +116,23 @@ HWND ButtonGrid_SettingsGetLabelControl(HWND pageHwnd, int index);
 HWND ButtonGrid_SettingsGetPrimaryControl(HWND pageHwnd, int index);
 HWND ButtonGrid_SettingsGetRawControl(HWND pageHwnd, int index);
 
-/* controls */
+/* control creation */
 void ButtonGrid_SettingsCreateControls(HWND pageHwnd, ButtonGrid *grid);
 
+/* theme combo population */
+void ButtonGrid_SettingsPopulateThemeCombo(HWND combo, ButtonGrid *grid);
+
+/* refresh controls from grid values */
 void ButtonGrid_SettingsRefreshOne(HWND pageHwnd, int index, ButtonGrid *grid);
 void ButtonGrid_SettingsRefreshAll(HWND pageHwnd);
 
+/* apply controls to grid values */
 void ButtonGrid_SettingsApplyRawEdit(HWND pageHwnd, int index);
 void ButtonGrid_SettingsApplyPrimary(HWND pageHwnd, int index);
 
+/* command / scroll events */
 int ButtonGrid_SettingsHandleCommand(HWND hwnd, WPARAM wParam, LPARAM lParam);
 int ButtonGrid_SettingsHandleHScroll(HWND hwnd, WPARAM wParam, LPARAM lParam);
-
-int ButtonGrid_SettingsControlsAreUpdating(void);
-void ButtonGrid_SettingsBeginControlUpdate(void);
-void ButtonGrid_SettingsEndControlUpdate(void);
 
 /* layout / filtering / scrolling */
 void ButtonGrid_SettingsLayoutControls(HWND pageHwnd);
