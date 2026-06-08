@@ -20,32 +20,32 @@ void NewTestLayout_ComputeVisibility(
 
     ZeroMemory(visibility, sizeof(*visibility));
 
-    autoLayout = g_settingsConfig.autoLayoutEnabled;
+    autoLayout = g_ntl_settingsConfig.autoLayoutEnabled;
     modeGridHeight = NewTestLayout_GetSingleRowModeGridHeight();
 
     visibility->showReplaceBox =
-        g_settingsConfig.showReplaceBox &&
+        g_ntl_settingsConfig.showReplaceBox &&
         (!autoLayout || height >= 118);
 
     visibility->showUtilityButtons =
-        g_settingsConfig.showUtilityButtons &&
+        g_ntl_settingsConfig.showUtilityButtons &&
         visibility->showReplaceBox &&
         (!autoLayout || width >= 430);
 
     visibility->showModeGrid =
-        g_settingsConfig.showModeGrid &&
+        g_ntl_settingsConfig.showModeGrid &&
         (!autoLayout || height >= 178);
 
     visibility->showFindGroup =
-        g_settingsConfig.showFindDocumentGrid &&
+        g_ntl_settingsConfig.showFindDocumentGrid &&
         (!autoLayout || height >= 268 + (modeGridHeight - 52));
 
     visibility->showReplaceGroup =
-        g_settingsConfig.showReplaceDocumentGrid &&
+        g_ntl_settingsConfig.showReplaceDocumentGrid &&
         (!autoLayout || height >= 360 + (modeGridHeight - 52));
 
     visibility->showSelectionGroup =
-        g_settingsConfig.showReplaceSelectionGrid &&
+        g_ntl_settingsConfig.showReplaceSelectionGrid &&
         (!autoLayout || height >= 452 + (modeGridHeight - 52));
 
     allGroupsVisible =
@@ -64,7 +64,7 @@ void NewTestLayout_ComputeVisibility(
     visibility->useLeftModePanel =
         allGroupsVisible &&
         visibility->showModeGrid &&
-        g_settingsConfig.enableLeftModePanel &&
+        g_ntl_settingsConfig.enableLeftModePanel &&
         availableWidth >= leftPanelWidth + NTL_GAP + minimumGroupWidth;
 
     fullHeightNeeded =
@@ -80,7 +80,7 @@ void NewTestLayout_ComputeVisibility(
 
     visibility->showGroupBorder =
         allGroupsVisible &&
-        g_settingsConfig.enableGrowingBorder &&
+        g_ntl_settingsConfig.enableGrowingBorder &&
         height > fullHeightNeeded + 20;
 
     visibility->groupPadding = visibility->showGroupBorder ? 8 : 4;

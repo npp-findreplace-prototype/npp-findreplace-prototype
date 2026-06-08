@@ -5,17 +5,17 @@ void NewTestLayout_ShowGroups(const NewTestLayoutVisibility *visibility)
     if (!visibility)
         return;
 
-    NewTestLayoutActionGroup_Show(g_findGroup, visibility->showFindGroup);
-    NewTestLayoutActionGroup_Show(g_replaceGroup, visibility->showReplaceGroup);
-    NewTestLayoutActionGroup_Show(g_selectionGroup, visibility->showSelectionGroup);
+    NewTestLayoutActionGroup_Show(g_ntl_findGroup, visibility->showFindGroup);
+    NewTestLayoutActionGroup_Show(g_ntl_replaceGroup, visibility->showReplaceGroup);
+    NewTestLayoutActionGroup_Show(g_ntl_selectionGroup, visibility->showSelectionGroup);
 
-    NewTestLayoutActionGroup_SetBorderVisible(g_findGroup, visibility->showGroupBorder);
-    NewTestLayoutActionGroup_SetBorderVisible(g_replaceGroup, visibility->showGroupBorder);
-    NewTestLayoutActionGroup_SetBorderVisible(g_selectionGroup, visibility->showGroupBorder);
+    NewTestLayoutActionGroup_SetBorderVisible(g_ntl_findGroup, visibility->showGroupBorder);
+    NewTestLayoutActionGroup_SetBorderVisible(g_ntl_replaceGroup, visibility->showGroupBorder);
+    NewTestLayoutActionGroup_SetBorderVisible(g_ntl_selectionGroup, visibility->showGroupBorder);
 
-    NewTestLayoutActionGroup_SetPadding(g_findGroup, visibility->groupPadding);
-    NewTestLayoutActionGroup_SetPadding(g_replaceGroup, visibility->groupPadding);
-    NewTestLayoutActionGroup_SetPadding(g_selectionGroup, visibility->groupPadding);
+    NewTestLayoutActionGroup_SetPadding(g_ntl_findGroup, visibility->groupPadding);
+    NewTestLayoutActionGroup_SetPadding(g_ntl_replaceGroup, visibility->groupPadding);
+    NewTestLayoutActionGroup_SetPadding(g_ntl_selectionGroup, visibility->groupPadding);
 }
 
 void NewTestLayout_LayoutGroups(
@@ -41,7 +41,7 @@ void NewTestLayout_LayoutGroups(
             groupY + NTL_ACTION_GROUP_HEIGHT
         );
 
-        NewTestLayoutActionGroup_SetRect(g_findGroup, &r);
+        NewTestLayoutActionGroup_SetRect(g_ntl_findGroup, &r);
         groupY += NTL_ACTION_GROUP_HEIGHT + NTL_GAP;
     }
 
@@ -55,7 +55,7 @@ void NewTestLayout_LayoutGroups(
             groupY + NTL_ACTION_GROUP_HEIGHT
         );
 
-        NewTestLayoutActionGroup_SetRect(g_replaceGroup, &r);
+        NewTestLayoutActionGroup_SetRect(g_ntl_replaceGroup, &r);
         groupY += NTL_ACTION_GROUP_HEIGHT + NTL_GAP;
     }
 
@@ -69,7 +69,7 @@ void NewTestLayout_LayoutGroups(
             groupY + NTL_ACTION_GROUP_HEIGHT
         );
 
-        NewTestLayoutActionGroup_SetRect(g_selectionGroup, &r);
+        NewTestLayoutActionGroup_SetRect(g_ntl_selectionGroup, &r);
     }
 
     layout->groupY = groupY;

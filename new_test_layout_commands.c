@@ -8,25 +8,25 @@ void NewTestLayout_UpdateWindowTitle(void)
         title,
         "%s%s",
         NEW_TEST_LAYOUT_WINDOW_TITLE,
-        g_settingsPanel && NewTestLayoutSettings_IsVisible(g_settingsPanel)
+        g_ntl_settingsPanel && NewTestLayoutSettings_IsVisible(g_ntl_settingsPanel)
             ? " - settings"
             : ""
     );
 
-    if (g_window)
-        SetWindowText(g_window, title);
+    if (g_ntl_window)
+        SetWindowText(g_ntl_window, title);
 }
 
 void NewTestLayout_ToggleSettings(void)
 {
-    if (!g_settingsPanel)
+    if (!g_ntl_settingsPanel)
         return;
 
-    NewTestLayoutSettings_Toggle(g_settingsPanel);
+    NewTestLayoutSettings_Toggle(g_ntl_settingsPanel);
     NewTestLayout_UpdateWindowTitle();
 
-    if (g_window)
-        NewTestLayout_Layout(g_window);
+    if (g_ntl_window)
+        NewTestLayout_Layout(g_ntl_window);
 }
 
 static void NewTestLayout_CopyFindToReplace(void)
@@ -35,8 +35,8 @@ static void NewTestLayout_CopyFindToReplace(void)
 
     NewTestLayout_GetFindText(text, sizeof(text));
 
-    if (g_replaceCombo)
-        NewTestLayoutFauxCombo_SetText(g_replaceCombo, text);
+    if (g_ntl_replaceCombo)
+        NewTestLayoutFauxCombo_SetText(g_ntl_replaceCombo, text);
 
     Debug_Log("NewLayout", "CopyFindToReplace", "%s", text);
 }
@@ -47,8 +47,8 @@ static void NewTestLayout_CopyReplaceToFind(void)
 
     NewTestLayout_GetReplaceText(text, sizeof(text));
 
-    if (g_findCombo)
-        NewTestLayoutFauxCombo_SetText(g_findCombo, text);
+    if (g_ntl_findCombo)
+        NewTestLayoutFauxCombo_SetText(g_ntl_findCombo, text);
 
     Debug_Log("NewLayout", "CopyReplaceToFind", "%s", text);
 
@@ -63,11 +63,11 @@ static void NewTestLayout_SwapFindReplace(void)
     NewTestLayout_GetFindText(findText, sizeof(findText));
     NewTestLayout_GetReplaceText(replaceText, sizeof(replaceText));
 
-    if (g_findCombo)
-        NewTestLayoutFauxCombo_SetText(g_findCombo, replaceText);
+    if (g_ntl_findCombo)
+        NewTestLayoutFauxCombo_SetText(g_ntl_findCombo, replaceText);
 
-    if (g_replaceCombo)
-        NewTestLayoutFauxCombo_SetText(g_replaceCombo, findText);
+    if (g_ntl_replaceCombo)
+        NewTestLayoutFauxCombo_SetText(g_ntl_replaceCombo, findText);
 
     Debug_Log(
         "NewLayout",
@@ -137,23 +137,23 @@ int NewTestLayout_HandleCommand(WPARAM wParam, LPARAM lParam)
     int id;
     int notifyCode;
 
-    if (g_settingsPanel &&
-        NewTestLayoutSettings_HandleCommand(g_settingsPanel, wParam, lParam))
+    if (g_ntl_settingsPanel &&
+        NewTestLayoutSettings_HandleCommand(g_ntl_settingsPanel, wParam, lParam))
     {
         NewTestLayout_UpdateWindowTitle();
         return 1;
     }
 
-    if (g_findCombo)
-        NewTestLayoutFauxCombo_HandleParentCommand(g_findCombo, wParam, lParam);
+    if (g_ntl_findCombo)
+        NewTestLayoutFauxCombo_HandleParentCommand(g_ntl_findCombo, wParam, lParam);
 
-    if (g_replaceCombo)
-        NewTestLayoutFauxCombo_HandleParentCommand(g_replaceCombo, wParam, lParam);
+    if (g_ntl_replaceCombo)
+        NewTestLayoutFauxCombo_HandleParentCommand(g_ntl_replaceCombo, wParam, lParam);
 
     id = LOWORD(wParam);
     notifyCode = HIWORD(wParam);
 
-    if ((HWND)lParam == NewTestLayoutFauxCombo_GetHwnd(g_findCombo))
+    if ((HWND)lParam == NewTestLayoutFauxCombo_GetHwnd(g_ntl_findCombo))
     {
         if (notifyCode == NTL_FCN_TEXT_CHANGED ||
             notifyCode == NTL_FCN_RECENT_SELECTED)
@@ -165,7 +165,7 @@ int NewTestLayout_HandleCommand(WPARAM wParam, LPARAM lParam)
         return 1;
     }
 
-    if ((HWND)lParam == NewTestLayoutFauxCombo_GetHwnd(g_replaceCombo))
+    if ((HWND)lParam == NewTestLayoutFauxCombo_GetHwnd(g_ntl_replaceCombo))
         return 1;
 
     if (notifyCode == NTL_ACTION_BN_CLICKED)

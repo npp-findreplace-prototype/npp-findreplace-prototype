@@ -2,9 +2,9 @@
 
 void NewTestLayout_ShowUtilityButtons(int show)
 {
-    NewTestLayoutActionButton_Show(g_copyToReplaceButton, show);
-    NewTestLayoutActionButton_Show(g_swapFindReplaceButton, show);
-    NewTestLayoutActionButton_Show(g_copyToFindButton, show);
+    NewTestLayoutActionButton_Show(g_ntl_copyToReplaceButton, show);
+    NewTestLayoutActionButton_Show(g_ntl_swapFindReplaceButton, show);
+    NewTestLayoutActionButton_Show(g_ntl_copyToFindButton, show);
 }
 
 static void NewTestLayout_LayoutUtilityButtons(
@@ -24,7 +24,7 @@ static void NewTestLayout_LayoutUtilityButtons(
         utilityTop + utilitySquare
     );
 
-    NewTestLayoutActionButton_SetRect(g_copyToReplaceButton, &r);
+    NewTestLayoutActionButton_SetRect(g_ntl_copyToReplaceButton, &r);
 
     utilityTop += utilitySquare + utilityGap;
 
@@ -36,7 +36,7 @@ static void NewTestLayout_LayoutUtilityButtons(
         utilityTop + utilitySquare
     );
 
-    NewTestLayoutActionButton_SetRect(g_swapFindReplaceButton, &r);
+    NewTestLayoutActionButton_SetRect(g_ntl_swapFindReplaceButton, &r);
 
     utilityTop += utilitySquare + utilityGap;
 
@@ -48,7 +48,7 @@ static void NewTestLayout_LayoutUtilityButtons(
         utilityTop + utilitySquare
     );
 
-    NewTestLayoutActionButton_SetRect(g_copyToFindButton, &r);
+    NewTestLayoutActionButton_SetRect(g_ntl_copyToFindButton, &r);
 }
 
 void NewTestLayout_LayoutCombosAndUtility(
@@ -124,8 +124,8 @@ void NewTestLayout_LayoutCombosAndUtility(
         y + NTL_FAUX_COMBO_HEIGHT
     );
 
-    NewTestLayoutFauxCombo_SetRect(g_findCombo, &r);
-    NewTestLayoutFauxCombo_Show(g_findCombo, 1);
+    NewTestLayoutFauxCombo_SetRect(g_ntl_findCombo, &r);
+    NewTestLayoutFauxCombo_Show(g_ntl_findCombo, 1);
 
     if (visibility->showReplaceBox)
     {
@@ -139,12 +139,12 @@ void NewTestLayout_LayoutCombosAndUtility(
             y + NTL_FAUX_COMBO_HEIGHT
         );
 
-        NewTestLayoutFauxCombo_SetRect(g_replaceCombo, &r);
-        NewTestLayoutFauxCombo_Show(g_replaceCombo, 1);
+        NewTestLayoutFauxCombo_SetRect(g_ntl_replaceCombo, &r);
+        NewTestLayoutFauxCombo_Show(g_ntl_replaceCombo, 1);
     }
     else
     {
-        NewTestLayoutFauxCombo_Show(g_replaceCombo, 0);
+        NewTestLayoutFauxCombo_Show(g_ntl_replaceCombo, 0);
     }
 
     if (showUtilityButtons)

@@ -10,8 +10,8 @@ static void NewTestLayout_HandlePaint(HWND hwnd)
 
     GetClientRect(hwnd, &rc);
 
-    if (g_backBrush)
-        FillRect(hdc, &rc, g_backBrush);
+    if (g_ntl_backBrush)
+        FillRect(hdc, &rc, g_ntl_backBrush);
     else
         Ui_FillSolidRect(hdc, &rc, GetSysColor(COLOR_WINDOW));
 
@@ -33,8 +33,8 @@ static LRESULT CALLBACK NewTestLayoutWindowProc(
 
             cs = (CREATESTRUCT *)lParam;
 
-            g_hInstance = cs->hInstance;
-            g_window = hwnd;
+            g_ntl_hInstance = cs->hInstance;
+            g_ntl_window = hwnd;
 
             NewTestLayout_CreateControls(hwnd);
             NewTestLayout_Layout(hwnd);
@@ -104,8 +104,8 @@ static LRESULT CALLBACK NewTestLayoutWindowProc(
 
             hdc = (HDC)wParam;
 
-            SetBkColor(hdc, g_theme.editBackColor);
-            SetTextColor(hdc, g_theme.editTextColor);
+            SetBkColor(hdc, g_ntl_theme.editBackColor);
+            SetTextColor(hdc, g_ntl_theme.editTextColor);
 
             return (LRESULT)GetStockObject(NULL_BRUSH);
         }
@@ -116,9 +116,9 @@ static LRESULT CALLBACK NewTestLayoutWindowProc(
 
             result = 0;
 
-            if (g_settingsPanel &&
+            if (g_ntl_settingsPanel &&
                 NewTestLayoutSettings_HandleCtlColorStatic(
-                    g_settingsPanel,
+                    g_ntl_settingsPanel,
                     (HDC)wParam,
                     (HWND)lParam,
                     &result
@@ -127,11 +127,11 @@ static LRESULT CALLBACK NewTestLayoutWindowProc(
                 return result;
             }
 
-            SetBkColor((HDC)wParam, g_theme.windowBackColor);
-            SetTextColor((HDC)wParam, g_theme.buttonTextColor);
+            SetBkColor((HDC)wParam, g_ntl_theme.windowBackColor);
+            SetTextColor((HDC)wParam, g_ntl_theme.buttonTextColor);
 
-            if (g_backBrush)
-                return (LRESULT)g_backBrush;
+            if (g_ntl_backBrush)
+                return (LRESULT)g_ntl_backBrush;
 
             return (LRESULT)(COLOR_WINDOW + 1);
         }
@@ -167,14 +167,14 @@ static LRESULT CALLBACK NewTestLayoutWindowProc(
 
             NewTestLayout_DestroyControls();
 
-            g_window = NULL;
-            g_modeGrid = NULL;
+            g_ntl_window = NULL;
+            g_ntl_modeGrid = NULL;
 
-            ZeroMemory(&g_counts, sizeof(g_counts));
-            g_lastFindText[0] = '\0';
+            ZeroMemory(&g_ntl_counts, sizeof(g_ntl_counts));
+            g_ntl_lastFindText[0] = '\0';
 
-            callback = g_onClosed;
-            g_onClosed = NULL;
+            callback = g_ntl_onClosed;
+            g_ntl_onClosed = NULL;
 
             if (callback)
                 callback();
@@ -217,20 +217,20 @@ HWND NewTestLayoutWindow_Show(
     NewTestLayoutWindowClosedCallback onClosed
 )
 {
-    g_hInstance = hInstance;
-    g_onClosed = onClosed;
+    g_ntl_hInstance = hInstance;
+    g_ntl_onClosed = onClosed;
 
-    if (g_window && IsWindow(g_window))
+    if (g_ntl_window && IsWindow(g_ntl_window))
     {
-        ShowWindow(g_window, SW_SHOW);
-        SetForegroundWindow(g_window);
-        return g_window;
+        ShowWindow(g_ntl_window, SW_SHOW);
+        SetForegroundWindow(g_ntl_window);
+        return g_ntl_window;
     }
 
     if (!NewTestLayoutWindow_RegisterClass(hInstance))
         return NULL;
 
-    g_window = CreateWindowEx(
+    g_ntl_window = CreateWindowEx(
         0,
         NEW_TEST_LAYOUT_WINDOW_CLASS_NAME,
         NEW_TEST_LAYOUT_WINDOW_TITLE,
@@ -245,27 +245,27 @@ HWND NewTestLayoutWindow_Show(
         NULL
     );
 
-    if (!g_window)
+    if (!g_ntl_window)
         return NULL;
 
-    ShowWindow(g_window, SW_SHOW);
-    UpdateWindow(g_window);
+    ShowWindow(g_ntl_window, SW_SHOW);
+    UpdateWindow(g_ntl_window);
 
-    return g_window;
+    return g_ntl_window;
 }
 
 void NewTestLayoutWindow_Close(void)
 {
-    if (g_window && IsWindow(g_window))
-        DestroyWindow(g_window);
+    if (g_ntl_window && IsWindow(g_ntl_window))
+        DestroyWindow(g_ntl_window);
 }
 
 HWND NewTestLayoutWindow_GetHwnd(void)
 {
-    return g_window;
+    return g_ntl_window;
 }
 
 int NewTestLayoutWindow_IsOpen(void)
 {
-    return g_window && IsWindow(g_window);
+    return g_ntl_window && IsWindow(g_ntl_window);
 }

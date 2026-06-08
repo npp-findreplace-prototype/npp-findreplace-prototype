@@ -114,54 +114,41 @@ typedef struct NewTestLayoutLayoutState
     int groupWidth;
 } NewTestLayoutLayoutState;
 
+/* shared window state */
 extern HINSTANCE g_ntl_hInstance;
 extern HWND g_ntl_window;
 extern NewTestLayoutWindowClosedCallback g_ntl_onClosed;
 
+/* shared theme/settings state */
 extern NewTestLayoutTheme g_ntl_theme;
 extern NewTestLayoutSettingsConfig g_ntl_settingsConfig;
 extern NewTestLayoutSettingsPanel *g_ntl_settingsPanel;
 
+/* shared top input controls */
 extern NewTestLayoutFauxCombo *g_ntl_findCombo;
 extern NewTestLayoutFauxCombo *g_ntl_replaceCombo;
 
+/* shared utility buttons */
 extern NewTestLayoutActionButton *g_ntl_copyToReplaceButton;
 extern NewTestLayoutActionButton *g_ntl_swapFindReplaceButton;
 extern NewTestLayoutActionButton *g_ntl_copyToFindButton;
 
+/* shared action groups */
 extern NewTestLayoutActionGroup *g_ntl_findGroup;
 extern NewTestLayoutActionGroup *g_ntl_replaceGroup;
 extern NewTestLayoutActionGroup *g_ntl_selectionGroup;
 
+/* shared mode grid */
 extern HWND g_ntl_modeGrid;
 extern ButtonGridConfig g_ntl_modeGridConfig;
 extern ButtonGridItemConfig g_ntl_modeGridItems[12];
 
+/* shared dynamic counts/text */
 extern char g_ntl_lastFindText[512];
 extern NewTestLayoutCounts g_ntl_counts;
 
+/* shared painting resources */
 extern HBRUSH g_ntl_backBrush;
-
-#define g_hInstance g_ntl_hInstance
-#define g_window g_ntl_window
-#define g_onClosed g_ntl_onClosed
-#define g_theme g_ntl_theme
-#define g_settingsConfig g_ntl_settingsConfig
-#define g_settingsPanel g_ntl_settingsPanel
-#define g_findCombo g_ntl_findCombo
-#define g_replaceCombo g_ntl_replaceCombo
-#define g_copyToReplaceButton g_ntl_copyToReplaceButton
-#define g_swapFindReplaceButton g_ntl_swapFindReplaceButton
-#define g_copyToFindButton g_ntl_copyToFindButton
-#define g_findGroup g_ntl_findGroup
-#define g_replaceGroup g_ntl_replaceGroup
-#define g_selectionGroup g_ntl_selectionGroup
-#define g_modeGrid g_ntl_modeGrid
-#define g_modeGridConfig g_ntl_modeGridConfig
-#define g_modeGridItems g_ntl_modeGridItems
-#define g_lastFindText g_ntl_lastFindText
-#define g_counts g_ntl_counts
-#define g_backBrush g_ntl_backBrush
 
 void NewTestLayout_CopyText(
     char *dest,

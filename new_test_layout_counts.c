@@ -75,8 +75,8 @@ void NewTestLayout_GetFindText(char *buffer, int bufferSize)
 
     buffer[0] = '\0';
 
-    if (g_findCombo)
-        NewTestLayoutFauxCombo_GetText(g_findCombo, buffer, bufferSize);
+    if (g_ntl_findCombo)
+        NewTestLayoutFauxCombo_GetText(g_ntl_findCombo, buffer, bufferSize);
 }
 
 void NewTestLayout_GetReplaceText(char *buffer, int bufferSize)
@@ -86,8 +86,8 @@ void NewTestLayout_GetReplaceText(char *buffer, int bufferSize)
 
     buffer[0] = '\0';
 
-    if (g_replaceCombo)
-        NewTestLayoutFauxCombo_GetText(g_replaceCombo, buffer, bufferSize);
+    if (g_ntl_replaceCombo)
+        NewTestLayoutFauxCombo_GetText(g_ntl_replaceCombo, buffer, bufferSize);
 }
 
 static int NewTestLayout_ComputeCounts(NewTestLayoutCounts *counts)
@@ -184,36 +184,36 @@ static int NewTestLayout_ComputeCounts(NewTestLayoutCounts *counts)
 
 void NewTestLayout_ApplyCountOptions(void)
 {
-    if (g_findGroup)
+    if (g_ntl_findGroup)
     {
         NewTestLayoutActionGroup_SetCountOptions(
-            g_findGroup,
-            g_settingsConfig.showCounts,
-            g_settingsConfig.showZeroCounts,
-            g_settingsConfig.countInParentheses,
-            g_settingsConfig.actionButtonCountColorEnabled
+            g_ntl_findGroup,
+            g_ntl_settingsConfig.showCounts,
+            g_ntl_settingsConfig.showZeroCounts,
+            g_ntl_settingsConfig.countInParentheses,
+            g_ntl_settingsConfig.actionButtonCountColorEnabled
         );
     }
 
-    if (g_replaceGroup)
+    if (g_ntl_replaceGroup)
     {
         NewTestLayoutActionGroup_SetCountOptions(
-            g_replaceGroup,
-            g_settingsConfig.showCounts,
-            g_settingsConfig.showZeroCounts,
-            g_settingsConfig.countInParentheses,
-            g_settingsConfig.actionButtonCountColorEnabled
+            g_ntl_replaceGroup,
+            g_ntl_settingsConfig.showCounts,
+            g_ntl_settingsConfig.showZeroCounts,
+            g_ntl_settingsConfig.countInParentheses,
+            g_ntl_settingsConfig.actionButtonCountColorEnabled
         );
     }
 
-    if (g_selectionGroup)
+    if (g_ntl_selectionGroup)
     {
         NewTestLayoutActionGroup_SetCountOptions(
-            g_selectionGroup,
-            g_settingsConfig.showCounts,
-            g_settingsConfig.showZeroCounts,
-            g_settingsConfig.countInParentheses,
-            g_settingsConfig.actionButtonCountColorEnabled
+            g_ntl_selectionGroup,
+            g_ntl_settingsConfig.showCounts,
+            g_ntl_settingsConfig.showZeroCounts,
+            g_ntl_settingsConfig.countInParentheses,
+            g_ntl_settingsConfig.actionButtonCountColorEnabled
         );
     }
 }
@@ -226,41 +226,41 @@ void NewTestLayout_ApplyCounts(void)
     ZeroMemory(&counts, sizeof(counts));
 
     NewTestLayout_ComputeCounts(&counts);
-    g_counts = counts;
+    g_ntl_counts = counts;
 
-    if (g_findGroup)
+    if (g_ntl_findGroup)
     {
-        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 0, counts.findPrevious, counts.hasCounts);
-        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 1, counts.findAll, counts.hasCounts);
-        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 2, 0, 0);
-        NewTestLayoutActionGroup_SetButtonCount(g_findGroup, 3, counts.findNext, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_findGroup, 0, counts.findPrevious, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_findGroup, 1, counts.findAll, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_findGroup, 2, 0, 0);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_findGroup, 3, counts.findNext, counts.hasCounts);
     }
 
-    if (g_replaceGroup)
+    if (g_ntl_replaceGroup)
     {
-        NewTestLayoutActionGroup_SetButtonCount(g_replaceGroup, 0, counts.replacePrevious, counts.hasCounts);
-        NewTestLayoutActionGroup_SetButtonCount(g_replaceGroup, 1, counts.replaceAll, counts.hasCounts);
-        NewTestLayoutActionGroup_SetButtonCount(g_replaceGroup, 2, counts.replaceNext, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_replaceGroup, 0, counts.replacePrevious, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_replaceGroup, 1, counts.replaceAll, counts.hasCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_replaceGroup, 2, counts.replaceNext, counts.hasCounts);
     }
 
-    if (g_selectionGroup)
+    if (g_ntl_selectionGroup)
     {
-        NewTestLayoutActionGroup_SetButtonCount(g_selectionGroup, 0, counts.selectionReplacePrevious, counts.hasSelectionCounts);
-        NewTestLayoutActionGroup_SetButtonCount(g_selectionGroup, 1, counts.selectionReplaceAll, counts.hasSelectionCounts);
-        NewTestLayoutActionGroup_SetButtonCount(g_selectionGroup, 2, counts.selectionReplaceNext, counts.hasSelectionCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_selectionGroup, 0, counts.selectionReplacePrevious, counts.hasSelectionCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_selectionGroup, 1, counts.selectionReplaceAll, counts.hasSelectionCounts);
+        NewTestLayoutActionGroup_SetButtonCount(g_ntl_selectionGroup, 2, counts.selectionReplaceNext, counts.hasSelectionCounts);
     }
 
     NewTestLayout_GetFindText(currentFind, sizeof(currentFind));
 
-    if (lstrcmp(currentFind, g_lastFindText) != 0)
+    if (lstrcmp(currentFind, g_ntl_lastFindText) != 0)
     {
-        NewTestLayout_CopyText(g_lastFindText, sizeof(g_lastFindText), currentFind);
+        NewTestLayout_CopyText(g_ntl_lastFindText, sizeof(g_ntl_lastFindText), currentFind);
 
         Debug_Log(
             "NewLayout",
             "FindTextChanged",
             "Find text='%s'",
-            g_lastFindText
+            g_ntl_lastFindText
         );
     }
 }

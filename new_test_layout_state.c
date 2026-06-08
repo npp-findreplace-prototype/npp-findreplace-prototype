@@ -1,33 +1,33 @@
 #include "new_test_layout_window_internal.h"
 
-HINSTANCE g_hInstance = NULL;
-HWND g_window = NULL;
+HINSTANCE g_ntl_hInstance = NULL;
+HWND g_ntl_window = NULL;
 
-NewTestLayoutWindowClosedCallback g_onClosed = NULL;
+NewTestLayoutWindowClosedCallback g_ntl_onClosed = NULL;
 
-NewTestLayoutTheme g_theme;
-NewTestLayoutSettingsConfig g_settingsConfig;
-NewTestLayoutSettingsPanel *g_settingsPanel = NULL;
+NewTestLayoutTheme g_ntl_theme;
+NewTestLayoutSettingsConfig g_ntl_settingsConfig;
+NewTestLayoutSettingsPanel *g_ntl_settingsPanel = NULL;
 
-NewTestLayoutFauxCombo *g_findCombo = NULL;
-NewTestLayoutFauxCombo *g_replaceCombo = NULL;
+NewTestLayoutFauxCombo *g_ntl_findCombo = NULL;
+NewTestLayoutFauxCombo *g_ntl_replaceCombo = NULL;
 
-NewTestLayoutActionButton *g_copyToReplaceButton = NULL;
-NewTestLayoutActionButton *g_swapFindReplaceButton = NULL;
-NewTestLayoutActionButton *g_copyToFindButton = NULL;
+NewTestLayoutActionButton *g_ntl_copyToReplaceButton = NULL;
+NewTestLayoutActionButton *g_ntl_swapFindReplaceButton = NULL;
+NewTestLayoutActionButton *g_ntl_copyToFindButton = NULL;
 
-NewTestLayoutActionGroup *g_findGroup = NULL;
-NewTestLayoutActionGroup *g_replaceGroup = NULL;
-NewTestLayoutActionGroup *g_selectionGroup = NULL;
+NewTestLayoutActionGroup *g_ntl_findGroup = NULL;
+NewTestLayoutActionGroup *g_ntl_replaceGroup = NULL;
+NewTestLayoutActionGroup *g_ntl_selectionGroup = NULL;
 
-HWND g_modeGrid = NULL;
-ButtonGridConfig g_modeGridConfig;
-ButtonGridItemConfig g_modeGridItems[12];
+HWND g_ntl_modeGrid = NULL;
+ButtonGridConfig g_ntl_modeGridConfig;
+ButtonGridItemConfig g_ntl_modeGridItems[12];
 
-char g_lastFindText[512];
-NewTestLayoutCounts g_counts;
+char g_ntl_lastFindText[512];
+NewTestLayoutCounts g_ntl_counts;
 
-HBRUSH g_backBrush = NULL;
+HBRUSH g_ntl_backBrush = NULL;
 
 void NewTestLayout_CopyText(char *dest, int destSize, const char *src)
 {
@@ -78,7 +78,7 @@ int NewTestLayout_GetSingleRowModeGridHeight(void)
 {
     int h;
 
-    h = g_settingsConfig.singleRowModeGridHeight;
+    h = g_ntl_settingsConfig.singleRowModeGridHeight;
 
     if (h < 44)
         h = 44;

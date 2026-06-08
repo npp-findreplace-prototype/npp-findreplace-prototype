@@ -38,12 +38,12 @@ void NewTestLayout_Layout(HWND hwnd)
         &layout
     );
 
-    if (g_settingsPanel)
+    if (g_ntl_settingsPanel)
     {
-        NewTestLayoutSettings_Layout(g_settingsPanel, &layout.clientRect);
+        NewTestLayoutSettings_Layout(g_ntl_settingsPanel, &layout.clientRect);
 
-        if (NewTestLayoutSettings_IsVisible(g_settingsPanel))
-            NewTestLayoutSettings_Show(g_settingsPanel, 1);
+        if (NewTestLayoutSettings_IsVisible(g_ntl_settingsPanel))
+            NewTestLayoutSettings_Show(g_ntl_settingsPanel, 1);
     }
 
     RedrawWindow(

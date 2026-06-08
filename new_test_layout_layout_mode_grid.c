@@ -27,12 +27,12 @@ void NewTestLayout_LayoutModeGrid(
 
         layout->groupY += NTL_GAP + layout->modeGridHeight;
 
-        if (g_modeGrid)
+        if (g_ntl_modeGrid)
         {
-            ShowWindow(g_modeGrid, SW_SHOW);
+            ShowWindow(g_ntl_modeGrid, SW_SHOW);
 
             ButtonGrid_SetRect(
-                g_modeGrid,
+                g_ntl_modeGrid,
                 r.left,
                 r.top,
                 r.right - r.left,
@@ -42,13 +42,13 @@ void NewTestLayout_LayoutModeGrid(
     }
     else if (visibility->showModeGrid && visibility->useLeftModePanel)
     {
-        if (g_modeGrid)
-            ShowWindow(g_modeGrid, SW_SHOW);
+        if (g_ntl_modeGrid)
+            ShowWindow(g_ntl_modeGrid, SW_SHOW);
     }
     else
     {
-        if (g_modeGrid)
-            ShowWindow(g_modeGrid, SW_HIDE);
+        if (g_ntl_modeGrid)
+            ShowWindow(g_ntl_modeGrid, SW_HIDE);
     }
 
     groupStackHeight =
@@ -76,10 +76,10 @@ void NewTestLayout_LayoutModeGrid(
             leftPanelTop + leftPanelHeight
         );
 
-        if (g_modeGrid)
+        if (g_ntl_modeGrid)
         {
             ButtonGrid_SetRect(
-                g_modeGrid,
+                g_ntl_modeGrid,
                 r.left,
                 r.top,
                 r.right - r.left,

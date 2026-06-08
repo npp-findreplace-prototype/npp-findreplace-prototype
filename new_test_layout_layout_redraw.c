@@ -4,7 +4,7 @@ void NewTestLayout_RedrawUtilityButtons(void)
 {
     HWND hwnd;
 
-    hwnd = NewTestLayoutActionButton_GetHwnd(g_copyToReplaceButton);
+    hwnd = NewTestLayoutActionButton_GetHwnd(g_ntl_copyToReplaceButton);
 
     if (hwnd)
     {
@@ -21,7 +21,7 @@ void NewTestLayout_RedrawUtilityButtons(void)
         RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
     }
 
-    hwnd = NewTestLayoutActionButton_GetHwnd(g_swapFindReplaceButton);
+    hwnd = NewTestLayoutActionButton_GetHwnd(g_ntl_swapFindReplaceButton);
 
     if (hwnd)
     {
@@ -38,7 +38,7 @@ void NewTestLayout_RedrawUtilityButtons(void)
         RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
     }
 
-    hwnd = NewTestLayoutActionButton_GetHwnd(g_copyToFindButton);
+    hwnd = NewTestLayoutActionButton_GetHwnd(g_ntl_copyToFindButton);
 
     if (hwnd)
     {
@@ -60,7 +60,7 @@ void NewTestLayout_RedrawImportantControls(void)
 {
     HWND hwnd;
 
-    hwnd = NewTestLayoutFauxCombo_GetHwnd(g_findCombo);
+    hwnd = NewTestLayoutFauxCombo_GetHwnd(g_ntl_findCombo);
 
     if (hwnd)
     {
@@ -72,7 +72,7 @@ void NewTestLayout_RedrawImportantControls(void)
         );
     }
 
-    hwnd = NewTestLayoutFauxCombo_GetHwnd(g_replaceCombo);
+    hwnd = NewTestLayoutFauxCombo_GetHwnd(g_ntl_replaceCombo);
 
     if (hwnd)
     {
@@ -84,10 +84,10 @@ void NewTestLayout_RedrawImportantControls(void)
         );
     }
 
-    if (g_modeGrid)
+    if (g_ntl_modeGrid)
     {
         RedrawWindow(
-            g_modeGrid,
+            g_ntl_modeGrid,
             NULL,
             NULL,
             RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
