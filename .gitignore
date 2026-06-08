@@ -1,0 +1,11 @@
+build_*/
+source_*/
+oldbuilds/
+oldbuild/
+temp/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.res
+*.log
