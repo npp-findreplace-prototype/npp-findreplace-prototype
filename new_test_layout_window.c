@@ -30,6 +30,14 @@
 #define NTL_UTILITY_BUTTON_SQUARE_MAX 42
 #define NTL_UTILITY_BUTTON_GAP 4
 
+#define NTL_MODE_SINGLE_BUTTON_SIZE 30
+#define NTL_MODE_SINGLE_SPACING 4
+
+#define NTL_MODE_LEFT_COLUMNS 4
+#define NTL_MODE_LEFT_ROWS 3
+#define NTL_MODE_LEFT_BUTTON_SIZE 30
+#define NTL_MODE_LEFT_SPACING 4
+
 #define ID_NTL_FIND_COMBO 7001
 #define ID_NTL_REPLACE_COMBO 7002
 
@@ -177,6 +185,22 @@ static int NewTestLayout_GetSingleRowModeGridHeight(void)
         h = 140;
 
     return h;
+}
+
+static int NewTestLayout_GetLeftModeGridWidth(void)
+{
+    return
+        NTL_MODE_LEFT_COLUMNS * NTL_MODE_LEFT_BUTTON_SIZE +
+        (NTL_MODE_LEFT_COLUMNS - 1) * NTL_MODE_LEFT_SPACING +
+        4;
+}
+
+static int NewTestLayout_GetLeftModeGridHeight(void)
+{
+    return
+        NTL_MODE_LEFT_ROWS * NTL_MODE_LEFT_BUTTON_SIZE +
+        (NTL_MODE_LEFT_ROWS - 1) * NTL_MODE_LEFT_SPACING +
+        4;
 }
 
 static int NewTestLayout_TextStartsWith(
@@ -559,10 +583,10 @@ static void NewTestLayout_InitModeGridConfig(void)
     g_modeGridConfig.buttonCount = 12;
     g_modeGridConfig.items = g_modeGridItems;
 
-    g_modeGridConfig.buttonWidth = 46;
-    g_modeGridConfig.buttonHeight = 46;
-    g_modeGridConfig.horizontalSpacing = 8;
-    g_modeGridConfig.verticalSpacing = 8;
+    g_modeGridConfig.buttonWidth = NTL_MODE_SINGLE_BUTTON_SIZE;
+    g_modeGridConfig.buttonHeight = NTL_MODE_SINGLE_BUTTON_SIZE;
+    g_modeGridConfig.horizontalSpacing = NTL_MODE_SINGLE_SPACING;
+    g_modeGridConfig.verticalSpacing = NTL_MODE_SINGLE_SPACING;
 
     g_modeGridConfig.layout = BUTTON_GRID_LAYOUT_HORIZONTAL;
     g_modeGridConfig.sizeMode = BUTTON_GRID_SIZE_FIXED;
@@ -832,7 +856,6 @@ static void NewTestLayout_SettingsChanged(void *userData)
     GetClientRect(g_window, &rc);
     NewTestLayoutSettings_Layout(g_settingsPanel, &rc);
 
-    InvalidateRect(g_window, NULL, TRUE);
     NewTestLayout_Layout(g_window);
 }
 
@@ -938,11 +961,11 @@ static void NewTestLayout_ComputeVisibility(
     int autoLayout;
     int allGroupsVisible;
     int availableWidth;
-    int groupStackHeight;
     int leftPanelWidth;
     int minimumGroupWidth;
     int fullHeightNeeded;
     int modeGridHeight;
+    int groupStackHeight;
 
     if (!visibility)
         return;
@@ -986,7 +1009,7 @@ static void NewTestLayout_ComputeVisibility(
         NTL_ACTION_GROUP_HEIGHT * 3 +
         NTL_GAP * 2;
 
-    leftPanelWidth = (groupStackHeight * 3) / 2;
+    leftPanelWidth = NewTestLayout_GetLeftModeGridWidth();
     minimumGroupWidth = 420;
     availableWidth = width - NTL_MARGIN * 2;
 
@@ -1040,6 +1063,53 @@ static void NewTestLayout_ShowGroups(const NewTestLayoutVisibility *visibility)
     NewTestLayoutActionGroup_SetPadding(g_selectionGroup, visibility->groupPadding);
 }
 
+static void NewTestLayout_RedrawUtilityButtons(void)
+{
+    HWND hwnd;
+
+    hwnd = NewTestLayoutActionButton_GetHwnd(g_copyToReplaceButton);
+
+    if (hwnd)
+    {
+        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+    }
+
+    hwnd = NewTestLayoutActionButton_GetHwnd(g_swapFindReplaceButton);
+
+    if (hwnd)
+    {
+        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+    }
+
+    hwnd = NewTestLayoutActionButton_GetHwnd(g_copyToFindButton);
+
+    if (hwnd)
+    {
+        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
+    }
+}
+
+static void NewTestLayout_RedrawImportantControls(void)
+{
+    HWND hwnd;
+
+    hwnd = NewTestLayoutFauxCombo_GetHwnd(g_findCombo);
+    if (hwnd)
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+
+    hwnd = NewTestLayoutFauxCombo_GetHwnd(g_replaceCombo);
+    if (hwnd)
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+
+    if (g_modeGrid)
+        RedrawWindow(g_modeGrid, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+
+    NewTestLayout_RedrawUtilityButtons();
+}
+
 static void NewTestLayout_Layout(HWND hwnd)
 {
     RECT rc;
@@ -1059,9 +1129,11 @@ static void NewTestLayout_Layout(HWND hwnd)
     int groupY;
     int groupWidth;
     int groupStackHeight;
-    int leftPanelHeight;
-    int leftPanelWidth;
     int modeGridHeight;
+
+    int leftPanelWidth;
+    int leftPanelHeight;
+    int leftPanelTop;
 
     int showUtilityButtons;
     int utilityTop;
@@ -1223,8 +1295,6 @@ static void NewTestLayout_Layout(HWND hwnd)
                 r.right - r.left,
                 r.bottom - r.top
             );
-
-            InvalidateRect(g_modeGrid, NULL, FALSE);
         }
     }
     else if (visibility.showModeGrid && visibility.useLeftModePanel)
@@ -1247,21 +1317,20 @@ static void NewTestLayout_Layout(HWND hwnd)
 
     if (visibility.useLeftModePanel)
     {
-        leftPanelHeight = groupStackHeight;
-        leftPanelWidth = (leftPanelHeight * 3) / 2;
+        leftPanelWidth = NewTestLayout_GetLeftModeGridWidth();
+        leftPanelHeight = NewTestLayout_GetLeftModeGridHeight();
 
-        if (leftPanelWidth > width / 2)
-            leftPanelWidth = width / 2;
+        leftPanelTop = groupY;
 
-        if (leftPanelWidth < 220)
-            leftPanelWidth = 220;
+        if (groupStackHeight > leftPanelHeight)
+            leftPanelTop = groupY + (groupStackHeight - leftPanelHeight) / 2;
 
         NewTestLayout_SetRect(
             &r,
             NTL_MARGIN,
-            groupY,
+            leftPanelTop,
             NTL_MARGIN + leftPanelWidth,
-            groupY + leftPanelHeight
+            leftPanelTop + leftPanelHeight
         );
 
         if (g_modeGrid)
@@ -1273,11 +1342,9 @@ static void NewTestLayout_Layout(HWND hwnd)
                 r.right - r.left,
                 r.bottom - r.top
             );
-
-            InvalidateRect(g_modeGrid, NULL, FALSE);
         }
 
-        groupX = r.right + NTL_GAP;
+        groupX = NTL_MARGIN + leftPanelWidth + NTL_GAP;
         groupWidth = width - groupX - NTL_MARGIN;
     }
 
@@ -1335,7 +1402,14 @@ static void NewTestLayout_Layout(HWND hwnd)
             NewTestLayoutSettings_Show(g_settingsPanel, 1);
     }
 
-    InvalidateRect(hwnd, NULL, FALSE);
+    RedrawWindow(
+        hwnd,
+        NULL,
+        NULL,
+        RDW_INVALIDATE | RDW_NOCHILDREN
+    );
+
+    NewTestLayout_RedrawImportantControls();
 }
 
 static void NewTestLayout_CopyFindToReplace(void)

@@ -91,6 +91,34 @@ static const char *ButtonGrid_GetButtonActionName(ButtonItem *button)
     return button->name;
 }
 
+static void ButtonGrid_RedrawGridWindow(ButtonGrid *grid, int updateNow)
+{
+    UINT flags;
+
+    if (!grid || !grid->hwnd)
+        return;
+
+    flags = RDW_INVALIDATE | RDW_NOERASE | RDW_ALLCHILDREN;
+
+    if (updateNow)
+        flags |= RDW_UPDATENOW;
+
+    RedrawWindow(grid->hwnd, NULL, NULL, flags);
+}
+
+static void ButtonGrid_RelayoutAndRedraw(ButtonGrid *grid, int updateNow)
+{
+    if (!grid)
+        return;
+
+    ButtonGrid_UpdateDpi(grid);
+    ButtonGrid_UpdateAllButtonSizes(grid);
+    ButtonGrid_Layout(grid);
+    ButtonGrid_LayoutSettingsPage(grid);
+    ButtonGrid_RedrawAllButtons(grid);
+    ButtonGrid_RedrawGridWindow(grid, updateNow);
+}
+
 int ButtonGrid_FindButtonIndexByHwnd(ButtonGrid *grid, HWND hwnd)
 {
     int i;
@@ -470,6 +498,7 @@ static LRESULT ButtonGrid_HandleCreate(HWND hwnd, LPARAM lParam)
     }
 
     ButtonGrid_PrepareButtonsForKeyboard(grid);
+    ButtonGrid_RelayoutAndRedraw(grid, 0);
 
     return 0;
 }
@@ -692,6 +721,9 @@ void ButtonGrid_SetRect(
             &sizeChanged
         ))
     {
+        if (grid)
+            ButtonGrid_RedrawGridWindow(grid, 0);
+
         return;
     }
 
@@ -704,6 +736,14 @@ void ButtonGrid_SetRect(
         height,
         SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS
     );
+
+    if (grid)
+    {
+        if (sizeChanged)
+            ButtonGrid_RelayoutAndRedraw(grid, 0);
+        else
+            ButtonGrid_RedrawGridWindow(grid, 0);
+    }
 }
 
 void ButtonGrid_SetButtonSize(
@@ -734,13 +774,7 @@ void ButtonGrid_SetButtonSize(
     grid->buttonWidth = buttonWidth;
     grid->buttonHeight = buttonHeight;
 
-    ButtonGrid_UpdateDpi(grid);
-    ButtonGrid_UpdateAllButtonSizes(grid);
-    ButtonGrid_Layout(grid);
-    ButtonGrid_RedrawAllButtons(grid);
-
-    if (grid->showBorder || grid->showGearIcon)
-        InvalidateRect(grid->hwnd, NULL, FALSE);
+    ButtonGrid_RelayoutAndRedraw(grid, 0);
 }
 
 void ButtonGrid_SetSizeMode(
@@ -763,13 +797,7 @@ void ButtonGrid_SetSizeMode(
 
     grid->sizeMode = normalized;
 
-    ButtonGrid_UpdateDpi(grid);
-    ButtonGrid_UpdateAllButtonSizes(grid);
-    ButtonGrid_Layout(grid);
-    ButtonGrid_RedrawAllButtons(grid);
-
-    if (grid->showBorder || grid->showGearIcon)
-        InvalidateRect(grid->hwnd, NULL, FALSE);
+    ButtonGrid_RelayoutAndRedraw(grid, 0);
 }
 
 void ButtonGrid_SetSpacing(
@@ -800,11 +828,7 @@ void ButtonGrid_SetSpacing(
     grid->horizontalSpacing = horizontalSpacing;
     grid->verticalSpacing = verticalSpacing;
 
-    ButtonGrid_UpdateDpi(grid);
-    ButtonGrid_Layout(grid);
-
-    if (grid->showBorder || grid->showGearIcon)
-        InvalidateRect(grid->hwnd, NULL, FALSE);
+    ButtonGrid_RelayoutAndRedraw(grid, 0);
 }
 
 void ButtonGrid_SetLayout(HWND gridHwnd, int layout)
@@ -827,13 +851,7 @@ void ButtonGrid_SetLayout(HWND gridHwnd, int layout)
 
     grid->layout = layout;
 
-    ButtonGrid_UpdateDpi(grid);
-    ButtonGrid_UpdateAllButtonSizes(grid);
-    ButtonGrid_Layout(grid);
-    ButtonGrid_RedrawAllButtons(grid);
-
-    if (grid->showBorder || grid->showGearIcon)
-        InvalidateRect(grid->hwnd, NULL, FALSE);
+    ButtonGrid_RelayoutAndRedraw(grid, 0);
 }
 
 void ButtonGrid_Relayout(HWND gridHwnd)
@@ -845,13 +863,7 @@ void ButtonGrid_Relayout(HWND gridHwnd)
     if (!grid)
         return;
 
-    ButtonGrid_UpdateDpi(grid);
-    ButtonGrid_UpdateAllButtonSizes(grid);
-    ButtonGrid_Layout(grid);
-    ButtonGrid_LayoutSettingsPage(grid);
-
-    if (grid->showBorder || grid->showGearIcon)
-        InvalidateRect(gridHwnd, NULL, FALSE);
+    ButtonGrid_RelayoutAndRedraw(grid, 0);
 }
 
 static void ButtonGrid_HandleDpiChanged(ButtonGrid *grid)
@@ -864,8 +876,7 @@ static void ButtonGrid_HandleDpiChanged(ButtonGrid *grid)
     ButtonGrid_Layout(grid);
     ButtonGrid_LayoutSettingsPage(grid);
     ButtonGrid_RedrawAllButtons(grid);
-
-    InvalidateRect(grid->hwnd, NULL, FALSE);
+    ButtonGrid_RedrawGridWindow(grid, 1);
 }
 
 static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -884,14 +895,7 @@ static LRESULT CALLBACK ButtonGrid_WndProc(HWND hwnd, UINT msg, WPARAM wParam, L
         case WM_SIZE:
         {
             if (grid)
-            {
-                ButtonGrid_UpdateDpi(grid);
-                ButtonGrid_Layout(grid);
-                ButtonGrid_LayoutSettingsPage(grid);
-
-                if (grid->showBorder || grid->showGearIcon)
-                    InvalidateRect(hwnd, NULL, FALSE);
-            }
+                ButtonGrid_RelayoutAndRedraw(grid, 0);
 
             return 0;
         }

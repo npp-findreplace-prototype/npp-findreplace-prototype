@@ -114,6 +114,8 @@ struct NewTestLayoutGearButton
     NewTestLayoutTheme theme;
 };
 
+typedef void (*NtlBufferedDrawProc)(void *context, HDC hdc, RECT *rc);
+
 static void Ntl_CopyText(char *dest, int destSize, const char *src)
 {
     if (!dest || destSize <= 0)
@@ -184,6 +186,76 @@ static void Ntl_DrawBorder(HDC hdc, const RECT *rc, COLORREF color)
     DeleteObject(pen);
 }
 
+static void Ntl_DoubleBufferedPaint(
+    HWND hwnd,
+    void *context,
+    NtlBufferedDrawProc drawProc
+)
+{
+    PAINTSTRUCT ps;
+    HDC hdc;
+    HDC memDc;
+    HBITMAP bitmap;
+    HBITMAP oldBitmap;
+    RECT rc;
+    int width;
+    int height;
+
+    hdc = BeginPaint(hwnd, &ps);
+
+    GetClientRect(hwnd, &rc);
+
+    width = rc.right - rc.left;
+    height = rc.bottom - rc.top;
+
+    if (width <= 0 || height <= 0 || !drawProc)
+    {
+        EndPaint(hwnd, &ps);
+        return;
+    }
+
+    memDc = CreateCompatibleDC(hdc);
+
+    if (!memDc)
+    {
+        drawProc(context, hdc, &rc);
+        EndPaint(hwnd, &ps);
+        return;
+    }
+
+    bitmap = CreateCompatibleBitmap(hdc, width, height);
+
+    if (!bitmap)
+    {
+        DeleteDC(memDc);
+        drawProc(context, hdc, &rc);
+        EndPaint(hwnd, &ps);
+        return;
+    }
+
+    oldBitmap = (HBITMAP)SelectObject(memDc, bitmap);
+
+    drawProc(context, memDc, &rc);
+
+    BitBlt(
+        hdc,
+        0,
+        0,
+        width,
+        height,
+        memDc,
+        0,
+        0,
+        SRCCOPY
+    );
+
+    SelectObject(memDc, oldBitmap);
+    DeleteObject(bitmap);
+    DeleteDC(memDc);
+
+    EndPaint(hwnd, &ps);
+}
+
 void NewTestLayoutTheme_GetDefault(NewTestLayoutTheme *theme)
 {
     if (!theme)
@@ -192,7 +264,7 @@ void NewTestLayoutTheme_GetDefault(NewTestLayoutTheme *theme)
     ZeroMemory(theme, sizeof(*theme));
 
     theme->windowBackColor = RGB(8, 8, 8);
-    theme->panelBackColor = RGB(14, 14, 14);
+    theme->panelBackColor = RGB(8, 8, 8);
     theme->panelBorderColor = RGB(70, 70, 70);
 
     theme->editBackColor = RGB(10, 10, 10);
@@ -206,7 +278,7 @@ void NewTestLayoutTheme_GetDefault(NewTestLayoutTheme *theme)
     theme->buttonTextColor = RGB(205, 205, 205);
     theme->countTextColor = RGB(0, 100, 210);
 
-    theme->groupBackColor = RGB(10, 10, 10);
+    theme->groupBackColor = RGB(8, 8, 8);
     theme->groupBorderColor = RGB(65, 65, 65);
     theme->groupTitleColor = RGB(175, 175, 175);
 
@@ -223,8 +295,14 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->normalFont)
     {
         theme->normalFont = CreateFont(
-            -18, 0, 0, 0, FW_NORMAL,
-            FALSE, FALSE, FALSE,
+            -18,
+            0,
+            0,
+            0,
+            FW_NORMAL,
+            FALSE,
+            FALSE,
+            FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -237,8 +315,14 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->monoFont)
     {
         theme->monoFont = CreateFont(
-            -18, 0, 0, 0, FW_NORMAL,
-            FALSE, FALSE, FALSE,
+            -18,
+            0,
+            0,
+            0,
+            FW_NORMAL,
+            FALSE,
+            FALSE,
+            FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -251,8 +335,14 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->placeholderFont)
     {
         theme->placeholderFont = CreateFont(
-            -28, 0, 0, 0, FW_NORMAL,
-            FALSE, FALSE, FALSE,
+            -28,
+            0,
+            0,
+            0,
+            FW_NORMAL,
+            FALSE,
+            FALSE,
+            FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -265,8 +355,14 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->buttonFont)
     {
         theme->buttonFont = CreateFont(
-            -17, 0, 0, 0, FW_NORMAL,
-            FALSE, FALSE, FALSE,
+            -17,
+            0,
+            0,
+            0,
+            FW_NORMAL,
+            FALSE,
+            FALSE,
+            FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -279,8 +375,14 @@ void NewTestLayoutTheme_CreateDefaultFonts(NewTestLayoutTheme *theme)
     if (!theme->titleFont)
     {
         theme->titleFont = CreateFont(
-            -17, 0, 0, 0, FW_NORMAL,
-            FALSE, FALSE, FALSE,
+            -17,
+            0,
+            0,
+            0,
+            FW_NORMAL,
+            FALSE,
+            FALSE,
+            FALSE,
             ANSI_CHARSET,
             OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS,
@@ -376,30 +478,16 @@ static void FauxCombo_UpdateEditFormatRect(NewTestLayoutFauxCombo *combo)
     SendMessage(combo->edit, EM_SETRECT, 0, (LPARAM)&formatRc);
 }
 
-static void FauxCombo_Redraw(NewTestLayoutFauxCombo *combo)
+static void FauxCombo_Invalidate(NewTestLayoutFauxCombo *combo)
 {
     if (!combo)
         return;
 
     if (combo->hwnd)
-    {
-        RedrawWindow(
-            combo->hwnd,
-            NULL,
-            NULL,
-            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN
-        );
-    }
+        InvalidateRect(combo->hwnd, NULL, FALSE);
 
     if (combo->edit)
-    {
-        RedrawWindow(
-            combo->edit,
-            NULL,
-            NULL,
-            RDW_INVALIDATE | RDW_ERASE
-        );
-    }
+        InvalidateRect(combo->edit, NULL, FALSE);
 }
 
 static void FauxCombo_PositionChildren(NewTestLayoutFauxCombo *combo)
@@ -432,13 +520,14 @@ static void FauxCombo_PositionChildren(NewTestLayoutFauxCombo *combo)
     if (editH < 20)
         editH = 20;
 
-    MoveWindow(
+    SetWindowPos(
         combo->edit,
+        NULL,
         editX,
         editY,
         editW,
         editH,
-        TRUE
+        SWP_NOZORDER | SWP_NOACTIVATE
     );
 
     FauxCombo_UpdateEditFormatRect(combo);
@@ -448,26 +537,15 @@ static void FauxCombo_PositionChildren(NewTestLayoutFauxCombo *combo)
 
     h = NTL_FAUX_COMBO_DROP_HEIGHT;
 
-    MoveWindow(
+    SetWindowPos(
         combo->list,
+        HWND_TOP,
         screenRc.left,
         screenRc.bottom + 2,
         screenRc.right - screenRc.left,
         h,
-        TRUE
+        SWP_NOACTIVATE
     );
-
-    SetWindowPos(
-        combo->list,
-        HWND_TOP,
-        0,
-        0,
-        0,
-        0,
-        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
-    );
-
-    FauxCombo_Redraw(combo);
 }
 
 static void FauxCombo_RebuildList(NewTestLayoutFauxCombo *combo)
@@ -492,6 +570,9 @@ static void FauxCombo_DrawArrow(NewTestLayoutFauxCombo *combo, HDC hdc, RECT rc)
     HPEN pen;
     HGDIOBJ oldBrush;
     HGDIOBJ oldPen;
+
+    if (!combo)
+        return;
 
     cx = rc.right - NTL_FAUX_COMBO_ARROW_WIDTH / 2;
     cy = (rc.top + rc.bottom) / 2 + 1;
@@ -627,11 +708,31 @@ static LRESULT CALLBACK FauxCombo_EditSubclassProc(HWND hwnd, UINT msg, WPARAM w
     return result;
 }
 
+static void FauxCombo_DrawBuffered(void *context, HDC hdc, RECT *rc)
+{
+    NewTestLayoutFauxCombo *combo;
+
+    combo = (NewTestLayoutFauxCombo *)context;
+
+    Ntl_FillRect(
+        hdc,
+        rc,
+        combo ? combo->theme.editBackColor : RGB(0, 0, 0)
+    );
+
+    Ntl_DrawBorder(
+        hdc,
+        rc,
+        combo ? combo->theme.editBorderColor : RGB(80, 80, 80)
+    );
+
+    if (combo)
+        FauxCombo_DrawArrow(combo, hdc, *rc);
+}
+
 static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     NewTestLayoutFauxCombo *combo;
-    PAINTSTRUCT ps;
-    HDC hdc;
     RECT rc;
     int notifyCode;
 
@@ -642,6 +743,7 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         case WM_SIZE:
         {
             FauxCombo_PositionChildren(combo);
+            FauxCombo_Invalidate(combo);
             return 0;
         }
 
@@ -684,7 +786,7 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
             if ((HWND)lParam == combo->edit && notifyCode == EN_CHANGE)
             {
-                FauxCombo_Redraw(combo);
+                FauxCombo_Invalidate(combo);
                 Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_TEXT_CHANGED);
                 return 0;
             }
@@ -710,17 +812,7 @@ static LRESULT CALLBACK FauxComboProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
         case WM_PAINT:
         {
-            hdc = BeginPaint(hwnd, &ps);
-
-            GetClientRect(hwnd, &rc);
-
-            Ntl_FillRect(hdc, &rc, combo ? combo->theme.editBackColor : RGB(0, 0, 0));
-            Ntl_DrawBorder(hdc, &rc, combo ? combo->theme.editBorderColor : RGB(80, 80, 80));
-
-            if (combo)
-                FauxCombo_DrawArrow(combo, hdc, rc);
-
-            EndPaint(hwnd, &ps);
+            Ntl_DoubleBufferedPaint(hwnd, combo, FauxCombo_DrawBuffered);
             return 0;
         }
     }
@@ -892,7 +984,7 @@ void NewTestLayoutFauxCombo_SetTheme(NewTestLayoutFauxCombo *combo, const NewTes
         SendMessage(combo->list, WM_SETFONT, (WPARAM)combo->theme.monoFont, TRUE);
 
     FauxCombo_UpdateEditFormatRect(combo);
-    FauxCombo_Redraw(combo);
+    FauxCombo_Invalidate(combo);
 }
 
 void NewTestLayoutFauxCombo_SetRect(NewTestLayoutFauxCombo *combo, const RECT *rect)
@@ -900,17 +992,18 @@ void NewTestLayoutFauxCombo_SetRect(NewTestLayoutFauxCombo *combo, const RECT *r
     if (!combo || !rect)
         return;
 
-    MoveWindow(
+    SetWindowPos(
         combo->hwnd,
+        NULL,
         rect->left,
         rect->top,
         rect->right - rect->left,
         rect->bottom - rect->top,
-        TRUE
+        SWP_NOZORDER | SWP_NOACTIVATE
     );
 
     FauxCombo_PositionChildren(combo);
-    FauxCombo_Redraw(combo);
+    FauxCombo_Invalidate(combo);
 }
 
 void NewTestLayoutFauxCombo_Show(NewTestLayoutFauxCombo *combo, int show)
@@ -924,7 +1017,7 @@ void NewTestLayoutFauxCombo_Show(NewTestLayoutFauxCombo *combo, int show)
     if (!combo->visible)
         NewTestLayoutFauxCombo_ShowDropdown(combo, 0);
 
-    FauxCombo_Redraw(combo);
+    FauxCombo_Invalidate(combo);
 }
 
 int NewTestLayoutFauxCombo_IsVisible(NewTestLayoutFauxCombo *combo)
@@ -938,7 +1031,7 @@ void NewTestLayoutFauxCombo_SetText(NewTestLayoutFauxCombo *combo, const char *t
         return;
 
     SetWindowText(combo->edit, text ? text : "");
-    FauxCombo_Redraw(combo);
+    FauxCombo_Invalidate(combo);
 }
 
 void NewTestLayoutFauxCombo_GetText(NewTestLayoutFauxCombo *combo, char *buffer, int bufferSize)
@@ -969,7 +1062,7 @@ void NewTestLayoutFauxCombo_SetPlaceholder(NewTestLayoutFauxCombo *combo, const 
         return;
 
     Ntl_CopyText(combo->placeholder, sizeof(combo->placeholder), placeholder);
-    FauxCombo_Redraw(combo);
+    FauxCombo_Invalidate(combo);
 }
 
 void NewTestLayoutFauxCombo_SetPlaceholderLarge(NewTestLayoutFauxCombo *combo, int large)
@@ -978,7 +1071,7 @@ void NewTestLayoutFauxCombo_SetPlaceholderLarge(NewTestLayoutFauxCombo *combo, i
         return;
 
     combo->placeholderLarge = large ? 1 : 0;
-    FauxCombo_Redraw(combo);
+    FauxCombo_Invalidate(combo);
 }
 
 void NewTestLayoutFauxCombo_SetRecentItems(NewTestLayoutFauxCombo *combo, const char **items, int itemCount)
@@ -1076,7 +1169,7 @@ void NewTestLayoutFauxCombo_HandleParentCommand(NewTestLayoutFauxCombo *combo, W
             text[sizeof(text) - 1] = '\0';
 
             SetWindowText(combo->edit, text);
-            FauxCombo_Redraw(combo);
+            FauxCombo_Invalidate(combo);
 
             Ntl_SendCommand(combo->parent, combo->hwnd, combo->id, NTL_FCN_RECENT_SELECTED);
 
@@ -1199,16 +1292,25 @@ static void ActionButton_Draw(NewTestLayoutActionButton *button, HDC hdc)
     SelectObject(hdc, oldFont);
 }
 
+static void ActionButton_DrawBuffered(void *context, HDC hdc, RECT *rc)
+{
+    (void)rc;
+    ActionButton_Draw((NewTestLayoutActionButton *)context, hdc);
+}
+
 static LRESULT CALLBACK ActionButtonProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     NewTestLayoutActionButton *button;
-    PAINTSTRUCT ps;
-    HDC hdc;
 
     button = (NewTestLayoutActionButton *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
     switch (msg)
     {
+        case WM_ERASEBKGND:
+        {
+            return 1;
+        }
+
         case WM_MOUSEMOVE:
         {
             TRACKMOUSEEVENT tme;
@@ -1299,9 +1401,7 @@ static LRESULT CALLBACK ActionButtonProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
         case WM_PAINT:
         {
-            hdc = BeginPaint(hwnd, &ps);
-            ActionButton_Draw(button, hdc);
-            EndPaint(hwnd, &ps);
+            Ntl_DoubleBufferedPaint(hwnd, button, ActionButton_DrawBuffered);
             return 0;
         }
     }
@@ -1394,7 +1494,7 @@ void NewTestLayoutActionButton_SetTheme(NewTestLayoutActionButton *button, const
     Ntl_CopyTheme(&button->theme, theme);
     NewTestLayoutTheme_CreateDefaultFonts(&button->theme);
 
-    InvalidateRect(button->hwnd, NULL, TRUE);
+    InvalidateRect(button->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionButton_SetRect(NewTestLayoutActionButton *button, const RECT *rect)
@@ -1402,13 +1502,14 @@ void NewTestLayoutActionButton_SetRect(NewTestLayoutActionButton *button, const 
     if (!button || !rect)
         return;
 
-    MoveWindow(
+    SetWindowPos(
         button->hwnd,
+        NULL,
         rect->left,
         rect->top,
         rect->right - rect->left,
         rect->bottom - rect->top,
-        TRUE
+        SWP_NOZORDER | SWP_NOACTIVATE
     );
 }
 
@@ -1520,16 +1621,25 @@ static void ActionGroup_Draw(NewTestLayoutActionGroup *group, HDC hdc)
     SelectObject(hdc, oldFont);
 }
 
+static void ActionGroup_DrawBuffered(void *context, HDC hdc, RECT *rc)
+{
+    (void)rc;
+    ActionGroup_Draw((NewTestLayoutActionGroup *)context, hdc);
+}
+
 static LRESULT CALLBACK ActionGroupProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     NewTestLayoutActionGroup *group;
-    PAINTSTRUCT ps;
-    HDC hdc;
 
     group = (NewTestLayoutActionGroup *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
     switch (msg)
     {
+        case WM_ERASEBKGND:
+        {
+            return 1;
+        }
+
         case WM_SIZE:
         {
             NewTestLayoutActionGroup_LayoutButtons(group);
@@ -1555,9 +1665,7 @@ static LRESULT CALLBACK ActionGroupProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
         case WM_PAINT:
         {
-            hdc = BeginPaint(hwnd, &ps);
-            ActionGroup_Draw(group, hdc);
-            EndPaint(hwnd, &ps);
+            Ntl_DoubleBufferedPaint(hwnd, group, ActionGroup_DrawBuffered);
             return 0;
         }
     }
@@ -1685,7 +1793,7 @@ void NewTestLayoutActionGroup_SetTheme(NewTestLayoutActionGroup *group, const Ne
     for (i = 0; i < group->buttonCount; i++)
         NewTestLayoutActionButton_SetTheme(group->buttons[i], &group->theme);
 
-    InvalidateRect(group->hwnd, NULL, TRUE);
+    InvalidateRect(group->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionGroup_SetRect(NewTestLayoutActionGroup *group, const RECT *rect)
@@ -1693,13 +1801,14 @@ void NewTestLayoutActionGroup_SetRect(NewTestLayoutActionGroup *group, const REC
     if (!group || !rect)
         return;
 
-    MoveWindow(
+    SetWindowPos(
         group->hwnd,
+        NULL,
         rect->left,
         rect->top,
         rect->right - rect->left,
         rect->bottom - rect->top,
-        TRUE
+        SWP_NOZORDER | SWP_NOACTIVATE
     );
 }
 
@@ -1732,7 +1841,7 @@ void NewTestLayoutActionGroup_SetBorderVisible(NewTestLayoutActionGroup *group, 
         return;
 
     group->borderVisible = visible ? 1 : 0;
-    InvalidateRect(group->hwnd, NULL, TRUE);
+    InvalidateRect(group->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionGroup_SetPadding(NewTestLayoutActionGroup *group, int padding)
@@ -1745,7 +1854,7 @@ void NewTestLayoutActionGroup_SetPadding(NewTestLayoutActionGroup *group, int pa
 
     group->padding = padding;
     NewTestLayoutActionGroup_LayoutButtons(group);
-    InvalidateRect(group->hwnd, NULL, TRUE);
+    InvalidateRect(group->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionGroup_SetButtonCount(
@@ -1957,16 +2066,25 @@ static void GearButton_Draw(NewTestLayoutGearButton *gear, HDC hdc)
     DeleteObject(pen);
 }
 
+static void GearButton_DrawBuffered(void *context, HDC hdc, RECT *rc)
+{
+    (void)rc;
+    GearButton_Draw((NewTestLayoutGearButton *)context, hdc);
+}
+
 static LRESULT CALLBACK GearButtonProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     NewTestLayoutGearButton *gear;
-    PAINTSTRUCT ps;
-    HDC hdc;
 
     gear = (NewTestLayoutGearButton *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
     switch (msg)
     {
+        case WM_ERASEBKGND:
+        {
+            return 1;
+        }
+
         case WM_LBUTTONDOWN:
         {
             if (gear)
@@ -2003,9 +2121,7 @@ static LRESULT CALLBACK GearButtonProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
         case WM_PAINT:
         {
-            hdc = BeginPaint(hwnd, &ps);
-            GearButton_Draw(gear, hdc);
-            EndPaint(hwnd, &ps);
+            Ntl_DoubleBufferedPaint(hwnd, gear, GearButton_DrawBuffered);
             return 0;
         }
     }
@@ -2091,7 +2207,7 @@ void NewTestLayoutGearButton_SetTheme(NewTestLayoutGearButton *gear, const NewTe
     Ntl_CopyTheme(&gear->theme, theme);
     NewTestLayoutTheme_CreateDefaultFonts(&gear->theme);
 
-    InvalidateRect(gear->hwnd, NULL, TRUE);
+    InvalidateRect(gear->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutGearButton_SetRect(NewTestLayoutGearButton *gear, const RECT *rect)
@@ -2099,13 +2215,14 @@ void NewTestLayoutGearButton_SetRect(NewTestLayoutGearButton *gear, const RECT *
     if (!gear || !rect)
         return;
 
-    MoveWindow(
+    SetWindowPos(
         gear->hwnd,
+        NULL,
         rect->left,
         rect->top,
         rect->right - rect->left,
         rect->bottom - rect->top,
-        TRUE
+        SWP_NOZORDER | SWP_NOACTIVATE
     );
 }
 

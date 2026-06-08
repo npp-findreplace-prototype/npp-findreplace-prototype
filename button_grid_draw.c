@@ -44,56 +44,31 @@ static int ButtonGrid_ScaledSmallMargin(ButtonGrid *grid, int value)
     return ButtonGrid_DpiScaleMin(grid, value, 1);
 }
 
-static COLORREF ButtonGrid_GetWindowBackColor(void)
+static COLORREF ButtonGrid_GetFallbackBackColor(void)
 {
     return GetSysColor(COLOR_WINDOW);
 }
 
+static COLORREF ButtonGrid_GetGridBackColor(ButtonGrid *grid)
+{
+    if (!grid)
+        return ButtonGrid_GetFallbackBackColor();
+
+    return grid->backColor;
+}
+
 static COLORREF ButtonGrid_GetAutoTitleBackColor(ButtonGrid *grid)
 {
-    HWND parent;
-    HBRUSH brush;
-    COLORREF color;
-
-    color = ButtonGrid_GetWindowBackColor();
-
-    if (!grid || !grid->hwnd)
-        return color;
-
-    parent = GetParent(grid->hwnd);
-
-    if (parent)
-    {
-        HDC hdc;
-
-        hdc = GetDC(grid->hwnd);
-
-        if (hdc)
-        {
-            brush = (HBRUSH)SendMessage(
-                parent,
-                WM_CTLCOLORSTATIC,
-                (WPARAM)hdc,
-                (LPARAM)grid->hwnd
-            );
-
-            if (brush)
-                color = GetSysColor(COLOR_BTNFACE);
-
-            ReleaseDC(grid->hwnd, hdc);
-        }
-    }
-
-    return color;
+    return ButtonGrid_GetGridBackColor(grid);
 }
 
 static COLORREF ButtonGrid_GetButtonBackgroundColor(ButtonGrid *grid)
 {
     if (!grid)
-        return ButtonGrid_GetWindowBackColor();
+        return ButtonGrid_GetFallbackBackColor();
 
     if (grid->buttonBackMode == BUTTON_GRID_BUTTON_BACK_TRANSPARENT)
-        return ButtonGrid_GetWindowBackColor();
+        return ButtonGrid_GetGridBackColor(grid);
 
     return grid->backColor;
 }
@@ -105,6 +80,22 @@ static HPEN ButtonGrid_CreateScaledPen(ButtonGrid *grid, COLORREF color)
         ButtonGrid_ScaledBorderThickness(grid),
         color
     );
+}
+
+static void ButtonGrid_FillSolid(HDC hdc, const RECT *rc, COLORREF color)
+{
+    HBRUSH brush;
+
+    if (!hdc || !rc)
+        return;
+
+    brush = CreateSolidBrush(color);
+
+    if (!brush)
+        return;
+
+    FillRect(hdc, rc, brush);
+    DeleteObject(brush);
 }
 
 static void ButtonGrid_DrawLine(
@@ -120,6 +111,10 @@ static void ButtonGrid_DrawLine(
     HGDIOBJ oldPen;
 
     pen = CreatePen(PS_SOLID, 1, color);
+
+    if (!pen)
+        return;
+
     oldPen = SelectObject(hdc, pen);
 
     MoveToEx(hdc, x1, y1, NULL);
@@ -295,7 +290,6 @@ static void ButtonGrid_FillTitleGap(
     RECT *gapRc
 )
 {
-    HBRUSH brush;
     COLORREF color;
 
     if (gapRc->right <= gapRc->left || gapRc->bottom <= gapRc->top)
@@ -306,9 +300,7 @@ static void ButtonGrid_FillTitleGap(
     else
         color = grid->borderTitleBackColor;
 
-    brush = CreateSolidBrush(color);
-    FillRect(hdc, gapRc, brush);
-    DeleteObject(brush);
+    ButtonGrid_FillSolid(hdc, gapRc, color);
 }
 
 static void ButtonGrid_DrawBorderTitleText(
@@ -491,6 +483,9 @@ static void ButtonGrid_DrawRoundedBorder(
 
     pen = ButtonGrid_CreateScaledPen(grid, etched ? grid->borderShadowColor : grid->borderColor);
 
+    if (!pen)
+        return;
+
     oldPen = SelectObject(hdc, pen);
     oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
 
@@ -516,22 +511,26 @@ static void ButtonGrid_DrawRoundedBorder(
         InflateRect(&inner, -ButtonGrid_DpiScaleMin(grid, 1, 1), -ButtonGrid_DpiScaleMin(grid, 1, 1));
 
         pen = CreatePen(PS_SOLID, 1, grid->borderLightColor);
-        oldPen = SelectObject(hdc, pen);
-        oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
 
-        RoundRect(
-            hdc,
-            inner.left,
-            inner.top,
-            inner.right,
-            inner.bottom,
-            radius,
-            radius
-        );
+        if (pen)
+        {
+            oldPen = SelectObject(hdc, pen);
+            oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
 
-        SelectObject(hdc, oldBrush);
-        SelectObject(hdc, oldPen);
-        DeleteObject(pen);
+            RoundRect(
+                hdc,
+                inner.left,
+                inner.top,
+                inner.right,
+                inner.bottom,
+                radius,
+                radius
+            );
+
+            SelectObject(hdc, oldBrush);
+            SelectObject(hdc, oldPen);
+            DeleteObject(pen);
+        }
     }
 
     gap = *gapRc;
@@ -591,22 +590,85 @@ static void ButtonGrid_DrawBorder(ButtonGrid *grid, HDC hdc)
         DeleteObject(titleFont);
 }
 
+static void ButtonGrid_DrawGridChrome(ButtonGrid *grid, HDC hdc)
+{
+    RECT rc;
+
+    GetClientRect(grid->hwnd, &rc);
+    ButtonGrid_FillSolid(hdc, &rc, ButtonGrid_GetGridBackColor(grid));
+
+    ButtonGrid_DrawBorder(grid, hdc);
+    ButtonGrid_DrawGearIcon(grid, hdc);
+}
+
 LRESULT ButtonGrid_HandlePaint(HWND hwnd)
 {
     PAINTSTRUCT ps;
     HDC hdc;
+    HDC memoryDc;
+    HBITMAP bitmap;
+    HGDIOBJ oldBitmap;
+    RECT rc;
+    int width;
+    int height;
     ButtonGrid *grid;
 
     grid = ButtonGrid_Get(hwnd);
 
     hdc = BeginPaint(hwnd, &ps);
 
-    if (grid)
+    GetClientRect(hwnd, &rc);
+
+    width = rc.right - rc.left;
+    height = rc.bottom - rc.top;
+
+    if (!grid || width <= 0 || height <= 0)
     {
-        ButtonGrid_UpdateDpi(grid);
-        ButtonGrid_DrawBorder(grid, hdc);
-        ButtonGrid_DrawGearIcon(grid, hdc);
+        ButtonGrid_FillSolid(hdc, &rc, ButtonGrid_GetFallbackBackColor());
+        EndPaint(hwnd, &ps);
+        return 0;
     }
+
+    ButtonGrid_UpdateDpi(grid);
+
+    memoryDc = CreateCompatibleDC(hdc);
+
+    if (!memoryDc)
+    {
+        ButtonGrid_DrawGridChrome(grid, hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    bitmap = CreateCompatibleBitmap(hdc, width, height);
+
+    if (!bitmap)
+    {
+        DeleteDC(memoryDc);
+        ButtonGrid_DrawGridChrome(grid, hdc);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    oldBitmap = SelectObject(memoryDc, bitmap);
+
+    ButtonGrid_DrawGridChrome(grid, memoryDc);
+
+    BitBlt(
+        hdc,
+        0,
+        0,
+        width,
+        height,
+        memoryDc,
+        0,
+        0,
+        SRCCOPY
+    );
+
+    SelectObject(memoryDc, oldBitmap);
+    DeleteObject(bitmap);
+    DeleteDC(memoryDc);
 
     EndPaint(hwnd, &ps);
 
@@ -615,14 +677,7 @@ LRESULT ButtonGrid_HandlePaint(HWND hwnd)
 
 static void ButtonGrid_FillButtonBackground(ButtonGrid *grid, HDC hdc, const RECT *rc)
 {
-    HBRUSH brush;
-    COLORREF color;
-
-    color = ButtonGrid_GetButtonBackgroundColor(grid);
-
-    brush = CreateSolidBrush(color);
-    FillRect(hdc, rc, brush);
-    DeleteObject(brush);
+    ButtonGrid_FillSolid(hdc, rc, ButtonGrid_GetButtonBackgroundColor(grid));
 }
 
 static void ButtonGrid_DrawGeneratedFallback(
@@ -633,17 +688,14 @@ static void ButtonGrid_DrawGeneratedFallback(
     int pictureType
 )
 {
-    HBRUSH brush;
-    HPEN pen;
-    HGDIOBJ oldPen;
     COLORREF markColor;
     int width;
     int height;
     int penWidth;
+    HPEN pen;
+    HGDIOBJ oldPen;
 
-    brush = CreateSolidBrush(color);
-    FillRect(hdc, rc, brush);
-    DeleteObject(brush);
+    ButtonGrid_FillSolid(hdc, rc, color);
 
     width = rc->right - rc->left;
     height = rc->bottom - rc->top;
@@ -659,6 +711,10 @@ static void ButtonGrid_DrawGeneratedFallback(
     penWidth = ButtonGrid_DpiScaleMin(grid, 5, 1);
 
     pen = CreatePen(PS_SOLID, penWidth, markColor);
+
+    if (!pen)
+        return;
+
     oldPen = SelectObject(hdc, pen);
 
     if (pictureType == BUTTON_GRID_PICTURE_TYPE_ON)
@@ -771,6 +827,10 @@ static void ButtonGrid_DrawButtonFrame(ButtonGrid *grid, HDC hdc, RECT *rc)
         thickness = 1;
 
     pen = CreatePen(PS_SOLID, 1, grid->buttonBorderColor);
+
+    if (!pen)
+        return;
+
     oldPen = SelectObject(hdc, pen);
     oldBrush = SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
 
@@ -1004,11 +1064,18 @@ LRESULT ButtonGrid_HandleEraseBackground(HWND hwnd, WPARAM wParam)
 {
     RECT rc;
     HDC hdc;
+    ButtonGrid *grid;
 
     hdc = (HDC)wParam;
+    grid = ButtonGrid_Get(hwnd);
 
     GetClientRect(hwnd, &rc);
-    FillRect(hdc, &rc, (HBRUSH)(COLOR_WINDOW + 1));
+
+    ButtonGrid_FillSolid(
+        hdc,
+        &rc,
+        ButtonGrid_GetGridBackColor(grid)
+    );
 
     return 1;
 }
