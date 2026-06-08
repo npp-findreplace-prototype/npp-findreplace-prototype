@@ -1,5 +1,33 @@
 #include "new_test_layout_controls_internal.h"
 
+static int ActionButton_RectAlreadyMatches(
+    HWND hwnd,
+    const RECT *rect
+)
+{
+    RECT current;
+
+    if (!hwnd || !rect)
+        return 0;
+
+    if (!Ui_GetWindowRectInParent(hwnd, &current))
+        return 0;
+
+    if (current.left != rect->left)
+        return 0;
+
+    if (current.top != rect->top)
+        return 0;
+
+    if (current.right != rect->right)
+        return 0;
+
+    if (current.bottom != rect->bottom)
+        return 0;
+
+    return 1;
+}
+
 static void ActionButton_Draw(NewTestLayoutActionButton *button, HDC hdc)
 {
     RECT rc;
@@ -314,7 +342,10 @@ void NewTestLayoutActionButton_SetTheme(NewTestLayoutActionButton *button, const
 
 void NewTestLayoutActionButton_SetRect(NewTestLayoutActionButton *button, const RECT *rect)
 {
-    if (!button || !rect)
+    if (!button || !rect || !button->hwnd)
+        return;
+
+    if (ActionButton_RectAlreadyMatches(button->hwnd, rect))
         return;
 
     SetWindowPos(
@@ -330,10 +361,17 @@ void NewTestLayoutActionButton_SetRect(NewTestLayoutActionButton *button, const 
 
 void NewTestLayoutActionButton_Show(NewTestLayoutActionButton *button, int show)
 {
-    if (!button)
+    int visible;
+
+    if (!button || !button->hwnd)
         return;
 
-    button->visible = show ? 1 : 0;
+    visible = show ? 1 : 0;
+
+    if (button->visible == visible)
+        return;
+
+    button->visible = visible;
     ShowWindow(button->hwnd, button->visible ? SW_SHOW : SW_HIDE);
 }
 
@@ -347,17 +385,33 @@ void NewTestLayoutActionButton_SetText(NewTestLayoutActionButton *button, const 
     if (!button)
         return;
 
+    if (!label)
+        label = "";
+
+    if (lstrcmp(button->label, label) == 0)
+        return;
+
     Ntl_CopyText(button->label, sizeof(button->label), label);
     InvalidateRect(button->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionButton_SetCount(NewTestLayoutActionButton *button, int count, int hasCount)
 {
+    int normalizedHasCount;
+
     if (!button)
         return;
 
+    normalizedHasCount = hasCount ? 1 : 0;
+
+    if (button->count == count &&
+        button->hasCount == normalizedHasCount)
+    {
+        return;
+    }
+
     button->count = count;
-    button->hasCount = hasCount ? 1 : 0;
+    button->hasCount = normalizedHasCount;
 
     InvalidateRect(button->hwnd, NULL, FALSE);
 }
@@ -370,23 +424,48 @@ void NewTestLayoutActionButton_SetCountOptions(
     int colorCountText
 )
 {
+    int normalizedShowCounts;
+    int normalizedShowZeroCounts;
+    int normalizedCountInParentheses;
+    int normalizedColorCountText;
+
     if (!button)
         return;
 
-    button->showCounts = showCounts ? 1 : 0;
-    button->showZeroCounts = showZeroCounts ? 1 : 0;
-    button->countInParentheses = countInParentheses ? 1 : 0;
-    button->colorCountText = colorCountText ? 1 : 0;
+    normalizedShowCounts = showCounts ? 1 : 0;
+    normalizedShowZeroCounts = showZeroCounts ? 1 : 0;
+    normalizedCountInParentheses = countInParentheses ? 1 : 0;
+    normalizedColorCountText = colorCountText ? 1 : 0;
+
+    if (button->showCounts == normalizedShowCounts &&
+        button->showZeroCounts == normalizedShowZeroCounts &&
+        button->countInParentheses == normalizedCountInParentheses &&
+        button->colorCountText == normalizedColorCountText)
+    {
+        return;
+    }
+
+    button->showCounts = normalizedShowCounts;
+    button->showZeroCounts = normalizedShowZeroCounts;
+    button->countInParentheses = normalizedCountInParentheses;
+    button->colorCountText = normalizedColorCountText;
 
     InvalidateRect(button->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionButton_SetEnabled(NewTestLayoutActionButton *button, int enabled)
 {
-    if (!button)
+    int normalizedEnabled;
+
+    if (!button || !button->hwnd)
         return;
 
-    button->enabled = enabled ? 1 : 0;
+    normalizedEnabled = enabled ? 1 : 0;
+
+    if (button->enabled == normalizedEnabled)
+        return;
+
+    button->enabled = normalizedEnabled;
     EnableWindow(button->hwnd, button->enabled);
     InvalidateRect(button->hwnd, NULL, FALSE);
 }

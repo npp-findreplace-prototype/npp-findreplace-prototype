@@ -1,5 +1,33 @@
 #include "new_test_layout_controls_internal.h"
 
+static int ActionGroup_RectAlreadyMatches(
+    HWND hwnd,
+    const RECT *rect
+)
+{
+    RECT current;
+
+    if (!hwnd || !rect)
+        return 0;
+
+    if (!Ui_GetWindowRectInParent(hwnd, &current))
+        return 0;
+
+    if (current.left != rect->left)
+        return 0;
+
+    if (current.top != rect->top)
+        return 0;
+
+    if (current.right != rect->right)
+        return 0;
+
+    if (current.bottom != rect->bottom)
+        return 0;
+
+    return 1;
+}
+
 static void ActionGroup_Draw(NewTestLayoutActionGroup *group, HDC hdc)
 {
     RECT rc;
@@ -229,7 +257,10 @@ void NewTestLayoutActionGroup_SetTheme(NewTestLayoutActionGroup *group, const Ne
 
 void NewTestLayoutActionGroup_SetRect(NewTestLayoutActionGroup *group, const RECT *rect)
 {
-    if (!group || !rect)
+    if (!group || !rect || !group->hwnd)
+        return;
+
+    if (ActionGroup_RectAlreadyMatches(group->hwnd, rect))
         return;
 
     SetWindowPos(
@@ -245,10 +276,17 @@ void NewTestLayoutActionGroup_SetRect(NewTestLayoutActionGroup *group, const REC
 
 void NewTestLayoutActionGroup_Show(NewTestLayoutActionGroup *group, int show)
 {
-    if (!group)
+    int visible;
+
+    if (!group || !group->hwnd)
         return;
 
-    group->visible = show ? 1 : 0;
+    visible = show ? 1 : 0;
+
+    if (group->visible == visible)
+        return;
+
+    group->visible = visible;
     ShowWindow(group->hwnd, group->visible ? SW_SHOW : SW_HIDE);
 }
 
@@ -262,16 +300,29 @@ void NewTestLayoutActionGroup_SetTitle(NewTestLayoutActionGroup *group, const ch
     if (!group)
         return;
 
+    if (!title)
+        title = "";
+
+    if (lstrcmp(group->title, title) == 0)
+        return;
+
     Ntl_CopyText(group->title, sizeof(group->title), title);
     InvalidateRect(group->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionGroup_SetBorderVisible(NewTestLayoutActionGroup *group, int visible)
 {
+    int normalizedVisible;
+
     if (!group)
         return;
 
-    group->borderVisible = visible ? 1 : 0;
+    normalizedVisible = visible ? 1 : 0;
+
+    if (group->borderVisible == normalizedVisible)
+        return;
+
+    group->borderVisible = normalizedVisible;
     InvalidateRect(group->hwnd, NULL, FALSE);
 }
 
@@ -282,6 +333,9 @@ void NewTestLayoutActionGroup_SetPadding(NewTestLayoutActionGroup *group, int pa
 
     if (padding < 0)
         padding = 0;
+
+    if (group->padding == padding)
+        return;
 
     group->padding = padding;
     NewTestLayoutActionGroup_LayoutButtons(group);

@@ -50,8 +50,6 @@ void NewTestLayout_Layout(HWND hwnd)
         hwnd,
         NULL,
         NULL,
-        RDW_INVALIDATE | RDW_NOCHILDREN
+        RDW_INVALIDATE | RDW_NOERASE | RDW_NOCHILDREN
     );
-
-    NewTestLayout_RedrawImportantControls();
 }
