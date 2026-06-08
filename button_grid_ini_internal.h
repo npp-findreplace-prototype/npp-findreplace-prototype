@@ -11,12 +11,19 @@
 #include "button_grid_ini.h"
 #include "embedded_resources.h"
 
+#ifndef RT_RCDATA
+#define RT_RCDATA MAKEINTRESOURCE(10)
+#endif
+
 typedef struct IniSource
 {
     const char *displayName;
     const char *memoryText;
 } IniSource;
 
+/*
+    Basic utility helpers.
+*/
 void Ini_CopyText(
     char *dest,
     int destSize,
@@ -43,6 +50,9 @@ void Ini_ReadMemoryLine(
     int lineSize
 );
 
+/*
+    INI key readers.
+*/
 void Ini_ReadString(
     const IniSource *source,
     const char *section,
@@ -73,11 +83,87 @@ COLORREF Ini_ReadColor(
     COLORREF defaultValue
 );
 
+/*
+    Enum readers used while applying the parsed INI to ButtonGridConfig.
+*/
+int Ini_ReadLayout(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+int Ini_ReadSizeMode(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+int Ini_ReadButtonBackMode(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+int Ini_ReadBorderStyle(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+int Ini_ReadGearCorner(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+int Ini_ReadContentAlignment(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+int Ini_ReadBehavior(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+int Ini_ReadShowTextOverride(
+    const IniSource *source,
+    const char *section,
+    const char *key,
+    int defaultValue
+);
+
+/*
+    Apply parsed INI sections to the loaded config.
+*/
+void Ini_ReadGridSection(
+    const IniSource *source,
+    ButtonGridIniConfig *loaded
+);
+
+void Ini_ReadButtonSection(
+    const IniSource *source,
+    ButtonGridIniConfig *loaded,
+    int index
+);
+
 int ButtonGridIni_LoadFromSource(
     const IniSource *source,
     ButtonGridIniConfig *loaded
 );
 
+/*
+    File/path/resource helpers.
+*/
 int Ini_FileExists(
     const char *fileName
 );
@@ -86,30 +172,52 @@ int Ini_PathIsAbsolute(
     const char *path
 );
 
+void Ini_GetBaseName(
+    const char *path,
+    char *buffer,
+    int bufferSize
+);
+
+void Ini_NormalizeSlashName(
+    const char *name,
+    char *buffer,
+    int bufferSize
+);
+
 int Ini_BuildExeRelativePath(
     const char *fileName,
     char *buffer,
     int bufferSize
 );
 
-int Ini_LoadFileToConfig(
-    const char *fileName,
+char *Ini_TextFromBytes(
+    const BYTE *data,
+    DWORD size
+);
+
+int Ini_LoadFromBytes(
+    const char *displayName,
+    const BYTE *data,
+    DWORD size,
     ButtonGridIniConfig *loaded
 );
 
-int Ini_LoadWin32ResourceToConfig(
+int Ini_LoadFileToBytes(
     const char *fileName,
-    ButtonGridIniConfig *loaded
+    BYTE **data,
+    DWORD *size
 );
 
-int Ini_LoadEmbeddedResourceToConfig(
+int Ini_FindWin32ResourceBytes(
     const char *fileName,
-    ButtonGridIniConfig *loaded
+    const BYTE **data,
+    DWORD *size
 );
 
-int Ini_LoadBuiltinResourceToConfig(
+int Ini_FindBuiltinResourceBytes(
     const char *fileName,
-    ButtonGridIniConfig *loaded
+    const BYTE **data,
+    DWORD *size
 );
 
 #endif
