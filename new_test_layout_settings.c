@@ -15,6 +15,15 @@ void NewTestLayoutSettings_GetDefaultConfig(
     config->gap = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_GAP;
     config->singleRowModeGridHeight = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_SINGLE_ROW_GRID_HEIGHT;
 
+    config->replaceBoxMinHeightPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_REPLACE_BOX_MIN_HEIGHT_PERCENT;
+    config->utilityButtonsMinWidthPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_UTILITY_BUTTONS_MIN_WIDTH_PERCENT;
+    config->modeGridMinHeightPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_MODE_GRID_MIN_HEIGHT_PERCENT;
+    config->findDocumentGridMinHeightPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_FIND_GRID_MIN_HEIGHT_PERCENT;
+    config->replaceDocumentGridMinHeightPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_REPLACE_GRID_MIN_HEIGHT_PERCENT;
+    config->replaceSelectionGridMinHeightPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_SELECTION_GRID_MIN_HEIGHT_PERCENT;
+    config->leftModePanelMinWidthPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_LEFT_MODE_PANEL_MIN_WIDTH_PERCENT;
+    config->leftModePanelMinGroupWidthPercent = NEW_TEST_LAYOUT_SETTINGS_DEFAULT_LEFT_MODE_PANEL_MIN_GROUP_WIDTH_PERCENT;
+
     config->autoLayoutEnabled = 1;
     config->showReplaceBox = 1;
     config->showUtilityButtons = 1;

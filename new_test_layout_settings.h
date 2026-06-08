@@ -9,6 +9,18 @@
 #define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_GAP 8
 #define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_SINGLE_ROW_GRID_HEIGHT 68
 
+#define NEW_TEST_LAYOUT_SETTINGS_DESIGN_WIDTH 860
+#define NEW_TEST_LAYOUT_SETTINGS_DESIGN_HEIGHT 520
+
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_REPLACE_BOX_MIN_HEIGHT_PERCENT 23
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_UTILITY_BUTTONS_MIN_WIDTH_PERCENT 50
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_MODE_GRID_MIN_HEIGHT_PERCENT 34
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_FIND_GRID_MIN_HEIGHT_PERCENT 55
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_REPLACE_GRID_MIN_HEIGHT_PERCENT 72
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_SELECTION_GRID_MIN_HEIGHT_PERCENT 90
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_LEFT_MODE_PANEL_MIN_WIDTH_PERCENT 116
+#define NEW_TEST_LAYOUT_SETTINGS_DEFAULT_LEFT_MODE_PANEL_MIN_GROUP_WIDTH_PERCENT 72
+
 typedef struct NewTestLayoutSettingsPanel NewTestLayoutSettingsPanel;
 
 typedef void (*NewTestLayoutSettingsChangedCallback)(
@@ -22,6 +34,15 @@ typedef struct NewTestLayoutSettingsConfig
     int rowHeight;
     int gap;
     int singleRowModeGridHeight;
+
+    int replaceBoxMinHeightPercent;
+    int utilityButtonsMinWidthPercent;
+    int modeGridMinHeightPercent;
+    int findDocumentGridMinHeightPercent;
+    int replaceDocumentGridMinHeightPercent;
+    int replaceSelectionGridMinHeightPercent;
+    int leftModePanelMinWidthPercent;
+    int leftModePanelMinGroupWidthPercent;
 
     int autoLayoutEnabled;
     int showReplaceBox;

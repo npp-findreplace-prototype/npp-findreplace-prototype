@@ -11,7 +11,7 @@
 #define NTL_SETTINGS_ID_INT_BASE 6200
 #define NTL_SETTINGS_ID_BOOL_BASE 6300
 
-#define NTL_SETTINGS_INT_COUNT 5
+#define NTL_SETTINGS_INT_COUNT 13
 #define NTL_SETTINGS_BOOL_COUNT 16
 
 typedef struct NewTestLayoutSettingsIntDef

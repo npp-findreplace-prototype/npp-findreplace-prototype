@@ -6,7 +6,16 @@ const NewTestLayoutSettingsIntDef g_ntlSettingsIntDefs[NTL_SETTINGS_INT_COUNT] =
     { "Overlay margin", offsetof(NewTestLayoutSettingsConfig, overlayMargin) },
     { "Row height", offsetof(NewTestLayoutSettingsConfig, rowHeight) },
     { "Gap", offsetof(NewTestLayoutSettingsConfig, gap) },
-    { "Single row icon grid height", offsetof(NewTestLayoutSettingsConfig, singleRowModeGridHeight) }
+    { "Single row icon grid height", offsetof(NewTestLayoutSettingsConfig, singleRowModeGridHeight) },
+
+    { "Replace box min height %", offsetof(NewTestLayoutSettingsConfig, replaceBoxMinHeightPercent) },
+    { "Utility buttons min width %", offsetof(NewTestLayoutSettingsConfig, utilityButtonsMinWidthPercent) },
+    { "Icon grid min height %", offsetof(NewTestLayoutSettingsConfig, modeGridMinHeightPercent) },
+    { "Find grid min height %", offsetof(NewTestLayoutSettingsConfig, findDocumentGridMinHeightPercent) },
+    { "Replace grid min height %", offsetof(NewTestLayoutSettingsConfig, replaceDocumentGridMinHeightPercent) },
+    { "Selection grid min height %", offsetof(NewTestLayoutSettingsConfig, replaceSelectionGridMinHeightPercent) },
+    { "Left icon panel min width %", offsetof(NewTestLayoutSettingsConfig, leftModePanelMinWidthPercent) },
+    { "Left panel group min width %", offsetof(NewTestLayoutSettingsConfig, leftModePanelMinGroupWidthPercent) }
 };
 
 const NewTestLayoutSettingsBoolDef g_ntlSettingsBoolDefs[NTL_SETTINGS_BOOL_COUNT] =
