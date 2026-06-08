@@ -1,5 +1,9 @@
 #include "new_test_layout_controls_internal.h"
 
+#ifndef SWP_NOCOPYBITS
+#define SWP_NOCOPYBITS 0x0100
+#endif
+
 static int ActionButton_RectAlreadyMatches(
     HWND hwnd,
     const RECT *rect
@@ -355,8 +359,10 @@ void NewTestLayoutActionButton_SetRect(NewTestLayoutActionButton *button, const 
         rect->top,
         rect->right - rect->left,
         rect->bottom - rect->top,
-        SWP_NOZORDER | SWP_NOACTIVATE
+        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS
     );
+
+    InvalidateRect(button->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionButton_Show(NewTestLayoutActionButton *button, int show)

@@ -35,5 +35,17 @@ void NewTestLayout_RedrawImportantControls(void)
 
     NewTestLayout_InvalidateChild(g_ntl_modeGrid);
 
+    NewTestLayout_InvalidateChild(
+        NewTestLayoutActionGroup_GetHwnd(g_ntl_findGroup)
+    );
+
+    NewTestLayout_InvalidateChild(
+        NewTestLayoutActionGroup_GetHwnd(g_ntl_replaceGroup)
+    );
+
+    NewTestLayout_InvalidateChild(
+        NewTestLayoutActionGroup_GetHwnd(g_ntl_selectionGroup)
+    );
+
     NewTestLayout_RedrawUtilityButtons();
 }

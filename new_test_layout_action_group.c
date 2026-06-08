@@ -1,5 +1,9 @@
 #include "new_test_layout_controls_internal.h"
 
+#ifndef SWP_NOCOPYBITS
+#define SWP_NOCOPYBITS 0x0100
+#endif
+
 static int ActionGroup_RectAlreadyMatches(
     HWND hwnd,
     const RECT *rect
@@ -270,8 +274,10 @@ void NewTestLayoutActionGroup_SetRect(NewTestLayoutActionGroup *group, const REC
         rect->top,
         rect->right - rect->left,
         rect->bottom - rect->top,
-        SWP_NOZORDER | SWP_NOACTIVATE
+        SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS
     );
+
+    InvalidateRect(group->hwnd, NULL, FALSE);
 }
 
 void NewTestLayoutActionGroup_Show(NewTestLayoutActionGroup *group, int show)

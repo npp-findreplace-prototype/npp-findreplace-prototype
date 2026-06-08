@@ -52,4 +52,11 @@ void NewTestLayout_Layout(HWND hwnd)
         NULL,
         RDW_INVALIDATE | RDW_NOERASE | RDW_NOCHILDREN
     );
+
+    /*
+        This is now cheap invalidation only. It does not force RDW_UPDATENOW,
+        so it avoids the old repaint storm while still clearing stale copied
+        pixels after child controls move/resize.
+    */
+    NewTestLayout_RedrawImportantControls();
 }

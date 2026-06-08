@@ -1,5 +1,45 @@
 #include "new_test_layout_window_internal.h"
 
+static void NewTestLayout_SetModeGridSingleRowStyle(void)
+{
+    if (!g_ntl_modeGrid)
+        return;
+
+    ButtonGrid_SetLayout(g_ntl_modeGrid, BUTTON_GRID_LAYOUT_HORIZONTAL);
+
+    ButtonGrid_SetButtonSize(
+        g_ntl_modeGrid,
+        NTL_MODE_SINGLE_BUTTON_SIZE,
+        NTL_MODE_SINGLE_BUTTON_SIZE
+    );
+
+    ButtonGrid_SetSpacing(
+        g_ntl_modeGrid,
+        NTL_MODE_SINGLE_SPACING,
+        NTL_MODE_SINGLE_SPACING
+    );
+}
+
+static void NewTestLayout_SetModeGridLeftPanelStyle(void)
+{
+    if (!g_ntl_modeGrid)
+        return;
+
+    ButtonGrid_SetLayout(g_ntl_modeGrid, BUTTON_GRID_LAYOUT_HORIZONTAL);
+
+    ButtonGrid_SetButtonSize(
+        g_ntl_modeGrid,
+        NTL_MODE_LEFT_BUTTON_SIZE,
+        NTL_MODE_LEFT_BUTTON_SIZE
+    );
+
+    ButtonGrid_SetSpacing(
+        g_ntl_modeGrid,
+        NTL_MODE_LEFT_SPACING,
+        NTL_MODE_LEFT_SPACING
+    );
+}
+
 void NewTestLayout_LayoutModeGrid(
     const NewTestLayoutVisibility *visibility,
     NewTestLayoutLayoutState *layout
@@ -17,6 +57,8 @@ void NewTestLayout_LayoutModeGrid(
 
     if (visibility->showModeGrid && !visibility->useLeftModePanel)
     {
+        NewTestLayout_SetModeGridSingleRowStyle();
+
         NewTestLayout_SetRect(
             &r,
             NTL_MARGIN,
@@ -42,6 +84,8 @@ void NewTestLayout_LayoutModeGrid(
     }
     else if (visibility->showModeGrid && visibility->useLeftModePanel)
     {
+        NewTestLayout_SetModeGridLeftPanelStyle();
+
         if (g_ntl_modeGrid)
             ShowWindow(g_ntl_modeGrid, SW_SHOW);
     }
