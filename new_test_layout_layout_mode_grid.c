@@ -22,15 +22,19 @@ static void NewTestLayout_SetModeGridSingleRowStyle(void)
 
 static void NewTestLayout_SetModeGridLeftPanelStyle(void)
 {
+    int buttonSize;
+
     if (!g_ntl_modeGrid)
         return;
+
+    buttonSize = NewTestLayout_GetLeftModeGridButtonSize();
 
     ButtonGrid_SetLayout(g_ntl_modeGrid, BUTTON_GRID_LAYOUT_HORIZONTAL);
 
     ButtonGrid_SetButtonSize(
         g_ntl_modeGrid,
-        NTL_MODE_LEFT_BUTTON_SIZE,
-        NTL_MODE_LEFT_BUTTON_SIZE
+        buttonSize,
+        buttonSize
     );
 
     ButtonGrid_SetSpacing(

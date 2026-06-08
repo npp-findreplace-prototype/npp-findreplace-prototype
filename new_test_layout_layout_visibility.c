@@ -58,7 +58,13 @@ void NewTestLayout_ComputeVisibility(
         NTL_GAP * 2;
 
     leftPanelWidth = NewTestLayout_GetLeftModeGridWidth();
-    minimumGroupWidth = 420;
+
+    /*
+        Do not move the mode grid to the left until there is enough width for
+        the full-height 4x3 icon grid and a comfortable action-button area.
+        This prevents the small floating 4x3 grid and avoids clipping labels.
+    */
+    minimumGroupWidth = 620;
     availableWidth = width - NTL_MARGIN * 2;
 
     visibility->useLeftModePanel =

@@ -83,6 +83,33 @@ static int NewTestLayout_ScaleModeGridMetric(int value)
     return scaled;
 }
 
+static int NewTestLayout_UnscaleModeGridMetric(int value)
+{
+    int dpi;
+    int unscaled;
+
+    if (value <= 0)
+        return value;
+
+    if (!g_ntl_modeGridConfig.dpiScaleEnabled)
+        return value;
+
+    dpi = NewTestLayout_GetLayoutDpi();
+    unscaled = MulDiv(value, USER_DEFAULT_SCREEN_DPI, dpi);
+
+    if (unscaled < 1)
+        unscaled = 1;
+
+    return unscaled;
+}
+
+static int NewTestLayout_GetActionGroupStackHeight(void)
+{
+    return
+        NTL_ACTION_GROUP_HEIGHT * 3 +
+        NTL_GAP * 2;
+}
+
 void NewTestLayout_CopyText(char *dest, int destSize, const char *src)
 {
     if (!dest || destSize <= 0)
@@ -151,18 +178,49 @@ int NewTestLayout_GetSingleRowModeGridHeight(void)
     return h;
 }
 
+int NewTestLayout_GetLeftModeGridButtonSize(void)
+{
+    int targetHeight;
+    int spacing;
+    int padding;
+    int buttonPixels;
+    int buttonSize;
+
+    targetHeight = NewTestLayout_GetActionGroupStackHeight();
+
+    spacing = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_SPACING);
+    padding = NewTestLayout_ScaleModeGridMetric(4);
+
+    buttonPixels =
+        targetHeight -
+        (NTL_MODE_LEFT_ROWS - 1) * spacing -
+        padding;
+
+    buttonPixels = buttonPixels / NTL_MODE_LEFT_ROWS;
+
+    buttonSize = NewTestLayout_UnscaleModeGridMetric(buttonPixels);
+
+    if (buttonSize < NTL_MODE_LEFT_BUTTON_SIZE)
+        buttonSize = NTL_MODE_LEFT_BUTTON_SIZE;
+
+    return buttonSize;
+}
+
 int NewTestLayout_GetLeftModeGridWidth(void)
 {
     int buttonSize;
+    int buttonPixels;
     int spacing;
     int padding;
 
-    buttonSize = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_BUTTON_SIZE);
+    buttonSize = NewTestLayout_GetLeftModeGridButtonSize();
+
+    buttonPixels = NewTestLayout_ScaleModeGridMetric(buttonSize);
     spacing = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_SPACING);
     padding = NewTestLayout_ScaleModeGridMetric(4);
 
     return
-        NTL_MODE_LEFT_COLUMNS * buttonSize +
+        NTL_MODE_LEFT_COLUMNS * buttonPixels +
         (NTL_MODE_LEFT_COLUMNS - 1) * spacing +
         padding;
 }
@@ -170,15 +228,18 @@ int NewTestLayout_GetLeftModeGridWidth(void)
 int NewTestLayout_GetLeftModeGridHeight(void)
 {
     int buttonSize;
+    int buttonPixels;
     int spacing;
     int padding;
 
-    buttonSize = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_BUTTON_SIZE);
+    buttonSize = NewTestLayout_GetLeftModeGridButtonSize();
+
+    buttonPixels = NewTestLayout_ScaleModeGridMetric(buttonSize);
     spacing = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_SPACING);
     padding = NewTestLayout_ScaleModeGridMetric(4);
 
     return
-        NTL_MODE_LEFT_ROWS * buttonSize +
+        NTL_MODE_LEFT_ROWS * buttonPixels +
         (NTL_MODE_LEFT_ROWS - 1) * spacing +
         padding;
 }

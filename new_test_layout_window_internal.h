@@ -114,40 +114,32 @@ typedef struct NewTestLayoutLayoutState
     int groupWidth;
 } NewTestLayoutLayoutState;
 
-/* shared window state */
 extern HINSTANCE g_ntl_hInstance;
 extern HWND g_ntl_window;
 extern NewTestLayoutWindowClosedCallback g_ntl_onClosed;
 
-/* shared theme/settings state */
 extern NewTestLayoutTheme g_ntl_theme;
 extern NewTestLayoutSettingsConfig g_ntl_settingsConfig;
 extern NewTestLayoutSettingsPanel *g_ntl_settingsPanel;
 
-/* shared top input controls */
 extern NewTestLayoutFauxCombo *g_ntl_findCombo;
 extern NewTestLayoutFauxCombo *g_ntl_replaceCombo;
 
-/* shared utility buttons */
 extern NewTestLayoutActionButton *g_ntl_copyToReplaceButton;
 extern NewTestLayoutActionButton *g_ntl_swapFindReplaceButton;
 extern NewTestLayoutActionButton *g_ntl_copyToFindButton;
 
-/* shared action groups */
 extern NewTestLayoutActionGroup *g_ntl_findGroup;
 extern NewTestLayoutActionGroup *g_ntl_replaceGroup;
 extern NewTestLayoutActionGroup *g_ntl_selectionGroup;
 
-/* shared mode grid */
 extern HWND g_ntl_modeGrid;
 extern ButtonGridConfig g_ntl_modeGridConfig;
 extern ButtonGridItemConfig g_ntl_modeGridItems[12];
 
-/* shared dynamic counts/text */
 extern char g_ntl_lastFindText[512];
 extern NewTestLayoutCounts g_ntl_counts;
 
-/* shared painting resources */
 extern HBRUSH g_ntl_backBrush;
 
 void NewTestLayout_CopyText(
@@ -178,6 +170,7 @@ void NewTestLayout_SetRect(
 int NewTestLayout_GetSingleRowModeGridHeight(void);
 int NewTestLayout_GetLeftModeGridWidth(void);
 int NewTestLayout_GetLeftModeGridHeight(void);
+int NewTestLayout_GetLeftModeGridButtonSize(void);
 
 void NewTestLayout_ToggleSettings(void);
 
