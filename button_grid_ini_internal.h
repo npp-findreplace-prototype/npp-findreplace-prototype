@@ -22,7 +22,7 @@ typedef struct IniSource
 } IniSource;
 
 /*
-    Basic utility helpers.
+    Shared basic utility helpers.
 */
 void Ini_CopyText(
     char *dest,
@@ -51,7 +51,7 @@ void Ini_ReadMemoryLine(
 );
 
 /*
-    INI key readers.
+    Generic INI value readers.
 */
 void Ini_ReadString(
     const IniSource *source,
@@ -84,7 +84,7 @@ COLORREF Ini_ReadColor(
 );
 
 /*
-    Enum readers used while applying the parsed INI to ButtonGridConfig.
+    Enum readers used by button_grid_ini_apply_*.
 */
 int Ini_ReadLayout(
     const IniSource *source,
@@ -143,7 +143,7 @@ int Ini_ReadShowTextOverride(
 );
 
 /*
-    Apply parsed INI sections to the loaded config.
+    Apply INI sections to ButtonGridIniConfig.
 */
 void Ini_ReadGridSection(
     const IniSource *source,
@@ -162,7 +162,9 @@ int ButtonGridIni_LoadFromSource(
 );
 
 /*
-    File/path/resource helpers.
+    Resource/file loading entry points used by button_grid_ini.c.
+    Lower-level byte/path helpers inside button_grid_ini_resources.c
+    should stay static and are intentionally not declared here.
 */
 int Ini_FileExists(
     const char *fileName
@@ -172,52 +174,30 @@ int Ini_PathIsAbsolute(
     const char *path
 );
 
-void Ini_GetBaseName(
-    const char *path,
-    char *buffer,
-    int bufferSize
-);
-
-void Ini_NormalizeSlashName(
-    const char *name,
-    char *buffer,
-    int bufferSize
-);
-
 int Ini_BuildExeRelativePath(
     const char *fileName,
     char *buffer,
     int bufferSize
 );
 
-char *Ini_TextFromBytes(
-    const BYTE *data,
-    DWORD size
-);
-
-int Ini_LoadFromBytes(
-    const char *displayName,
-    const BYTE *data,
-    DWORD size,
+int Ini_LoadFileToConfig(
+    const char *fileName,
     ButtonGridIniConfig *loaded
 );
 
-int Ini_LoadFileToBytes(
+int Ini_LoadWin32ResourceToConfig(
     const char *fileName,
-    BYTE **data,
-    DWORD *size
+    ButtonGridIniConfig *loaded
 );
 
-int Ini_FindWin32ResourceBytes(
+int Ini_LoadEmbeddedResourceToConfig(
     const char *fileName,
-    const BYTE **data,
-    DWORD *size
+    ButtonGridIniConfig *loaded
 );
 
-int Ini_FindBuiltinResourceBytes(
+int Ini_LoadBuiltinResourceToConfig(
     const char *fileName,
-    const BYTE **data,
-    DWORD *size
+    ButtonGridIniConfig *loaded
 );
 
 #endif
