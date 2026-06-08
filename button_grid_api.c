@@ -70,7 +70,6 @@ void ButtonGrid_SetRect(
 {
     ButtonGrid *grid;
     int sizeChanged;
-    int alreadyMatches;
 
     if (!gridHwnd)
         return;
@@ -91,28 +90,17 @@ void ButtonGrid_SetRect(
 
     sizeChanged = 1;
 
-    alreadyMatches = ButtonGrid_RectAlreadyMatches(
-        gridHwnd,
-        x,
-        y,
-        width,
-        height,
-        &sizeChanged
-    );
-
-    if (alreadyMatches)
+    if (ButtonGrid_RectAlreadyMatches(
+            gridHwnd,
+            x,
+            y,
+            width,
+            height,
+            &sizeChanged
+        ))
     {
-        if (grid)
-        {
-            ButtonGrid_DebugNoteSetRect(grid, 1, sizeChanged, 0, width, height);
-            ButtonGrid_RedrawGridWindow(grid, 0);
-        }
-
         return;
     }
-
-    if (grid)
-        ButtonGrid_DebugNoteSetRect(grid, 0, sizeChanged, 1, width, height);
 
     SetWindowPos(
         gridHwnd,
@@ -124,13 +112,11 @@ void ButtonGrid_SetRect(
         SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS
     );
 
-    if (grid)
-    {
-        if (sizeChanged)
-            ButtonGrid_RelayoutAndRedraw(grid, 0);
-        else
-            ButtonGrid_RedrawGridWindow(grid, 0);
-    }
+    /*
+        Do not relayout here. SetWindowPos will produce a window-position/size
+        notification for the grid itself, and button_grid_window.c handles that.
+        Doing it here as well doubles layout and owner-draw traffic during resize.
+    */
 }
 
 void ButtonGrid_SetButtonSize(

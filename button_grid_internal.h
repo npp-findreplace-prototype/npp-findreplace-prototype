@@ -193,33 +193,11 @@ typedef struct ButtonGrid
     COLORREF generatedOnPictureColor;
     COLORREF generatedErrorPictureColor;
 
-    DWORD debugLastLogTick;
-
-    int debugSetRectCalls;
-    int debugSetRectSameCalls;
-    int debugSetRectSizeChangedCalls;
-    int debugSetWindowPosCalls;
-
-    int debugSizeMessages;
-    int debugWindowPosChangedMessages;
-
-    int debugRelayoutCalls;
-    int debugDpiRelayoutCalls;
-
-    int debugGridRedrawCalls;
-    int debugGridRedrawUpdateNowCalls;
-    int debugGridRedrawAllChildrenCalls;
-
-    int debugPaintCalls;
-    int debugDrawItemCalls;
-    int debugEraseCalls;
-
-    int debugButtonRedrawEstimated;
-
-    int debugLastWidth;
-    int debugLastHeight;
-
     HBRUSH buttonBrush;
+
+    int hasLastLayoutClientSize;
+    int lastLayoutClientWidth;
+    int lastLayoutClientHeight;
 } ButtonGrid;
 
 typedef struct ButtonGridCreateParams
