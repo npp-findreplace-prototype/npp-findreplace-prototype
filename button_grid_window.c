@@ -21,9 +21,35 @@ LRESULT CALLBACK ButtonGrid_WndProc(
         case WM_SIZE:
         {
             if (grid)
+            {
+                ButtonGrid_DebugNoteSizeMessage(
+                    grid,
+                    LOWORD(lParam),
+                    HIWORD(lParam)
+                );
+
                 ButtonGrid_RelayoutAndRedraw(grid, 0);
+            }
 
             return 0;
+        }
+
+        case WM_WINDOWPOSCHANGED:
+        {
+            WINDOWPOS *wp;
+
+            wp = (WINDOWPOS *)lParam;
+
+            if (grid && wp && !(wp->flags & SWP_NOSIZE))
+            {
+                ButtonGrid_DebugNoteWindowPosChanged(
+                    grid,
+                    wp->cx,
+                    wp->cy
+                );
+            }
+
+            break;
         }
 
         case WM_DPICHANGED:
@@ -85,6 +111,9 @@ LRESULT CALLBACK ButtonGrid_WndProc(
 
         case WM_NCDESTROY:
         {
+            if (grid)
+                ButtonGrid_DebugFlush(grid, "destroy", 1);
+
             ButtonGrid_HandleDestroy(hwnd);
             break;
         }

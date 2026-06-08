@@ -1,4 +1,5 @@
 #include "button_grid_draw_internal.h"
+#include "button_grid_core_internal.h"
 
 static void ButtonGridDraw_DrawGridChrome(
     ButtonGrid *grid,
@@ -61,6 +62,8 @@ LRESULT ButtonGrid_HandlePaint(HWND hwnd)
         return 0;
     }
 
+    ButtonGrid_DebugNotePaint(grid);
+
     ButtonGrid_UpdateDpi(grid);
 
     if (!Ui_DrawToMemoryThenBlit(
@@ -87,6 +90,8 @@ LRESULT ButtonGrid_HandleDrawItem(ButtonGrid *grid, LPARAM lParam)
     if (!grid || !draw)
         return 0;
 
+    ButtonGrid_DebugNoteDrawItem(grid);
+
     ButtonGrid_UpdateDpi(grid);
     ButtonGridDraw_DrawButton(grid, draw);
 
@@ -101,6 +106,9 @@ LRESULT ButtonGrid_HandleEraseBackground(HWND hwnd, WPARAM wParam)
 
     hdc = (HDC)wParam;
     grid = ButtonGrid_Get(hwnd);
+
+    if (grid)
+        ButtonGrid_DebugNoteErase(grid);
 
     GetClientRect(hwnd, &rc);
 

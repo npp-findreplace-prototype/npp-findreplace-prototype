@@ -44,4 +44,57 @@ void ButtonGrid_PrepareButtonsForKeyboard(
     ButtonGrid *grid
 );
 
+/* resize / repaint diagnostics */
+void ButtonGrid_DebugNoteSetRect(
+    ButtonGrid *grid,
+    int alreadyMatches,
+    int sizeChanged,
+    int didSetWindowPos,
+    int width,
+    int height
+);
+
+void ButtonGrid_DebugNoteSizeMessage(
+    ButtonGrid *grid,
+    int width,
+    int height
+);
+
+void ButtonGrid_DebugNoteWindowPosChanged(
+    ButtonGrid *grid,
+    int width,
+    int height
+);
+
+void ButtonGrid_DebugNoteRelayout(
+    ButtonGrid *grid,
+    int updateNow,
+    int redrewButtons,
+    int dpiRelayout
+);
+
+void ButtonGrid_DebugNoteGridRedraw(
+    ButtonGrid *grid,
+    UINT flags,
+    int updateNow
+);
+
+void ButtonGrid_DebugNotePaint(
+    ButtonGrid *grid
+);
+
+void ButtonGrid_DebugNoteDrawItem(
+    ButtonGrid *grid
+);
+
+void ButtonGrid_DebugNoteErase(
+    ButtonGrid *grid
+);
+
+void ButtonGrid_DebugFlush(
+    ButtonGrid *grid,
+    const char *reason,
+    int force
+);
+
 #endif

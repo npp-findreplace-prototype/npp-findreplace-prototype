@@ -70,6 +70,7 @@ void ButtonGrid_SetRect(
 {
     ButtonGrid *grid;
     int sizeChanged;
+    int alreadyMatches;
 
     if (!gridHwnd)
         return;
@@ -90,20 +91,28 @@ void ButtonGrid_SetRect(
 
     sizeChanged = 1;
 
-    if (ButtonGrid_RectAlreadyMatches(
-            gridHwnd,
-            x,
-            y,
-            width,
-            height,
-            &sizeChanged
-        ))
+    alreadyMatches = ButtonGrid_RectAlreadyMatches(
+        gridHwnd,
+        x,
+        y,
+        width,
+        height,
+        &sizeChanged
+    );
+
+    if (alreadyMatches)
     {
         if (grid)
+        {
+            ButtonGrid_DebugNoteSetRect(grid, 1, sizeChanged, 0, width, height);
             ButtonGrid_RedrawGridWindow(grid, 0);
+        }
 
         return;
     }
+
+    if (grid)
+        ButtonGrid_DebugNoteSetRect(grid, 0, sizeChanged, 1, width, height);
 
     SetWindowPos(
         gridHwnd,
