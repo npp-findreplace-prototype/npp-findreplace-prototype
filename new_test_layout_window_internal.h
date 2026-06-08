@@ -98,6 +98,22 @@ typedef struct NewTestLayoutVisibility
     int groupPadding;
 } NewTestLayoutVisibility;
 
+typedef struct NewTestLayoutLayoutState
+{
+    RECT clientRect;
+
+    int width;
+    int height;
+    int modeGridHeight;
+
+    int showUtilityButtons;
+    int comboRight;
+
+    int groupX;
+    int groupY;
+    int groupWidth;
+} NewTestLayoutLayoutState;
+
 extern HINSTANCE g_ntl_hInstance;
 extern HWND g_ntl_window;
 extern NewTestLayoutWindowClosedCallback g_ntl_onClosed;
@@ -173,9 +189,7 @@ void NewTestLayout_SetRect(
 );
 
 int NewTestLayout_GetSingleRowModeGridHeight(void);
-
 int NewTestLayout_GetLeftModeGridWidth(void);
-
 int NewTestLayout_GetLeftModeGridHeight(void);
 
 void NewTestLayout_ToggleSettings(void);
@@ -197,7 +211,6 @@ void NewTestLayout_GetReplaceText(
 void NewTestLayout_UpdateWindowTitle(void);
 
 void NewTestLayout_ApplyCounts(void);
-
 void NewTestLayout_ApplyCountOptions(void);
 
 void NewTestLayout_CreateControls(
@@ -205,6 +218,38 @@ void NewTestLayout_CreateControls(
 );
 
 void NewTestLayout_DestroyControls(void);
+
+void NewTestLayout_ComputeVisibility(
+    int width,
+    int height,
+    NewTestLayoutVisibility *visibility
+);
+
+void NewTestLayout_LayoutCombosAndUtility(
+    const NewTestLayoutVisibility *visibility,
+    NewTestLayoutLayoutState *layout
+);
+
+void NewTestLayout_LayoutModeGrid(
+    const NewTestLayoutVisibility *visibility,
+    NewTestLayoutLayoutState *layout
+);
+
+void NewTestLayout_LayoutGroups(
+    const NewTestLayoutVisibility *visibility,
+    NewTestLayoutLayoutState *layout
+);
+
+void NewTestLayout_ShowUtilityButtons(
+    int show
+);
+
+void NewTestLayout_ShowGroups(
+    const NewTestLayoutVisibility *visibility
+);
+
+void NewTestLayout_RedrawUtilityButtons(void);
+void NewTestLayout_RedrawImportantControls(void);
 
 void NewTestLayout_Layout(
     HWND hwnd
