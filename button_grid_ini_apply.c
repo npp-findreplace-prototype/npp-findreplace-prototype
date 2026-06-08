@@ -1,5 +1,24 @@
 #include "button_grid_ini_internal.h"
 
+static int Ini_TextIsAny2(
+    const char *text,
+    const char *a,
+    const char *b
+)
+{
+    return Ui_SameTextI(text, a) || Ui_SameTextI(text, b);
+}
+
+static int Ini_TextIsAny3(
+    const char *text,
+    const char *a,
+    const char *b,
+    const char *c
+)
+{
+    return Ui_SameTextI(text, a) || Ui_SameTextI(text, b) || Ui_SameTextI(text, c);
+}
+
 static int Ini_ReadLayout(
     const IniSource *source,
     const char *section,
@@ -14,10 +33,10 @@ static int Ini_ReadLayout(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "horizontal") == 0)
+    if (Ui_SameTextI(text, "horizontal"))
         return BUTTON_GRID_LAYOUT_HORIZONTAL;
 
-    if (lstrcmpi(text, "vertical") == 0)
+    if (Ui_SameTextI(text, "vertical"))
         return BUTTON_GRID_LAYOUT_VERTICAL;
 
     return atoi(text);
@@ -37,31 +56,22 @@ static int Ini_ReadSizeMode(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "default") == 0 ||
-        lstrcmpi(text, "useDefault") == 0)
+    if (Ini_TextIsAny2(text, "default", "useDefault"))
         return BUTTON_GRID_SIZE_USE_DEFAULT;
 
-    if (lstrcmpi(text, "fixed") == 0)
+    if (Ui_SameTextI(text, "fixed"))
         return BUTTON_GRID_SIZE_FIXED;
 
-    if (lstrcmpi(text, "matchImageSize") == 0 ||
-        lstrcmpi(text, "match_image_size") == 0 ||
-        lstrcmpi(text, "imageSize") == 0)
+    if (Ini_TextIsAny3(text, "matchImageSize", "match_image_size", "imageSize"))
         return BUTTON_GRID_SIZE_MATCH_IMAGE_SIZE;
 
-    if (lstrcmpi(text, "aspectHorizontal") == 0 ||
-        lstrcmpi(text, "aspect_horizontal") == 0 ||
-        lstrcmpi(text, "horizontalAspect") == 0)
+    if (Ini_TextIsAny3(text, "aspectHorizontal", "aspect_horizontal", "horizontalAspect"))
         return BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_HORIZONTAL;
 
-    if (lstrcmpi(text, "aspectVertical") == 0 ||
-        lstrcmpi(text, "aspect_vertical") == 0 ||
-        lstrcmpi(text, "verticalAspect") == 0)
+    if (Ini_TextIsAny3(text, "aspectVertical", "aspect_vertical", "verticalAspect"))
         return BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_VERTICAL;
 
-    if (lstrcmpi(text, "aspectByLayout") == 0 ||
-        lstrcmpi(text, "aspect_by_layout") == 0 ||
-        lstrcmpi(text, "byLayout") == 0)
+    if (Ini_TextIsAny3(text, "aspectByLayout", "aspect_by_layout", "byLayout"))
         return BUTTON_GRID_SIZE_MATCH_IMAGE_ASPECT_BY_LAYOUT;
 
     return atoi(text);
@@ -81,12 +91,10 @@ static int Ini_ReadButtonBackMode(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "opaque") == 0)
+    if (Ui_SameTextI(text, "opaque"))
         return BUTTON_GRID_BUTTON_BACK_OPAQUE;
 
-    if (lstrcmpi(text, "transparent") == 0 ||
-        lstrcmpi(text, "transparentSimulated") == 0 ||
-        lstrcmpi(text, "simulatedTransparent") == 0)
+    if (Ini_TextIsAny3(text, "transparent", "transparentSimulated", "simulatedTransparent"))
         return BUTTON_GRID_BUTTON_BACK_TRANSPARENT;
 
     return atoi(text);
@@ -106,32 +114,31 @@ static int Ini_ReadBorderStyle(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "none") == 0)
+    if (Ui_SameTextI(text, "none"))
         return BUTTON_GRID_BORDER_STYLE_NONE;
 
-    if (lstrcmpi(text, "simple") == 0)
+    if (Ui_SameTextI(text, "simple"))
         return BUTTON_GRID_BORDER_STYLE_SIMPLE;
 
-    if (lstrcmpi(text, "etched") == 0)
+    if (Ui_SameTextI(text, "etched"))
         return BUTTON_GRID_BORDER_STYLE_ETCHED;
 
-    if (lstrcmpi(text, "rounded") == 0)
+    if (Ui_SameTextI(text, "rounded"))
         return BUTTON_GRID_BORDER_STYLE_ROUNDED;
 
-    if (lstrcmpi(text, "etchedRounded") == 0 ||
-        lstrcmpi(text, "etched_rounded") == 0)
+    if (Ini_TextIsAny2(text, "etchedRounded", "etched_rounded"))
         return BUTTON_GRID_BORDER_STYLE_ETCHED_ROUNDED;
 
-    if (lstrcmpi(text, "container") == 0)
+    if (Ui_SameTextI(text, "container"))
         return BUTTON_GRID_BORDER_STYLE_CONTAINER;
 
-    if (lstrcmpi(text, "sunken") == 0)
+    if (Ui_SameTextI(text, "sunken"))
         return BUTTON_GRID_BORDER_STYLE_SUNKEN;
 
-    if (lstrcmpi(text, "raised") == 0)
+    if (Ui_SameTextI(text, "raised"))
         return BUTTON_GRID_BORDER_STYLE_RAISED;
 
-    if (lstrcmpi(text, "double") == 0)
+    if (Ui_SameTextI(text, "double"))
         return BUTTON_GRID_BORDER_STYLE_DOUBLE;
 
     return atoi(text);
@@ -151,20 +158,16 @@ static int Ini_ReadGearCorner(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "topLeft") == 0 ||
-        lstrcmpi(text, "top_left") == 0)
+    if (Ini_TextIsAny2(text, "topLeft", "top_left"))
         return BUTTON_GRID_GEAR_CORNER_TOP_LEFT;
 
-    if (lstrcmpi(text, "topRight") == 0 ||
-        lstrcmpi(text, "top_right") == 0)
+    if (Ini_TextIsAny2(text, "topRight", "top_right"))
         return BUTTON_GRID_GEAR_CORNER_TOP_RIGHT;
 
-    if (lstrcmpi(text, "bottomLeft") == 0 ||
-        lstrcmpi(text, "bottom_left") == 0)
+    if (Ini_TextIsAny2(text, "bottomLeft", "bottom_left"))
         return BUTTON_GRID_GEAR_CORNER_BOTTOM_LEFT;
 
-    if (lstrcmpi(text, "bottomRight") == 0 ||
-        lstrcmpi(text, "bottom_right") == 0)
+    if (Ini_TextIsAny2(text, "bottomRight", "bottom_right"))
         return BUTTON_GRID_GEAR_CORNER_BOTTOM_RIGHT;
 
     return atoi(text);
@@ -184,37 +187,37 @@ static int Ini_ReadContentAlignment(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "topLeft") == 0 || lstrcmpi(text, "top_left") == 0)
+    if (Ini_TextIsAny2(text, "topLeft", "top_left"))
         return BUTTON_GRID_ALIGN_TOP_LEFT;
 
-    if (lstrcmpi(text, "top") == 0)
+    if (Ui_SameTextI(text, "top"))
         return BUTTON_GRID_ALIGN_TOP;
 
-    if (lstrcmpi(text, "topRight") == 0 || lstrcmpi(text, "top_right") == 0)
+    if (Ini_TextIsAny2(text, "topRight", "top_right"))
         return BUTTON_GRID_ALIGN_TOP_RIGHT;
 
-    if (lstrcmpi(text, "left") == 0)
+    if (Ui_SameTextI(text, "left"))
         return BUTTON_GRID_ALIGN_LEFT;
 
-    if (lstrcmpi(text, "center") == 0)
+    if (Ui_SameTextI(text, "center"))
         return BUTTON_GRID_ALIGN_CENTER;
 
-    if (lstrcmpi(text, "right") == 0)
+    if (Ui_SameTextI(text, "right"))
         return BUTTON_GRID_ALIGN_RIGHT;
 
-    if (lstrcmpi(text, "bottomLeft") == 0 || lstrcmpi(text, "bottom_left") == 0)
+    if (Ini_TextIsAny2(text, "bottomLeft", "bottom_left"))
         return BUTTON_GRID_ALIGN_BOTTOM_LEFT;
 
-    if (lstrcmpi(text, "bottom") == 0)
+    if (Ui_SameTextI(text, "bottom"))
         return BUTTON_GRID_ALIGN_BOTTOM;
 
-    if (lstrcmpi(text, "bottomRight") == 0 || lstrcmpi(text, "bottom_right") == 0)
+    if (Ini_TextIsAny2(text, "bottomRight", "bottom_right"))
         return BUTTON_GRID_ALIGN_BOTTOM_RIGHT;
 
-    if (lstrcmpi(text, "xy") == 0 || lstrcmpi(text, "x/y") == 0)
+    if (Ini_TextIsAny2(text, "xy", "x/y"))
         return BUTTON_GRID_ALIGN_XY;
 
-    if (lstrcmpi(text, "percent") == 0 || lstrcmpi(text, "percentage") == 0)
+    if (Ini_TextIsAny2(text, "percent", "percentage"))
         return BUTTON_GRID_ALIGN_PERCENT;
 
     return atoi(text);
@@ -234,13 +237,13 @@ static int Ini_ReadBehavior(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "toggle") == 0)
+    if (Ui_SameTextI(text, "toggle"))
         return BUTTON_GRID_BUTTON_TOGGLE;
 
-    if (lstrcmpi(text, "radio") == 0)
+    if (Ui_SameTextI(text, "radio"))
         return BUTTON_GRID_BUTTON_RADIO;
 
-    if (lstrcmpi(text, "disabled") == 0)
+    if (Ui_SameTextI(text, "disabled"))
         return BUTTON_GRID_BUTTON_DISABLED;
 
     return atoi(text);
@@ -260,19 +263,22 @@ static int Ini_ReadShowTextOverride(
     if (!text[0])
         return defaultValue;
 
-    if (lstrcmpi(text, "default") == 0 ||
-        lstrcmpi(text, "useDefault") == 0)
+    if (Ini_TextIsAny2(text, "default", "useDefault"))
         return BUTTON_GRID_TEXT_USE_DEFAULT;
 
-    if (lstrcmpi(text, "show") == 0 ||
-        lstrcmpi(text, "on") == 0 ||
-        lstrcmpi(text, "true") == 0)
+    if (Ui_SameTextI(text, "show") ||
+        Ui_SameTextI(text, "on") ||
+        Ui_SameTextI(text, "true"))
+    {
         return BUTTON_GRID_TEXT_SHOW;
+    }
 
-    if (lstrcmpi(text, "hide") == 0 ||
-        lstrcmpi(text, "off") == 0 ||
-        lstrcmpi(text, "false") == 0)
+    if (Ui_SameTextI(text, "hide") ||
+        Ui_SameTextI(text, "off") ||
+        Ui_SameTextI(text, "false"))
+    {
         return BUTTON_GRID_TEXT_HIDE;
+    }
 
     return atoi(text);
 }

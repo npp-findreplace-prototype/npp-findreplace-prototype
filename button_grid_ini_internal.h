@@ -1,17 +1,15 @@
 #ifndef BUTTON_GRID_INI_INTERNAL_H
 #define BUTTON_GRID_INI_INTERNAL_H
 
-#include <windows.h>
+#include "win_compat.h"
+#include "ui_common.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "button_grid_internal.h"
 #include "button_grid_ini.h"
 #include "embedded_resources.h"
-
-#ifndef RT_RCDATA
-#define RT_RCDATA MAKEINTRESOURCE(10)
-#endif
 
 typedef struct IniSource
 {

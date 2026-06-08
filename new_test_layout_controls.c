@@ -1,44 +1,72 @@
 #include "new_test_layout_controls_internal.h"
 
-int NewTestLayoutControls_RegisterClasses(HINSTANCE hInstance)
+static int Ntl_RegisterOneClass(
+    HINSTANCE hInstance,
+    const char *className,
+    WNDPROC proc,
+    HCURSOR cursor
+)
 {
     WNDCLASS wc;
 
     ZeroMemory(&wc, sizeof(wc));
-    wc.lpfnWndProc = NewTestLayoutFauxCombo_WndProc;
+
+    wc.lpfnWndProc = proc;
     wc.hInstance = hInstance;
-    wc.lpszClassName = NTL_FAUX_COMBO_CLASS_NAME;
-    wc.hCursor = LoadCursor(NULL, IDC_IBEAM);
+    wc.lpszClassName = className;
+    wc.hCursor = cursor;
     wc.hbrBackground = NULL;
 
-    RegisterClass(&wc);
+    if (RegisterClass(&wc))
+        return 1;
 
-    ZeroMemory(&wc, sizeof(wc));
-    wc.lpfnWndProc = NewTestLayoutActionButton_WndProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = NTL_ACTION_BUTTON_CLASS_NAME;
-    wc.hCursor = LoadCursor(NULL, IDC_HAND);
-    wc.hbrBackground = NULL;
+    if (GetLastError() == ERROR_CLASS_ALREADY_EXISTS)
+        return 1;
 
-    RegisterClass(&wc);
+    return 0;
+}
 
-    ZeroMemory(&wc, sizeof(wc));
-    wc.lpfnWndProc = NewTestLayoutActionGroup_WndProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = NTL_ACTION_GROUP_CLASS_NAME;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = NULL;
+int NewTestLayoutControls_RegisterClasses(HINSTANCE hInstance)
+{
+    if (!Ntl_RegisterOneClass(
+            hInstance,
+            NTL_FAUX_COMBO_CLASS_NAME,
+            NewTestLayoutFauxCombo_WndProc,
+            LoadCursor(NULL, IDC_IBEAM)
+        ))
+    {
+        return 0;
+    }
 
-    RegisterClass(&wc);
+    if (!Ntl_RegisterOneClass(
+            hInstance,
+            NTL_ACTION_BUTTON_CLASS_NAME,
+            NewTestLayoutActionButton_WndProc,
+            LoadCursor(NULL, IDC_HAND)
+        ))
+    {
+        return 0;
+    }
 
-    ZeroMemory(&wc, sizeof(wc));
-    wc.lpfnWndProc = NewTestLayoutGearButton_WndProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = NTL_GEAR_BUTTON_CLASS_NAME;
-    wc.hCursor = LoadCursor(NULL, IDC_HAND);
-    wc.hbrBackground = NULL;
+    if (!Ntl_RegisterOneClass(
+            hInstance,
+            NTL_ACTION_GROUP_CLASS_NAME,
+            NewTestLayoutActionGroup_WndProc,
+            LoadCursor(NULL, IDC_ARROW)
+        ))
+    {
+        return 0;
+    }
 
-    RegisterClass(&wc);
+    if (!Ntl_RegisterOneClass(
+            hInstance,
+            NTL_GEAR_BUTTON_CLASS_NAME,
+            NewTestLayoutGearButton_WndProc,
+            LoadCursor(NULL, IDC_HAND)
+        ))
+    {
+        return 0;
+    }
 
     return 1;
 }

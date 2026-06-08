@@ -2,30 +2,12 @@
 
 void Ini_CopyText(char *dest, int destSize, const char *src)
 {
-    if (!dest || destSize <= 0)
-        return;
-
-    if (!src)
-        src = "";
-
-    lstrcpyn(dest, src, destSize);
-    dest[destSize - 1] = '\0';
+    Ui_CopyText(dest, destSize, src);
 }
 
 void Ini_AppendText(char *dest, int destSize, const char *src)
 {
-    int len;
-
-    if (!dest || destSize <= 0 || !src)
-        return;
-
-    len = lstrlen(dest);
-
-    if (len >= destSize - 1)
-        return;
-
-    lstrcpyn(dest + len, src, destSize - len);
-    dest[destSize - 1] = '\0';
+    Ui_AppendText(dest, destSize, src);
 }
 
 void Ini_TrimInPlace(char *text)
@@ -92,22 +74,22 @@ static int Ini_IsTrueText(const char *text)
     if (!text)
         return 0;
 
-    if (lstrcmpi(text, "1") == 0)
+    if (Ui_SameTextI(text, "1"))
         return 1;
 
-    if (lstrcmpi(text, "true") == 0)
+    if (Ui_SameTextI(text, "true"))
         return 1;
 
-    if (lstrcmpi(text, "yes") == 0)
+    if (Ui_SameTextI(text, "yes"))
         return 1;
 
-    if (lstrcmpi(text, "on") == 0)
+    if (Ui_SameTextI(text, "on"))
         return 1;
 
-    if (lstrcmpi(text, "enabled") == 0)
+    if (Ui_SameTextI(text, "enabled"))
         return 1;
 
-    if (lstrcmpi(text, "enable") == 0)
+    if (Ui_SameTextI(text, "enable"))
         return 1;
 
     return 0;
@@ -118,22 +100,22 @@ static int Ini_IsFalseText(const char *text)
     if (!text)
         return 0;
 
-    if (lstrcmpi(text, "0") == 0)
+    if (Ui_SameTextI(text, "0"))
         return 1;
 
-    if (lstrcmpi(text, "false") == 0)
+    if (Ui_SameTextI(text, "false"))
         return 1;
 
-    if (lstrcmpi(text, "no") == 0)
+    if (Ui_SameTextI(text, "no"))
         return 1;
 
-    if (lstrcmpi(text, "off") == 0)
+    if (Ui_SameTextI(text, "off"))
         return 1;
 
-    if (lstrcmpi(text, "disabled") == 0)
+    if (Ui_SameTextI(text, "disabled"))
         return 1;
 
-    if (lstrcmpi(text, "disable") == 0)
+    if (Ui_SameTextI(text, "disable"))
         return 1;
 
     return 0;
@@ -218,23 +200,9 @@ static int Ini_ParseRgbColor(const char *text, COLORREF *color)
         sscanf(text, "rgb(%d,%d,%d)", &r, &g, &b) == 3 ||
         sscanf(text, "%d,%d,%d", &r, &g, &b) == 3)
     {
-        if (r < 0)
-            r = 0;
-
-        if (r > 255)
-            r = 255;
-
-        if (g < 0)
-            g = 0;
-
-        if (g > 255)
-            g = 255;
-
-        if (b < 0)
-            b = 0;
-
-        if (b > 255)
-            b = 255;
+        r = Ui_ClampInt(r, 0, 255);
+        g = Ui_ClampInt(g, 0, 255);
+        b = Ui_ClampInt(b, 0, 255);
 
         *color = RGB(r, g, b);
         return 1;

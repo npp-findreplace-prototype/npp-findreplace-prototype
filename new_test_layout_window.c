@@ -1,5 +1,23 @@
 #include "new_test_layout_window_internal.h"
 
+static void NewTestLayout_HandlePaint(HWND hwnd)
+{
+    PAINTSTRUCT ps;
+    HDC hdc;
+    RECT rc;
+
+    hdc = BeginPaint(hwnd, &ps);
+
+    GetClientRect(hwnd, &rc);
+
+    if (g_backBrush)
+        FillRect(hdc, &rc, g_backBrush);
+    else
+        Ui_FillSolidRect(hdc, &rc, GetSysColor(COLOR_WINDOW));
+
+    EndPaint(hwnd, &ps);
+}
+
 static LRESULT CALLBACK NewTestLayoutWindowProc(
     HWND hwnd,
     UINT msg,
@@ -111,7 +129,11 @@ static LRESULT CALLBACK NewTestLayoutWindowProc(
 
             SetBkColor((HDC)wParam, g_theme.windowBackColor);
             SetTextColor((HDC)wParam, g_theme.buttonTextColor);
-            return (LRESULT)g_backBrush;
+
+            if (g_backBrush)
+                return (LRESULT)g_backBrush;
+
+            return (LRESULT)(COLOR_WINDOW + 1);
         }
 
         case WM_ERASEBKGND:
@@ -121,20 +143,7 @@ static LRESULT CALLBACK NewTestLayoutWindowProc(
 
         case WM_PAINT:
         {
-            PAINTSTRUCT ps;
-            HDC hdc;
-            RECT rc;
-
-            hdc = BeginPaint(hwnd, &ps);
-
-            GetClientRect(hwnd, &rc);
-
-            if (g_backBrush)
-                FillRect(hdc, &rc, g_backBrush);
-            else
-                FillRect(hdc, &rc, (HBRUSH)(COLOR_WINDOW + 1));
-
-            EndPaint(hwnd, &ps);
+            NewTestLayout_HandlePaint(hwnd);
             return 0;
         }
 
@@ -194,7 +203,10 @@ static BOOL NewTestLayoutWindow_RegisterClass(HINSTANCE hInstance)
     wc.hbrBackground = NULL;
 
     if (!RegisterClass(&wc))
-        return FALSE;
+    {
+        if (GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+            return FALSE;
+    }
 
     registered = 1;
     return TRUE;

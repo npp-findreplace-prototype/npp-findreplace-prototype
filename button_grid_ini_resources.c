@@ -181,7 +181,9 @@ int Ini_PathIsAbsolute(const char *path)
     if (((path[0] >= 'A' && path[0] <= 'Z') ||
          (path[0] >= 'a' && path[0] <= 'z')) &&
         path[1] == ':')
+    {
         return 1;
+    }
 
     return 0;
 }
@@ -599,7 +601,7 @@ static int Ini_FindWin32ResourceBytes(
 
     Ini_NormalizeSlashName(fileName, normalized, sizeof(normalized));
 
-    if (lstrcmp(normalized, fileName) != 0)
+    if (!Ui_SameText(normalized, fileName))
     {
         if (Ini_FindWin32ResourceBytesByName(normalized, data, size))
             return 1;
@@ -607,7 +609,7 @@ static int Ini_FindWin32ResourceBytes(
 
     Ini_GetBaseName(fileName, baseName, sizeof(baseName));
 
-    if (baseName[0] && lstrcmp(baseName, fileName) != 0)
+    if (baseName[0] && !Ui_SameText(baseName, fileName))
     {
         if (Ini_FindWin32ResourceBytesByName(baseName, data, size))
             return 1;
@@ -680,7 +682,7 @@ int Ini_LoadBuiltinResourceToConfig(
 
     Ini_GetBaseName(fileName, baseName, sizeof(baseName));
 
-    if (lstrcmpi(baseName, "grid_tester.ini") != 0)
+    if (!Ui_SameTextI(baseName, "grid_tester.ini"))
         return 0;
 
     resourceData = (const BYTE *)g_builtinGridTesterIni;

@@ -1,7 +1,10 @@
 #ifndef NEW_TEST_LAYOUT_WINDOW_INTERNAL_H
 #define NEW_TEST_LAYOUT_WINDOW_INTERNAL_H
 
-#include <windows.h>
+#include "win_compat.h"
+#include "ui_common.h"
+#include "ui_drawing.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -12,10 +15,6 @@
 #include "button_grid.h"
 #include "npp_mockup_window.h"
 #include "debug_window.h"
-
-#ifndef WM_DPICHANGED
-#define WM_DPICHANGED 0x02E0
-#endif
 
 #define NEW_TEST_LAYOUT_WINDOW_CLASS_NAME "NewTestLayoutWindowClass"
 #define NEW_TEST_LAYOUT_WINDOW_TITLE "New Test Layout"
@@ -99,34 +98,54 @@ typedef struct NewTestLayoutVisibility
     int groupPadding;
 } NewTestLayoutVisibility;
 
-extern HINSTANCE g_hInstance;
-extern HWND g_window;
+extern HINSTANCE g_ntl_hInstance;
+extern HWND g_ntl_window;
+extern NewTestLayoutWindowClosedCallback g_ntl_onClosed;
 
-extern NewTestLayoutWindowClosedCallback g_onClosed;
+extern NewTestLayoutTheme g_ntl_theme;
+extern NewTestLayoutSettingsConfig g_ntl_settingsConfig;
+extern NewTestLayoutSettingsPanel *g_ntl_settingsPanel;
 
-extern NewTestLayoutTheme g_theme;
-extern NewTestLayoutSettingsConfig g_settingsConfig;
-extern NewTestLayoutSettingsPanel *g_settingsPanel;
+extern NewTestLayoutFauxCombo *g_ntl_findCombo;
+extern NewTestLayoutFauxCombo *g_ntl_replaceCombo;
 
-extern NewTestLayoutFauxCombo *g_findCombo;
-extern NewTestLayoutFauxCombo *g_replaceCombo;
+extern NewTestLayoutActionButton *g_ntl_copyToReplaceButton;
+extern NewTestLayoutActionButton *g_ntl_swapFindReplaceButton;
+extern NewTestLayoutActionButton *g_ntl_copyToFindButton;
 
-extern NewTestLayoutActionButton *g_copyToReplaceButton;
-extern NewTestLayoutActionButton *g_swapFindReplaceButton;
-extern NewTestLayoutActionButton *g_copyToFindButton;
+extern NewTestLayoutActionGroup *g_ntl_findGroup;
+extern NewTestLayoutActionGroup *g_ntl_replaceGroup;
+extern NewTestLayoutActionGroup *g_ntl_selectionGroup;
 
-extern NewTestLayoutActionGroup *g_findGroup;
-extern NewTestLayoutActionGroup *g_replaceGroup;
-extern NewTestLayoutActionGroup *g_selectionGroup;
+extern HWND g_ntl_modeGrid;
+extern ButtonGridConfig g_ntl_modeGridConfig;
+extern ButtonGridItemConfig g_ntl_modeGridItems[12];
 
-extern HWND g_modeGrid;
-extern ButtonGridConfig g_modeGridConfig;
-extern ButtonGridItemConfig g_modeGridItems[12];
+extern char g_ntl_lastFindText[512];
+extern NewTestLayoutCounts g_ntl_counts;
 
-extern char g_lastFindText[512];
-extern NewTestLayoutCounts g_counts;
+extern HBRUSH g_ntl_backBrush;
 
-extern HBRUSH g_backBrush;
+#define g_hInstance g_ntl_hInstance
+#define g_window g_ntl_window
+#define g_onClosed g_ntl_onClosed
+#define g_theme g_ntl_theme
+#define g_settingsConfig g_ntl_settingsConfig
+#define g_settingsPanel g_ntl_settingsPanel
+#define g_findCombo g_ntl_findCombo
+#define g_replaceCombo g_ntl_replaceCombo
+#define g_copyToReplaceButton g_ntl_copyToReplaceButton
+#define g_swapFindReplaceButton g_ntl_swapFindReplaceButton
+#define g_copyToFindButton g_ntl_copyToFindButton
+#define g_findGroup g_ntl_findGroup
+#define g_replaceGroup g_ntl_replaceGroup
+#define g_selectionGroup g_ntl_selectionGroup
+#define g_modeGrid g_ntl_modeGrid
+#define g_modeGridConfig g_ntl_modeGridConfig
+#define g_modeGridItems g_ntl_modeGridItems
+#define g_lastFindText g_ntl_lastFindText
+#define g_counts g_ntl_counts
+#define g_backBrush g_ntl_backBrush
 
 void NewTestLayout_CopyText(
     char *dest,
@@ -154,11 +173,16 @@ void NewTestLayout_SetRect(
 );
 
 int NewTestLayout_GetSingleRowModeGridHeight(void);
+
 int NewTestLayout_GetLeftModeGridWidth(void);
+
 int NewTestLayout_GetLeftModeGridHeight(void);
 
-void NewTestLayout_UpdateWindowTitle(void);
 void NewTestLayout_ToggleSettings(void);
+
+void NewTestLayout_CreateModeGrid(
+    HWND hwnd
+);
 
 void NewTestLayout_GetFindText(
     char *buffer,
@@ -170,14 +194,21 @@ void NewTestLayout_GetReplaceText(
     int bufferSize
 );
 
-void NewTestLayout_ApplyCountOptions(void);
+void NewTestLayout_UpdateWindowTitle(void);
+
 void NewTestLayout_ApplyCounts(void);
 
-void NewTestLayout_CreateModeGrid(HWND hwnd);
-void NewTestLayout_CreateControls(HWND hwnd);
+void NewTestLayout_ApplyCountOptions(void);
+
+void NewTestLayout_CreateControls(
+    HWND hwnd
+);
+
 void NewTestLayout_DestroyControls(void);
 
-void NewTestLayout_Layout(HWND hwnd);
+void NewTestLayout_Layout(
+    HWND hwnd
+);
 
 int NewTestLayout_HandleCommand(
     WPARAM wParam,

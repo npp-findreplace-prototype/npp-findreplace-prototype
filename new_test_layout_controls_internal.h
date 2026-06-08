@@ -1,34 +1,14 @@
 #ifndef NEW_TEST_LAYOUT_CONTROLS_INTERNAL_H
 #define NEW_TEST_LAYOUT_CONTROLS_INTERNAL_H
 
-#include <windows.h>
+#include "win_compat.h"
+#include "ui_common.h"
+#include "ui_drawing.h"
+
 #include <stdlib.h>
+#include <math.h>
 
 #include "new_test_layout_controls.h"
-
-#ifndef GWLP_USERDATA
-#define GWLP_USERDATA (-21)
-#endif
-
-#ifndef GWLP_WNDPROC
-#define GWLP_WNDPROC (-4)
-#endif
-
-#ifndef IDC_HAND
-#define IDC_HAND MAKEINTRESOURCE(32649)
-#endif
-
-#ifndef EM_SETRECT
-#define EM_SETRECT 0x00B3
-#endif
-
-#ifndef VK_RETURN
-#define VK_RETURN 0x0D
-#endif
-
-#ifndef VK_SPACE
-#define VK_SPACE 0x20
-#endif
 
 #define NTL_FAUX_COMBO_CLASS_NAME "NewTestLayoutFauxComboClass"
 #define NTL_ACTION_BUTTON_CLASS_NAME "NewTestLayoutActionButtonClass"
@@ -39,8 +19,6 @@
 #define NTL_FAUX_COMBO_DROP_HEIGHT 160
 #define NTL_FAUX_COMBO_EDIT_MARGIN 8
 #define NTL_FAUX_COMBO_LIST_ID_OFFSET 20000
-
-typedef void (*NtlBufferedDrawProc)(void *context, HDC hdc, RECT *rc);
 
 struct NewTestLayoutFauxCombo
 {
@@ -127,6 +105,8 @@ struct NewTestLayoutGearButton
     NewTestLayoutTheme theme;
 };
 
+typedef UiBufferedDrawProc NtlBufferedDrawProc;
+
 void Ntl_CopyText(
     char *dest,
     int destSize,
@@ -161,6 +141,22 @@ void Ntl_DoubleBufferedPaint(
     HWND hwnd,
     void *context,
     NtlBufferedDrawProc drawProc
+);
+
+int Ntl_SetWindowRectIfChanged(
+    HWND hwnd,
+    const RECT *rc,
+    UINT flags
+);
+
+void Ntl_InvalidateNoErase(
+    HWND hwnd
+);
+
+void Ntl_RedrawNoErase(
+    HWND hwnd,
+    int updateNow,
+    int includeChildren
 );
 
 LRESULT CALLBACK NewTestLayoutFauxCombo_WndProc(

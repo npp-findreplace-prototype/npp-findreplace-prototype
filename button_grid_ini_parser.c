@@ -82,7 +82,7 @@ void Ini_ReadString(
             continue;
         }
 
-        if (lstrcmpi(currentSection, section) != 0)
+        if (!Ui_SameTextI(currentSection, section))
             continue;
 
         equals = line;
@@ -101,7 +101,7 @@ void Ini_ReadString(
         Ini_TrimInPlace(name);
         Ini_TrimInPlace(value);
 
-        if (lstrcmpi(name, key) == 0)
+        if (Ui_SameTextI(name, key))
         {
             Ini_CopyText(buffer, bufferSize, value);
             return;
