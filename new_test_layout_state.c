@@ -1,5 +1,13 @@
 #include "new_test_layout_window_internal.h"
 
+#ifndef USER_DEFAULT_SCREEN_DPI
+#define USER_DEFAULT_SCREEN_DPI 96
+#endif
+
+#ifndef LOGPIXELSX
+#define LOGPIXELSX 88
+#endif
+
 HINSTANCE g_ntl_hInstance = NULL;
 HWND g_ntl_window = NULL;
 
@@ -28,6 +36,52 @@ char g_ntl_lastFindText[512];
 NewTestLayoutCounts g_ntl_counts;
 
 HBRUSH g_ntl_backBrush = NULL;
+
+static int NewTestLayout_GetLayoutDpi(void)
+{
+    HDC hdc;
+    HWND hwnd;
+    int dpi;
+
+    dpi = USER_DEFAULT_SCREEN_DPI;
+    hwnd = g_ntl_window;
+
+    hdc = GetDC(hwnd);
+
+    if (hdc)
+    {
+        dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(hwnd, hdc);
+    }
+
+    if (dpi < 48)
+        dpi = USER_DEFAULT_SCREEN_DPI;
+
+    if (dpi > 384)
+        dpi = 384;
+
+    return dpi;
+}
+
+static int NewTestLayout_ScaleModeGridMetric(int value)
+{
+    int dpi;
+    int scaled;
+
+    if (value <= 0)
+        return value;
+
+    if (!g_ntl_modeGridConfig.dpiScaleEnabled)
+        return value;
+
+    dpi = NewTestLayout_GetLayoutDpi();
+    scaled = MulDiv(value, dpi, USER_DEFAULT_SCREEN_DPI);
+
+    if (scaled < 1)
+        scaled = 1;
+
+    return scaled;
+}
 
 void NewTestLayout_CopyText(char *dest, int destSize, const char *src)
 {
@@ -77,11 +131,19 @@ void NewTestLayout_SetRect(
 int NewTestLayout_GetSingleRowModeGridHeight(void)
 {
     int h;
+    int minH;
 
     h = g_ntl_settingsConfig.singleRowModeGridHeight;
 
-    if (h < 44)
-        h = 44;
+    minH =
+        NewTestLayout_ScaleModeGridMetric(NTL_MODE_SINGLE_BUTTON_SIZE) +
+        NewTestLayout_ScaleModeGridMetric(8);
+
+    if (minH < 44)
+        minH = 44;
+
+    if (h < minH)
+        h = minH;
 
     if (h > 140)
         h = 140;
@@ -91,16 +153,32 @@ int NewTestLayout_GetSingleRowModeGridHeight(void)
 
 int NewTestLayout_GetLeftModeGridWidth(void)
 {
+    int buttonSize;
+    int spacing;
+    int padding;
+
+    buttonSize = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_BUTTON_SIZE);
+    spacing = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_SPACING);
+    padding = NewTestLayout_ScaleModeGridMetric(4);
+
     return
-        NTL_MODE_LEFT_COLUMNS * NTL_MODE_LEFT_BUTTON_SIZE +
-        (NTL_MODE_LEFT_COLUMNS - 1) * NTL_MODE_LEFT_SPACING +
-        4;
+        NTL_MODE_LEFT_COLUMNS * buttonSize +
+        (NTL_MODE_LEFT_COLUMNS - 1) * spacing +
+        padding;
 }
 
 int NewTestLayout_GetLeftModeGridHeight(void)
 {
+    int buttonSize;
+    int spacing;
+    int padding;
+
+    buttonSize = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_BUTTON_SIZE);
+    spacing = NewTestLayout_ScaleModeGridMetric(NTL_MODE_LEFT_SPACING);
+    padding = NewTestLayout_ScaleModeGridMetric(4);
+
     return
-        NTL_MODE_LEFT_ROWS * NTL_MODE_LEFT_BUTTON_SIZE +
-        (NTL_MODE_LEFT_ROWS - 1) * NTL_MODE_LEFT_SPACING +
-        4;
+        NTL_MODE_LEFT_ROWS * buttonSize +
+        (NTL_MODE_LEFT_ROWS - 1) * spacing +
+        padding;
 }

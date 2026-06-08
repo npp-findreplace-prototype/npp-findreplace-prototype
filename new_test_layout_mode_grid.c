@@ -81,6 +81,8 @@ static void NewTestLayout_InitModeGridConfig(void)
 {
     ButtonGrid_GetDefaultConfig(&g_ntl_modeGridConfig);
 
+    g_ntl_modeGridConfig.dpiScaleEnabled = 1;
+
     NewTestLayout_InitModeGridItems();
 
     g_ntl_modeGridConfig.buttonCount = 12;
