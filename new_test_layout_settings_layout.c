@@ -1,5 +1,27 @@
 #include "new_test_layout_settings_internal.h"
 
+static void Settings_ClampScroll(
+    NewTestLayoutSettingsPanel *panel,
+    int visibleContentHeight
+)
+{
+    int maxScroll;
+
+    if (!panel)
+        return;
+
+    maxScroll = panel->contentHeight - visibleContentHeight;
+
+    if (maxScroll < 0)
+        maxScroll = 0;
+
+    if (panel->scrollY < 0)
+        panel->scrollY = 0;
+
+    if (panel->scrollY > maxScroll)
+        panel->scrollY = maxScroll;
+}
+
 void NewTestLayoutSettings_Layout(
     NewTestLayoutSettingsPanel *panel,
     const RECT *parentClientRect
@@ -10,10 +32,16 @@ void NewTestLayoutSettings_Layout(
     int rowH;
     int x;
     int y;
+    int contentTop;
     int w;
     int h;
     int labelW;
     int editW;
+    int saveW;
+    int resetW;
+    int closeW;
+    int buttonX;
+    int visibleContentHeight;
     int i;
 
     if (!panel || !panel->container || !parentClientRect)
@@ -34,19 +62,19 @@ void NewTestLayoutSettings_Layout(
 
     w = panel->config.overlayWidth;
 
-    if (w < 220)
-        w = 220;
+    if (w < 320)
+        w = 320;
 
     if (w > parentClientRect->right - parentClientRect->left - margin * 2)
         w = parentClientRect->right - parentClientRect->left - margin * 2;
 
-    if (w < 120)
-        w = 120;
+    if (w < 160)
+        w = 160;
 
     h = parentClientRect->bottom - parentClientRect->top - margin * 2;
 
-    if (h < 120)
-        h = 120;
+    if (h < 140)
+        h = 140;
 
     x = parentClientRect->right - margin - w;
     y = parentClientRect->top + margin;
@@ -56,31 +84,72 @@ void NewTestLayoutSettings_Layout(
     x = margin;
     y = margin;
 
+    saveW = 94;
+    resetW = 56;
+    closeW = 58;
+
+    buttonX = w - margin - closeW;
+
+    MoveWindow(
+        panel->closeButton,
+        buttonX,
+        y,
+        closeW,
+        rowH,
+        TRUE
+    );
+
+    buttonX -= gap + resetW;
+
+    MoveWindow(
+        panel->resetDefaultsButton,
+        buttonX,
+        y,
+        resetW,
+        rowH,
+        TRUE
+    );
+
+    buttonX -= gap + saveW;
+
+    MoveWindow(
+        panel->saveCloseButton,
+        buttonX,
+        y,
+        saveW,
+        rowH,
+        TRUE
+    );
+
     MoveWindow(
         panel->titleLabel,
         x,
         y,
-        w - margin * 2 - 36,
+        buttonX - gap - x,
         rowH,
         TRUE
     );
 
-    MoveWindow(
-        panel->closeButton,
-        w - margin - 30,
-        y,
-        30,
-        rowH,
-        TRUE
-    );
+    contentTop = margin + rowH + gap * 2;
+    visibleContentHeight = h - contentTop - margin;
 
-    y += rowH + gap * 2;
+    if (visibleContentHeight < 1)
+        visibleContentHeight = 1;
+
+    panel->contentHeight =
+        NTL_SETTINGS_INT_COUNT * (rowH + gap) +
+        gap +
+        NTL_SETTINGS_BOOL_COUNT * (rowH + gap);
+
+    Settings_ClampScroll(panel, visibleContentHeight);
+
+    y = contentTop - panel->scrollY;
 
     labelW = (w - margin * 2 - gap) / 2;
     editW = w - margin * 2 - labelW - gap;
 
-    if (labelW < 90)
-        labelW = 90;
+    if (labelW < 120)
+        labelW = 120;
 
     if (editW < 60)
         editW = 60;

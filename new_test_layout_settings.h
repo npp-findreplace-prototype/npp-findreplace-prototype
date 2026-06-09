@@ -81,6 +81,18 @@ void NewTestLayoutSettings_GetDefaultConfig(
     NewTestLayoutSettingsConfig *config
 );
 
+void NewTestLayoutSettings_LoadDefaultConfig(
+    NewTestLayoutSettingsConfig *config
+);
+
+void NewTestLayoutSettings_LoadConfig(
+    NewTestLayoutSettingsConfig *config
+);
+
+int NewTestLayoutSettings_SaveConfig(
+    const NewTestLayoutSettingsConfig *config
+);
+
 NewTestLayoutSettingsPanel *NewTestLayoutSettings_Create(
     HWND parent,
     HINSTANCE hInstance,

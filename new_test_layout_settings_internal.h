@@ -8,6 +8,9 @@
 #include "new_test_layout_settings.h"
 
 #define NTL_SETTINGS_ID_CLOSE_BUTTON 6100
+#define NTL_SETTINGS_ID_SAVE_CLOSE_BUTTON 6101
+#define NTL_SETTINGS_ID_RESET_DEFAULTS_BUTTON 6102
+
 #define NTL_SETTINGS_ID_INT_BASE 6200
 #define NTL_SETTINGS_ID_BOOL_BASE 6300
 
@@ -32,6 +35,8 @@ struct NewTestLayoutSettingsPanel
     HWND container;
     HWND titleLabel;
     HWND closeButton;
+    HWND saveCloseButton;
+    HWND resetDefaultsButton;
 
     HWND intLabels[NTL_SETTINGS_INT_COUNT];
     HWND intEdits[NTL_SETTINGS_INT_COUNT];
@@ -49,6 +54,9 @@ struct NewTestLayoutSettingsPanel
 
     int visible;
     int updatingControls;
+
+    int scrollY;
+    int contentHeight;
 };
 
 extern const NewTestLayoutSettingsIntDef g_ntlSettingsIntDefs[NTL_SETTINGS_INT_COUNT];

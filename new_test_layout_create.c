@@ -234,7 +234,7 @@ void NewTestLayout_CreateControls(HWND hwnd)
     NewTestLayoutTheme_GetDefault(&g_ntl_theme);
     NewTestLayoutTheme_CreateDefaultFonts(&g_ntl_theme);
 
-    NewTestLayoutSettings_GetDefaultConfig(&g_ntl_settingsConfig);
+    NewTestLayoutSettings_LoadConfig(&g_ntl_settingsConfig);
 
     if (!g_ntl_backBrush)
         g_ntl_backBrush = CreateSolidBrush(g_ntl_theme.windowBackColor);

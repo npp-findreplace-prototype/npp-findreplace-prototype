@@ -79,6 +79,8 @@ NewTestLayoutSettingsPanel *NewTestLayoutSettings_Create(
     panel->changedCallback = changedCallback;
     panel->changedUserData = changedUserData;
     panel->visible = 0;
+    panel->scrollY = 0;
+    panel->contentHeight = 0;
 
     Settings_CopyConfig(&panel->config, initialConfig);
     Settings_RecreateBrushes(panel);

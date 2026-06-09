@@ -45,6 +45,35 @@ static HWND Settings_CreateStatic(
     return hwnd;
 }
 
+static HWND Settings_CreateButton(
+    NewTestLayoutSettingsPanel *panel,
+    int id,
+    const char *text
+)
+{
+    HWND hwnd;
+
+    hwnd = CreateWindowEx(
+        0,
+        "BUTTON",
+        text ? text : "",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+        0,
+        0,
+        10,
+        10,
+        panel->container,
+        (HMENU)id,
+        panel->hInstance,
+        NULL
+    );
+
+    if (hwnd)
+        SendMessage(hwnd, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+
+    return hwnd;
+}
+
 static HWND Settings_CreateEdit(
     NewTestLayoutSettingsPanel *panel,
     int id
@@ -113,23 +142,23 @@ int Settings_CreateChildControls(
 
     panel->titleLabel = Settings_CreateStatic(panel, "Layout Settings");
 
-    panel->closeButton = CreateWindowEx(
-        0,
-        "BUTTON",
-        "X",
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
-        0,
-        0,
-        28,
-        24,
-        panel->container,
-        (HMENU)NTL_SETTINGS_ID_CLOSE_BUTTON,
-        panel->hInstance,
-        NULL
+    panel->saveCloseButton = Settings_CreateButton(
+        panel,
+        NTL_SETTINGS_ID_SAVE_CLOSE_BUTTON,
+        "Save && Close"
     );
 
-    if (panel->closeButton)
-        SendMessage(panel->closeButton, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+    panel->resetDefaultsButton = Settings_CreateButton(
+        panel,
+        NTL_SETTINGS_ID_RESET_DEFAULTS_BUTTON,
+        "Reset"
+    );
+
+    panel->closeButton = Settings_CreateButton(
+        panel,
+        NTL_SETTINGS_ID_CLOSE_BUTTON,
+        "Close"
+    );
 
     for (i = 0; i < NTL_SETTINGS_INT_COUNT; i++)
     {
