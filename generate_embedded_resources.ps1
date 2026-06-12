@@ -93,7 +93,6 @@ try {
         }
 
         $writer.WriteLine('};')
-        $writer.WriteLine("static const unsigned long g_embedded_resource_size_$index = $($bytes.Length)UL;")
         $writer.WriteLine('')
     }
 
@@ -113,8 +112,9 @@ try {
         for ($i = 0; $i -lt $files.Count; $i++) {
             $name = Convert-ToCString $files[$i].Relative
             $groupName = Convert-ToCString $Group
+            $sizeLiteral = ([System.IO.FileInfo]$files[$i].FullName).Length
 
-            $writer.WriteLine("    { `"$groupName`", `"$name`", g_embedded_resource_data_$i, g_embedded_resource_size_$i },")
+            $writer.WriteLine("    { `"$groupName`", `"$name`", g_embedded_resource_data_$i, $($sizeLiteral)UL },")
         }
 
         $writer.WriteLine('};')
@@ -123,7 +123,7 @@ try {
     else {
         $writer.WriteLine('static const EmbeddedResourceEntry g_embedded_resources[] =')
         $writer.WriteLine('{')
-        $writer.WriteLine('    { NULL, NULL, NULL, 0 }')
+        $writer.WriteLine('    { NULL, NULL, NULL, 0UL }')
         $writer.WriteLine('};')
         $writer.WriteLine('static const int g_embedded_resource_count = 0;')
     }

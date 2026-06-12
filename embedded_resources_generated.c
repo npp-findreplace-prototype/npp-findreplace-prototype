@@ -223,7 +223,6 @@ static const unsigned char g_embedded_resource_data_0[] =
     0x6E, 0x67, 0x73, 0x0D, 0x0A, 0x62, 0x65, 0x68, 0x61, 0x76, 0x69, 0x6F,
     0x72, 0x3D, 0x74, 0x6F, 0x67, 0x67, 0x6C, 0x65
 };
-static const unsigned long g_embedded_resource_size_0 = 2612UL;
 
 static const unsigned char g_embedded_resource_data_1[] =
 {
@@ -293,7 +292,6 @@ static const unsigned char g_embedded_resource_data_1[] =
     0x74, 0x43, 0x6F, 0x6C, 0x6F, 0x72, 0x45, 0x6E, 0x61, 0x62, 0x6C, 0x65,
     0x64, 0x3D, 0x31
 };
-static const unsigned long g_embedded_resource_size_1 = 771UL;
 
 typedef struct EmbeddedResourceEntry
 {
@@ -305,8 +303,8 @@ typedef struct EmbeddedResourceEntry
 
 static const EmbeddedResourceEntry g_embedded_resources[] =
 {
-    { "ini", "grid_tester.ini", g_embedded_resource_data_0, g_embedded_resource_size_0 },
-    { "ini", "new_test_layout.ini", g_embedded_resource_data_1, g_embedded_resource_size_1 },
+    { "ini", "grid_tester.ini", g_embedded_resource_data_0, 2612UL },
+    { "ini", "new_test_layout.ini", g_embedded_resource_data_1, 771UL },
 };
 static const int g_embedded_resource_count = 2;
 
